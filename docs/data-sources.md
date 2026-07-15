@@ -33,6 +33,29 @@ after simplification.
 
 **Attribution:** the map UI credits "Malhas territoriais: IBGE".
 
+## World countries backdrop (`apps/web/public/geo/world-countries.geojson`)
+
+**Source:** Natural Earth, 1:110m Cultural Vectors — Admin 0 Countries
+(public domain). Downloaded 2026-07-15 from the project's official GitHub
+mirror:
+
+```
+https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_admin_0_countries.geojson
+```
+
+**Role:** dim, dashed "em breve" backdrop only — countries outside Brazil are
+rendered as a not-yet-mapped zone and are not part of the product data. IBGE
+remains the authoritative source for everything Brazil. Natural Earth's own
+Brazil polygon is **removed** so the IBGE layers never fight it (small
+gaps along land borders read as the national glow margin by design);
+Antarctica is removed as visual clutter.
+
+**Processing** (same `pnpm geo` script): coordinate precision trimmed to
+0.01° (~1 km — the 110m mesh is already coarse), properties slimmed to
+`{ iso, name }` where `iso` = NE `ADM0_A3` and `name` prefers the
+`NAME_PT` Portuguese localization. Result: 175 countries, **155 KB**
+(budget 400 KB).
+
 ## Rankings / entities (`apps/web/src/data/mock/*.json`)
 
 Hand-written **fictional placeholder data for UI development only** — every

@@ -34,6 +34,9 @@ ARCHITECTURE.md §6) is not started; scope to be defined.
   (`apps/web/src/styles/tokens.css`)
 - Self-hosted Fira Code / Fira Sans (no font CDN)
 - Boundaries: IBGE malha territorial, simplified — see `docs/data-sources.md`
+- World backdrop: Natural Earth 110m rendered as a dim, dashed
+  "em breve" zone — the whole globe is visible, but only Brazil is mapped
+  for now
 
 ## Getting started
 
@@ -76,6 +79,8 @@ region's ranking panel (any UF sigla or `BR`).
 5. Emulate `prefers-reduced-motion: reduce`: stagger/scan/scanline disabled.
 6. `pnpm preview`: click-through matches dev (catches `public/geo`
    asset-path issues).
+7. Zoom out (or "VISÃO GLOBAL"): dim dashed world appears; hovering a
+   country reads "EM BREVE"; clicking one opens the "área bloqueada" panel.
 
 ## Repository layout
 

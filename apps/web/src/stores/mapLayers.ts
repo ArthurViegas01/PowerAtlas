@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { computed, ref, shallowRef } from 'vue'
 
 import { collectionBounds, featureBounds } from '@/lib/geo'
-import type { BoundaryCollection, Bounds } from '@/lib/geo'
+import type { BoundaryCollection, Bounds, WorldCollection } from '@/lib/geo'
 import type { AmbientSignal, PowerDimension } from '@/types/power-entity'
 
 import { useRankingsStore } from './rankings'
@@ -31,8 +31,11 @@ export interface MapLayerModel {
   ready: boolean
   states: BoundaryCollection | null
   national: BoundaryCollection | null
+  /** "Em breve" backdrop (world minus Brazil). */
+  world: WorldCollection | null
   selectedId: string | null
   hoveredId: string | null
+  hoveredWorldIso: string | null
   dataRegionIds: string[]
   columns: ColumnDatum[]
   arcs: ArcDatum[]
@@ -49,6 +52,7 @@ export const useMapLayersStore = defineStore('mapLayers', () => {
 
   const states = shallowRef<BoundaryCollection | null>(null)
   const national = shallowRef<BoundaryCollection | null>(null)
+  const world = shallowRef<WorldCollection | null>(null)
   const loading = ref(false)
   const error = ref<string | null>(null)
 
@@ -113,8 +117,10 @@ export const useMapLayersStore = defineStore('mapLayers', () => {
     ready: states.value !== null && national.value !== null,
     states: states.value,
     national: national.value,
+    world: world.value,
     selectedId: selection.selectedId,
     hoveredId: selection.hoveredId,
+    hoveredWorldIso: selection.hoveredWorld?.iso ?? null,
     dataRegionIds: rankings.dataRegionIds,
     columns: columns.value,
     arcs: arcs.value,
@@ -122,10 +128,10 @@ export const useMapLayersStore = defineStore('mapLayers', () => {
     heatmapVisible: !selection.hasSelection,
   }))
 
-  async function fetchBoundary(file: string): Promise<BoundaryCollection> {
+  async function fetchGeoFile<T>(file: string): Promise<T> {
     const response = await fetch(`${import.meta.env.BASE_URL}geo/${file}`)
     if (!response.ok) throw new Error(`Falha ao carregar ${file}: HTTP ${response.status}`)
-    return (await response.json()) as BoundaryCollection
+    return (await response.json()) as T
   }
 
   async function loadGeo() {
@@ -133,12 +139,14 @@ export const useMapLayersStore = defineStore('mapLayers', () => {
     loading.value = true
     error.value = null
     try {
-      const [statesFc, nationalFc] = await Promise.all([
-        fetchBoundary('brazil-states.geojson'),
-        fetchBoundary('brazil-national.geojson'),
+      const [statesFc, nationalFc, worldFc] = await Promise.all([
+        fetchGeoFile<BoundaryCollection>('brazil-states.geojson'),
+        fetchGeoFile<BoundaryCollection>('brazil-national.geojson'),
+        fetchGeoFile<WorldCollection>('world-countries.geojson'),
       ])
       states.value = statesFc
       national.value = nationalFc
+      world.value = worldFc
     } catch (cause) {
       error.value = cause instanceof Error ? cause.message : String(cause)
     } finally {
@@ -150,5 +158,5 @@ export const useMapLayersStore = defineStore('mapLayers', () => {
     return boundsByRegion.value.get(regionId) ?? null
   }
 
-  return { states, national, loading, error, layerModel, loadGeo, boundsFor }
+  return { states, national, world, loading, error, layerModel, loadGeo, boundsFor }
 })
