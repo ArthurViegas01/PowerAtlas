@@ -6,7 +6,7 @@ import { onBeforeUnmount, onMounted, ref, watch, watchEffect } from 'vue'
 
 import { useReducedMotion } from '@/composables/useReducedMotion'
 import { buildDeckLayers } from '@/lib/deckLayers'
-import type { BoundaryFeature } from '@/lib/geo'
+import type { Bounds, BoundaryFeature, WorldFeature } from '@/lib/geo'
 import { baseMapStyle } from '@/lib/mapStyle'
 import { useMapLayersStore } from '@/stores/mapLayers'
 import { useSelectionStore } from '@/stores/selection'
@@ -29,32 +29,54 @@ const NATIONAL_CAMERA = {
   bearing: -8,
 }
 
-function handleHover(info: PickingInfo<BoundaryFeature>) {
+/** World minus Antarctica (filtered out of the backdrop file). */
+const WORLD_BOUNDS: Bounds = [
+  [-168, -56],
+  [178, 74],
+]
+
+function handleStateHover(info: PickingInfo<BoundaryFeature>) {
   const feature = info.object
   if (feature) {
     selection.setHovered(feature.properties.UF, feature.properties.name)
   } else {
     selection.setHovered(null)
   }
-  if (map) map.getCanvas().style.cursor = feature ? 'pointer' : ''
+}
+
+function handleWorldHover(info: PickingInfo<WorldFeature>) {
+  const feature = info.object
+  selection.setHoveredWorld(
+    feature ? { iso: feature.properties.iso, name: feature.properties.name } : null,
+  )
 }
 
 function handleClick(event: maplibregl.MapMouseEvent) {
   if (!overlay) return
+  const point = { x: event.point.x, y: event.point.y }
   const info = overlay.pickObject({
-    x: event.point.x,
-    y: event.point.y,
+    ...point,
     radius: 4,
-    layerIds: ['states-choropleth'],
-  }) as PickingInfo<BoundaryFeature> | null
-  const feature = info?.object
-  if (feature) {
-    const { UF, name } = feature.properties
-    selection.select(UF, name, { x: event.point.x, y: event.point.y })
+    layerIds: ['states-choropleth', 'world-countries'],
+  })
+  if (info?.layer?.id === 'states-choropleth') {
+    const { UF, name } = (info as PickingInfo<BoundaryFeature>).object!.properties
+    selection.select(UF, name, point)
     emit('region-selected', UF)
+  } else if (info?.layer?.id === 'world-countries') {
+    const { iso, name } = (info as PickingInfo<WorldFeature>).object!.properties
+    selection.lockWorld({ iso, name }, point)
   } else {
-    selection.clear()
+    selection.closePanels()
   }
+}
+
+function flyToGlobal() {
+  if (!map) return
+  const duration = reduced.value ? 0 : 1600
+  const camera = map.cameraForBounds(WORLD_BOUNDS, { padding: 56 })
+  if (!camera) return
+  map.flyTo({ center: camera.center, zoom: camera.zoom, pitch: 24, bearing: 0, duration })
 }
 
 function flyToRegion(regionId: string | null) {
@@ -93,8 +115,11 @@ onMounted(() => {
     zoom: NATIONAL_CAMERA.zoom,
     pitch: NATIONAL_CAMERA.pitch,
     bearing: NATIONAL_CAMERA.bearing,
-    minZoom: 3,
+    minZoom: 1.5,
     maxZoom: 9,
+    // deck.gl draws layers on world copy 0 only — don't render wrapped
+    // copies of the base map that our layers would never cover.
+    renderWorldCopies: false,
     attributionControl: false,
   })
   map.addControl(
@@ -121,13 +146,34 @@ onBeforeUnmount(() => {
 watchEffect(() => {
   if (!mapReady.value || !overlay) return
   overlay.setProps({
-    layers: buildDeckLayers({ model: mapLayers.layerModel, onHover: handleHover }),
+    layers: buildDeckLayers({
+      model: mapLayers.layerModel,
+      onHoverState: handleStateHover,
+      onHoverWorld: handleWorldHover,
+    }),
   })
+})
+
+// One place decides the cursor — avoids the two hover handlers fighting.
+watchEffect(() => {
+  if (!mapReady.value || !map) return
+  map.getCanvas().style.cursor =
+    selection.hoveredId || selection.hoveredWorld ? 'pointer' : ''
 })
 
 watch(
   () => selection.selectedId,
-  (regionId) => flyToRegion(regionId),
+  (regionId) => {
+    if (regionId) flyToRegion(regionId)
+  },
+)
+
+watch(
+  () => selection.cameraRequest.seq,
+  () => {
+    if (selection.cameraRequest.target === 'global') flyToGlobal()
+    else flyToRegion(null)
+  },
 )
 </script>
 

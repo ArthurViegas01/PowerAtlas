@@ -3,7 +3,10 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 
 import { useSelectionStore } from '@/stores/selection'
 
-const emit = defineEmits<{ (event: 'select-national'): void }>()
+const emit = defineEmits<{
+  (event: 'select-national'): void
+  (event: 'view-global'): void
+}>()
 
 const selection = useSelectionStore()
 
@@ -25,8 +28,14 @@ const readout = computed(() => {
   if (selection.selectedId) {
     return `⌖ ${selection.selectedId} · ${(selection.selectedName ?? '').toUpperCase()}`
   }
+  if (selection.lockedWorld) {
+    return `⌖ ${selection.lockedWorld.name.toUpperCase()} · NÃO MAPEADO`
+  }
   if (selection.hoveredId) {
     return `► ${selection.hoveredId} · ${(selection.hoveredName ?? '').toUpperCase()}`
+  }
+  if (selection.hoveredWorld) {
+    return `► ${selection.hoveredWorld.name.toUpperCase()} · EM BREVE`
   }
   return 'AGUARDANDO SELEÇÃO'
 })
@@ -42,6 +51,9 @@ const readout = computed(() => {
     <p class="readout pa-data" aria-live="polite">{{ readout }}</p>
 
     <div class="flex items-center gap-4">
+      <button class="national-btn pa-data" type="button" @click="emit('view-global')">
+        VISÃO GLOBAL
+      </button>
       <button
         class="national-btn pa-data"
         type="button"
@@ -52,7 +64,7 @@ const readout = computed(() => {
       </button>
       <div class="text-right">
         <p class="clock pa-data">{{ clock }}</p>
-        <p class="pa-label">SIMULAÇÃO · v0.1</p>
+        <p class="pa-label">SIMULAÇÃO · v0.2</p>
       </div>
     </div>
   </header>

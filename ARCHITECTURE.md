@@ -19,6 +19,7 @@
 |                                                                      |
 |  MapLibre GL JS (camera, minimal dark style)                         |
 |    + deck.gl MapboxOverlay                                           |
+|        GeoJsonLayer   world backdrop, dim + dashed ("em breve")      |
 |        GeoJsonLayer   state choropleth + national outline + picking  |
 |        ColumnLayer    3D twin extrusions at state capitals           |
 |        ArcLayer       cross-region influence links                   |
@@ -73,6 +74,14 @@ not Natural Earth/geoBoundaries. Files are simplified with mapshaper to
 budget (<200 KB national, <500 KB states) and re-fetchable via
 `pnpm geo` (`apps/web/scripts/fetch-geo.mjs`). Provenance, exact endpoints,
 date and commands: [docs/data-sources.md](docs/data-sources.md).
+
+The **world backdrop** (F2) is the one place Natural Earth *is* used: the
+110m admin-0 mesh renders every other country as a dim, dashed
+"não mapeado / em breve" zone — visible, hoverable and clickable (a locked
+"área bloqueada" panel), but carrying no product data. Its Brazil polygon is
+removed so it never fights the IBGE layers, and precision there is
+irrelevant by construction. Coverage of new countries later means promoting
+them out of this layer, not restyling it.
 
 ### 2.5 Mock data is shaped as the future API contract
 
@@ -129,7 +138,7 @@ Estadual") without naming or scoring any real officeholder. The UI carries a
 permanent simulated-data banner. This rule holds until the Phase 2 review
 workflow exists.
 
-## 6. Deferred to Phase 2+ (noted, deliberately not designed here)
+## 6. Deferred to future phases (F3+) — noted, deliberately not designed here
 
 - **FastAPI backend** (Python — chosen over Node to deepen FastAPI skills
   and for the NLP ecosystem), mirroring ZapAgent's `src/` +

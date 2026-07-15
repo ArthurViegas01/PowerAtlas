@@ -1,15 +1,17 @@
 import { HeatmapLayer } from '@deck.gl/aggregation-layers'
 import type { Color, Layer, PickingInfo } from '@deck.gl/core'
+import { PathStyleExtension, type PathStyleExtensionProps } from '@deck.gl/extensions'
 import { ArcLayer, ColumnLayer, GeoJsonLayer } from '@deck.gl/layers'
 
-import type { BoundaryFeature } from '@/lib/geo'
+import type { BoundaryFeature, WorldFeature, WorldProps } from '@/lib/geo'
 import { paColor, shade, type RGBA } from '@/lib/palette'
 import type { ArcDatum, ColumnDatum, MapLayerModel } from '@/stores/mapLayers'
 import type { AmbientSignal, PowerDimension } from '@/types/power-entity'
 
 export interface BuildLayersOptions {
   model: MapLayerModel
-  onHover: (info: PickingInfo<BoundaryFeature>) => void
+  onHoverState: (info: PickingInfo<BoundaryFeature>) => void
+  onHoverWorld: (info: PickingInfo<WorldFeature>) => void
 }
 
 function seriesColor(dimension: PowerDimension, alpha: number): RGBA {
@@ -31,11 +33,41 @@ function heatmapRamp(): Color[] {
  * Pure factory: MapLayerModel (plain data from the mapLayers store) in,
  * deck.gl layer instances out. MapView feeds the result to MapboxOverlay.
  */
-export function buildDeckLayers({ model, onHover }: BuildLayersOptions): Layer[] {
+export function buildDeckLayers({
+  model,
+  onHoverState,
+  onHoverWorld,
+}: BuildLayersOptions): Layer[] {
   if (!model.ready || !model.states || !model.national) return []
 
   const dataRegions = new Set(model.dataRegionIds)
   const layers: Layer[] = []
+
+  // "Em breve" backdrop: dim fill + dashed borders, like an unfinished
+  // game region. Sits under everything Brazil-related.
+  if (model.world) {
+    layers.push(
+      new GeoJsonLayer<WorldProps, PathStyleExtensionProps<WorldFeature>>({
+        id: 'world-countries',
+        data: model.world,
+        pickable: true,
+        stroked: true,
+        filled: true,
+        getFillColor: (feature) =>
+          feature.properties.iso === model.hoveredWorldIso
+            ? paColor.faint(72)
+            : paColor.faint(36),
+        getLineColor: paColor.faint(160),
+        getLineWidth: 0.9,
+        lineWidthUnits: 'pixels',
+        lineWidthMinPixels: 0.6,
+        extensions: [new PathStyleExtension({ dash: true })],
+        getDashArray: [5, 4],
+        onHover: (info) => onHoverWorld(info as PickingInfo<WorldFeature>),
+        updateTriggers: { getFillColor: [model.hoveredWorldIso] },
+      }),
+    )
+  }
 
   if (model.heatmapVisible && model.heatmapPoints.length > 0) {
     layers.push(
@@ -73,7 +105,7 @@ export function buildDeckLayers({ model, onHover }: BuildLayersOptions): Layer[]
       getLineWidth: (feature) => (feature.properties.UF === model.selectedId ? 2 : 1),
       lineWidthUnits: 'pixels',
       lineWidthMinPixels: 1,
-      onHover,
+      onHover: (info) => onHoverState(info as PickingInfo<BoundaryFeature>),
       updateTriggers: {
         getFillColor: [model.selectedId, model.hoveredId, model.dataRegionIds.join(',')],
         getLineColor: [model.selectedId],

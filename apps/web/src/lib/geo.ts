@@ -11,6 +11,17 @@ export interface BoundaryProps {
 export type BoundaryFeature = Feature<Polygon | MultiPolygon, BoundaryProps>
 export type BoundaryCollection = FeatureCollection<Polygon | MultiPolygon, BoundaryProps>
 
+/** Properties of the Natural Earth "coming soon" world backdrop. */
+export interface WorldProps {
+  /** ISO 3166-1 alpha-3-ish code (NE ADM0_A3). */
+  iso: string
+  /** Country name, Portuguese localization when available. */
+  name: string
+}
+
+export type WorldFeature = Feature<Polygon | MultiPolygon, WorldProps>
+export type WorldCollection = FeatureCollection<Polygon | MultiPolygon, WorldProps>
+
 /** [[west, south], [east, north]] — the shape maplibre's fitBounds accepts. */
 export type Bounds = [[number, number], [number, number]]
 

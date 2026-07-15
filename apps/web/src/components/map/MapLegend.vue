@@ -15,6 +15,10 @@
         <span class="row-label pa-data">SEM DADOS (FASE 1)</span>
       </li>
       <li class="flex items-center gap-2">
+        <span class="swatch swatch--intl"></span>
+        <span class="row-label pa-data">INTERNACIONAL · EM BREVE</span>
+      </li>
+      <li class="flex items-center gap-2">
         <span class="swatch swatch--heat"></span>
         <span class="row-label pa-data">ATIVIDADE AMBIENTE</span>
       </li>
@@ -69,6 +73,11 @@
 .swatch--nodata {
   background: rgba(61, 88, 101, 0.25);
   border: 1px solid var(--pa-border-faint);
+}
+
+.swatch--intl {
+  background: rgba(61, 88, 101, 0.12);
+  border: 1px dashed var(--pa-text-faint);
 }
 
 .swatch--heat {
