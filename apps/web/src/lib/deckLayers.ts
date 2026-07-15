@@ -55,10 +55,10 @@ export function buildDeckLayers({
         filled: true,
         getFillColor: (feature) =>
           feature.properties.iso === model.hoveredWorldIso
-            ? paColor.faint(38)
-            : paColor.faint(16),
-        getLineColor: paColor.faint(95),
-        getLineWidth: 0.8,
+            ? paColor.faint(72)
+            : paColor.faint(36),
+        getLineColor: paColor.faint(160),
+        getLineWidth: 0.9,
         lineWidthUnits: 'pixels',
         lineWidthMinPixels: 0.6,
         extensions: [new PathStyleExtension({ dash: true })],
