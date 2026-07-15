@@ -1,10 +1,13 @@
 #!/usr/bin/env node
 /**
- * Fetch the Brazil state mesh from the IBGE malhas API (v3) and produce the
- * simplified GeoJSON files the map consumes:
+ * Fetch the Brazil state mesh from the IBGE malhas API (v3) plus the Natural
+ * Earth world countries backdrop, and produce the GeoJSON files the map
+ * consumes:
  *
  *   public/geo/brazil-states.geojson    (27 UFs, `UF` property = join key)
  *   public/geo/brazil-national.geojson  (country outline, UF="BR")
+ *   public/geo/world-countries.geojson  (NE 110m, minus Brazil/Antarctica,
+ *                                        props {iso, name} — "em breve" layer)
  *
  * The national outline is NOT downloaded separately: it is dissolved from the
  * already-simplified state polygons so both files share exactly coincident
@@ -30,9 +33,14 @@ const QUALIDADE = 'maxima'
 const BASE = 'https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR'
 const STATES_URL = `${BASE}?formato=application/vnd.geo%2Bjson&qualidade=${QUALIDADE}&intrarregiao=UF`
 
+// Natural Earth 1:110m admin-0 countries (public domain) — dim world
+// backdrop only; IBGE stays the authoritative source for Brazil itself.
+const WORLD_URL =
+  'https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_admin_0_countries.geojson'
+
 // keep-shapes prevents small polygons (islands) from collapsing entirely.
 const SIMPLIFY = '30%'
-const BUDGET_KB = { national: 200, states: 500 }
+const BUDGET_KB = { national: 200, states: 500, world: 400 }
 
 // IBGE 2-digit UF geocode -> [sigla, name]
 const UF_BY_CODE = {
@@ -107,6 +115,27 @@ function decorate(file) {
   writeFileSync(file, JSON.stringify(fc))
 }
 
+/**
+ * Slim the Natural Earth file down to the "coming soon" backdrop: drop
+ * Brazil (the IBGE layers own it) and Antarctica (visual clutter), and strip
+ * properties to { iso, name } — name prefers the Portuguese localization.
+ */
+function decorateWorld(file) {
+  const fc = JSON.parse(readFileSync(file, 'utf8'))
+  fc.features = fc.features.flatMap((feature) => {
+    const props = feature.properties ?? {}
+    const iso = props.ADM0_A3 ?? props.adm0_a3
+    if (!iso || iso === 'BRA' || iso === 'ATA') return []
+    const name = props.NAME_PT ?? props.name_pt ?? props.NAME ?? props.ADMIN ?? iso
+    feature.properties = { iso, name }
+    return [feature]
+  })
+  if (fc.features.length < 100) {
+    throw new Error(`World file looks wrong: only ${fc.features.length} countries kept`)
+  }
+  writeFileSync(file, JSON.stringify(fc))
+}
+
 function report(file, budgetKb) {
   const size = kb(file)
   const flag = size > budgetKb ? `  << OVER BUDGET (${budgetKb} KB) — lower SIMPLIFY` : ''
@@ -117,13 +146,22 @@ mkdirSync(CACHE, { recursive: true })
 mkdirSync(OUT, { recursive: true })
 
 const rawStates = join(CACHE, 'ibge-states-raw.geojson')
+const rawWorld = join(CACHE, 'ne-world-raw.geojson')
 const outNational = join(OUT, 'brazil-national.geojson')
 const outStates = join(OUT, 'brazil-states.geojson')
+const outWorld = join(OUT, 'world-countries.geojson')
 
 await download(STATES_URL, rawStates)
 simplify(rawStates, outStates)
 dissolve(outStates, outNational)
 decorate(outStates)
+
+await download(WORLD_URL, rawWorld)
+// 110m is already coarse — just trim coordinate precision (~1 km).
+mapshaper(`"${rawWorld}" -o precision=0.01 format=geojson "${outWorld}"`)
+decorateWorld(outWorld)
+
 report(outStates, BUDGET_KB.states)
 report(outNational, BUDGET_KB.national)
+report(outWorld, BUDGET_KB.world)
 console.log('[geo] done.')
