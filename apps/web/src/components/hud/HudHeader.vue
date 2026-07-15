@@ -64,7 +64,7 @@ const readout = computed(() => {
       </button>
       <div class="text-right">
         <p class="clock pa-data">{{ clock }}</p>
-        <p class="pa-label">SIMULAÇÃO · v0.1</p>
+        <p class="pa-label">SIMULAÇÃO · v0.2</p>
       </div>
     </div>
   </header>

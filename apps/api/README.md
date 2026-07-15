@@ -1,7 +1,8 @@
-# PowerAtlas API — Phase 2 (not started)
+# PowerAtlas API — F3 (planned, not started)
 
-Placeholder for the FastAPI backend. See the "Deferred to Phase 2" section of
-[ARCHITECTURE.md](../../ARCHITECTURE.md).
+Placeholder for the FastAPI backend. See the "Deferred to future phases"
+section of [ARCHITECTURE.md](../../ARCHITECTURE.md) and the root `PLAN.md`
+(local) for the F3 scope.
 
 Planned shape (mirrors ZapAgent house conventions): FastAPI with a `src/`
 layout, `pyproject.toml` (ruff / mypy / pytest), serving the exact JSON

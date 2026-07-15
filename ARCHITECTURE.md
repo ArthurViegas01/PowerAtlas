@@ -138,7 +138,7 @@ Estadual") without naming or scoring any real officeholder. The UI carries a
 permanent simulated-data banner. This rule holds until the Phase 2 review
 workflow exists.
 
-## 6. Deferred to Phase 2+ (noted, deliberately not designed here)
+## 6. Deferred to future phases (F3+) — noted, deliberately not designed here
 
 - **FastAPI backend** (Python — chosen over Node to deepen FastAPI skills
   and for the NLP ecosystem), mirroring ZapAgent's `src/` +

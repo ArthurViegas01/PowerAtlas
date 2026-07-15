@@ -1,4 +1,5 @@
-# Database migrations — Phase 2 (not started)
+# Database migrations — F4 (planned, not started)
 
-Placeholder for PostgreSQL + PostGIS migrations. Nothing to migrate while the
-frontend runs on mock data. See ARCHITECTURE.md → "Deferred to Phase 2".
+Placeholder for PostgreSQL + PostGIS migrations. Nothing to migrate while
+the product runs on mock data. See ARCHITECTURE.md → "Deferred to future
+phases".

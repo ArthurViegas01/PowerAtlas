@@ -15,14 +15,18 @@ scanlines, corner brackets, monospace readouts).
 
 ## Status
 
-**Phase 1 — complete (2026-07-15).** Everything in the Phase 1 plan shipped:
-the full HUD shell, MapLibre + deck.gl layers (state choropleth, twin capital
-columns, influence arcs, ambient heatmap), GSAP choreography with
-reduced-motion gating, the IBGE boundary pipeline and the fictional mock
-dataset. Deviations from the original plan are documented in
-[ARCHITECTURE.md](ARCHITECTURE.md) §3 and
-[docs/data-sources.md](docs/data-sources.md). Phase 2 (FastAPI backend — see
-ARCHITECTURE.md §6) is not started; scope to be defined.
+**F1 — Brazil HUD over mock data: shipped 2026-07-15.** Full HUD shell,
+MapLibre + deck.gl layers (state choropleth, twin capital columns, influence
+arcs, ambient heatmap), GSAP choreography with reduced-motion gating, IBGE
+boundary pipeline, fictional dataset.
+
+**F2 — "coming soon" world backdrop: shipped 2026-07-15 (v0.2.0).** Natural
+Earth world layer rendered as a locked, not-yet-mapped zone (dim fill +
+dashed borders), global view button and the "área bloqueada" panel.
+
+Deviations from the original plans: [ARCHITECTURE.md](ARCHITECTURE.md) §3
+and [docs/data-sources.md](docs/data-sources.md). Next phases (FastAPI
+backend, PostGIS, scoring pipeline, review workflow): ARCHITECTURE.md §6.
 
 ## Stack (Phase 1)
 
