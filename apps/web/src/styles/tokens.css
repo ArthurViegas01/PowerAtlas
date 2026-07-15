@@ -1,0 +1,55 @@
+/**
+ * PowerAtlas design tokens — single source of truth.
+ * Consumers: component CSS (var()), Tailwind utilities (@theme inline in
+ * main.css) and deck.gl at runtime (src/lib/palette.ts reads the computed
+ * values, so WebGL colors follow this file too).
+ */
+:root {
+  /* surfaces */
+  --pa-bg-void: #030608;
+  --pa-bg-deep: #050b10;
+  --pa-bg-panel: rgba(6, 16, 22, 0.82);
+  --pa-bg-inset: rgba(10, 26, 34, 0.6);
+
+  /* structure */
+  --pa-border-cyan: rgba(61, 225, 255, 0.28);
+  --pa-border-cyan-strong: rgba(61, 225, 255, 0.62);
+  --pa-border-faint: rgba(61, 225, 255, 0.12);
+
+  /* data series: cyan = official power, amber = hidden/real influence */
+  --pa-series-official: #3de1ff;
+  --pa-series-hidden: #ffb347;
+
+  /* confidence levels */
+  --pa-confidence-high: #4ade80;
+  --pa-confidence-medium: #facc15;
+  --pa-confidence-low: #f87171;
+
+  /* alerts */
+  --pa-danger: #ff5c5c;
+
+  /* text */
+  --pa-text-primary: #d7f3ff;
+  --pa-text-dim: #7fa3b4;
+  --pa-text-faint: #3d5865;
+
+  /* typography */
+  --pa-font-data: 'Fira Code', ui-monospace, 'Cascadia Mono', Menlo, monospace;
+  --pa-font-label: 'Fira Sans', system-ui, 'Segoe UI', sans-serif;
+  --pa-text-2xs: 0.625rem;
+  --pa-text-xs: 0.6875rem;
+  --pa-text-sm: 0.8125rem;
+  --pa-text-md: 0.9375rem;
+  --pa-text-lg: 1.125rem;
+  --pa-text-xl: 1.5rem;
+
+  /* motion */
+  --pa-ease-hud: cubic-bezier(0.16, 1, 0.3, 1);
+  --pa-dur-fast: 160ms;
+  --pa-dur-med: 420ms;
+  --pa-dur-slow: 900ms;
+
+  /* glow */
+  --pa-glow-cyan: 0 0 14px rgba(61, 225, 255, 0.33);
+  --pa-glow-amber: 0 0 14px rgba(255, 179, 71, 0.33);
+}

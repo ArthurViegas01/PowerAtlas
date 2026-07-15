@@ -1,0 +1,109 @@
+{
+  "id": "BA",
+  "name": "Bahia",
+  "kind": "state",
+  "capital": { "name": "Salvador", "coordinates": [-38.5014, -12.9777] },
+  "updatedAt": "2026-06-27T11:15:00Z",
+  "official": [
+    {
+      "id": "ba-off-executivo",
+      "name": "Chefia do Executivo Estadual",
+      "kind": "office",
+      "dimension": "official",
+      "score": 66,
+      "delta": 1,
+      "confidence": "high",
+      "status": "published",
+      "sources": [
+        { "id": "src-matriz-01", "label": "Matriz institucional simulada", "note": "Fonte fictícia — pesos de placeholder para desenvolvimento de UI." }
+      ],
+      "note": "Cargo constitucional genérico — não se refere a nenhum ocupante."
+    },
+    {
+      "id": "ba-off-legislativo",
+      "name": "Assembleia Legislativa (colegiado)",
+      "kind": "office",
+      "dimension": "official",
+      "score": 52,
+      "delta": -1,
+      "confidence": "high",
+      "status": "published",
+      "sources": [
+        { "id": "src-matriz-01", "label": "Matriz institucional simulada", "note": "Fonte fictícia — pesos de placeholder para desenvolvimento de UI." }
+      ],
+      "note": "Instituição constitucional genérica — não se refere a composição real."
+    },
+    {
+      "id": "ba-off-judiciario",
+      "name": "Cúpula do Judiciário Estadual",
+      "kind": "office",
+      "dimension": "official",
+      "score": 46,
+      "delta": 0,
+      "confidence": "medium",
+      "status": "published",
+      "sources": [
+        { "id": "src-matriz-01", "label": "Matriz institucional simulada", "note": "Fonte fictícia — pesos de placeholder para desenvolvimento de UI." }
+      ],
+      "note": "Instituição constitucional genérica — não se refere a composição real."
+    }
+  ],
+  "hidden": [
+    {
+      "id": "ba-hid-nu",
+      "name": "Bloco Agroexportador Ni",
+      "kind": "economic-bloc",
+      "dimension": "hidden",
+      "score": 76,
+      "delta": 2,
+      "confidence": "medium",
+      "status": "published",
+      "sources": [
+        { "id": "src-dossie-401", "label": "Dossiê sintético 401", "note": "Fonte fictícia para desenvolvimento." }
+      ],
+      "note": "Entidade fictícia — placeholder para desenvolvimento de UI."
+    },
+    {
+      "id": "ba-hid-pi",
+      "name": "Irmandade Fictícia Pi",
+      "kind": "faction",
+      "dimension": "hidden",
+      "score": 64,
+      "delta": -1,
+      "confidence": "low",
+      "status": "published",
+      "sources": [
+        { "id": "src-dossie-402", "label": "Dossiê sintético 402", "note": "Fonte fictícia para desenvolvimento." }
+      ],
+      "note": "Entidade fictícia — placeholder para desenvolvimento de UI."
+    },
+    {
+      "id": "ba-hid-omicron",
+      "name": "Rede de Romarias Ômicron",
+      "kind": "movement",
+      "dimension": "hidden",
+      "score": 57,
+      "delta": 0,
+      "confidence": "low",
+      "status": "published",
+      "sources": [
+        { "id": "src-dossie-403", "label": "Dossiê sintético 403", "note": "Fonte fictícia para desenvolvimento." }
+      ],
+      "note": "Entidade fictícia — placeholder para desenvolvimento de UI."
+    },
+    {
+      "id": "ba-hid-xi",
+      "name": "Consórcio Energético Csi",
+      "kind": "organization",
+      "dimension": "hidden",
+      "score": 51,
+      "delta": 2,
+      "confidence": "low",
+      "status": "published",
+      "sources": [
+        { "id": "src-dossie-404", "label": "Dossiê sintético 404", "note": "Fonte fictícia para desenvolvimento." }
+      ],
+      "note": "Entidade fictícia — placeholder para desenvolvimento de UI."
+    }
+  ]
+}

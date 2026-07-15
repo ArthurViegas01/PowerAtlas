@@ -1,0 +1,123 @@
+{
+  "id": "SP",
+  "name": "São Paulo",
+  "kind": "state",
+  "capital": { "name": "São Paulo", "coordinates": [-46.6333, -23.5505] },
+  "updatedAt": "2026-06-30T09:00:00Z",
+  "official": [
+    {
+      "id": "sp-off-executivo",
+      "name": "Chefia do Executivo Estadual",
+      "kind": "office",
+      "dimension": "official",
+      "score": 72,
+      "delta": 1,
+      "confidence": "high",
+      "status": "published",
+      "sources": [
+        { "id": "src-matriz-01", "label": "Matriz institucional simulada", "note": "Fonte fictícia — pesos de placeholder para desenvolvimento de UI." }
+      ],
+      "note": "Cargo constitucional genérico — não se refere a nenhum ocupante."
+    },
+    {
+      "id": "sp-off-legislativo",
+      "name": "Assembleia Legislativa (colegiado)",
+      "kind": "office",
+      "dimension": "official",
+      "score": 55,
+      "delta": -1,
+      "confidence": "high",
+      "status": "published",
+      "sources": [
+        { "id": "src-matriz-01", "label": "Matriz institucional simulada", "note": "Fonte fictícia — pesos de placeholder para desenvolvimento de UI." }
+      ],
+      "note": "Instituição constitucional genérica — não se refere a composição real."
+    },
+    {
+      "id": "sp-off-judiciario",
+      "name": "Cúpula do Judiciário Estadual",
+      "kind": "office",
+      "dimension": "official",
+      "score": 49,
+      "delta": 0,
+      "confidence": "medium",
+      "status": "published",
+      "sources": [
+        { "id": "src-matriz-01", "label": "Matriz institucional simulada", "note": "Fonte fictícia — pesos de placeholder para desenvolvimento de UI." }
+      ],
+      "note": "Instituição constitucional genérica — não se refere a composição real."
+    }
+  ],
+  "hidden": [
+    {
+      "id": "sp-hid-beta",
+      "name": "Conglomerado Beta Capital",
+      "kind": "economic-bloc",
+      "dimension": "hidden",
+      "score": 83,
+      "delta": 3,
+      "confidence": "medium",
+      "status": "published",
+      "sources": [
+        { "id": "src-dossie-101", "label": "Dossiê sintético 101", "note": "Fonte fictícia para desenvolvimento." }
+      ],
+      "note": "Entidade fictícia — placeholder para desenvolvimento de UI."
+    },
+    {
+      "id": "sp-hid-omega",
+      "name": "Rede Atacadista Ômega",
+      "kind": "organization",
+      "dimension": "hidden",
+      "score": 74,
+      "delta": 2,
+      "confidence": "low",
+      "status": "published",
+      "sources": [
+        { "id": "src-dossie-102", "label": "Dossiê sintético 102", "note": "Fonte fictícia para desenvolvimento." }
+      ],
+      "note": "Entidade fictícia — placeholder para desenvolvimento de UI."
+    },
+    {
+      "id": "sp-hid-delta",
+      "name": "Sindicato Sintético Delta",
+      "kind": "movement",
+      "dimension": "hidden",
+      "score": 65,
+      "delta": -3,
+      "confidence": "medium",
+      "status": "published",
+      "sources": [
+        { "id": "src-dossie-103", "label": "Dossiê sintético 103", "note": "Fonte fictícia para desenvolvimento." }
+      ],
+      "note": "Entidade fictícia — placeholder para desenvolvimento de UI."
+    },
+    {
+      "id": "sp-hid-rho",
+      "name": "Facção Fictícia Rho",
+      "kind": "faction",
+      "dimension": "hidden",
+      "score": 58,
+      "delta": 6,
+      "confidence": "low",
+      "status": "draft",
+      "sources": [
+        { "id": "src-dossie-104", "label": "Dossiê sintético 104", "note": "Fonte fictícia para desenvolvimento." }
+      ],
+      "note": "Entidade fictícia — placeholder para desenvolvimento de UI. Em rascunho para exercitar o fluxo de revisão."
+    },
+    {
+      "id": "sp-hid-epsilon",
+      "name": "Fundação Corporativa Épsilon",
+      "kind": "organization",
+      "dimension": "hidden",
+      "score": 51,
+      "delta": 0,
+      "confidence": "low",
+      "status": "published",
+      "sources": [
+        { "id": "src-dossie-105", "label": "Dossiê sintético 105", "note": "Fonte fictícia para desenvolvimento." }
+      ],
+      "note": "Entidade fictícia — placeholder para desenvolvimento de UI."
+    }
+  ]
+}

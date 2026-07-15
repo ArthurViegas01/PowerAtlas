@@ -1,0 +1,314 @@
+<script setup lang="ts">
+import { computed, onBeforeUnmount, onMounted, watch } from 'vue'
+
+import HudFrame from '@/components/hud/HudFrame.vue'
+import HudHeader from '@/components/hud/HudHeader.vue'
+import HudPanel from '@/components/hud/HudPanel.vue'
+import ScanlineOverlay from '@/components/hud/ScanlineOverlay.vue'
+import MapLegend from '@/components/map/MapLegend.vue'
+import MapScanEffect from '@/components/map/MapScanEffect.vue'
+import MapView from '@/components/map/MapView.vue'
+import RankingColumn from '@/components/rankings/RankingColumn.vue'
+import { useMapLayersStore } from '@/stores/mapLayers'
+import { useRankingsStore } from '@/stores/rankings'
+import { useSelectionStore } from '@/stores/selection'
+
+const selection = useSelectionStore()
+const rankings = useRankingsStore()
+const mapLayers = useMapLayersStore()
+
+const region = computed(() => rankings.regionById(selection.selectedId))
+const booting = computed(() => !rankings.ready || !mapLayers.layerModel.ready)
+const bootError = computed(() => rankings.error ?? mapLayers.error)
+
+const panelTitle = computed(() =>
+  (selection.selectedName ?? selection.selectedId ?? '').toUpperCase(),
+)
+
+const panelSubtitle = computed(() => {
+  if (!region.value) return 'SEM COBERTURA NESTA FASE'
+  const updated = new Date(region.value.updatedAt).toLocaleDateString('pt-BR')
+  return `ATUALIZADO ${updated} · STATUS: SIMULAÇÃO`
+})
+
+function selectNational() {
+  selection.select('BR', 'Brasil')
+}
+
+function reload() {
+  window.location.reload()
+}
+
+function onKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape') selection.clear()
+}
+
+/** Deep link: /?region=SP preselects a region once data is ready. */
+function applyDeepLink() {
+  const regionId = new URLSearchParams(window.location.search)
+    .get('region')
+    ?.trim()
+    .toUpperCase()
+  if (!regionId || selection.hasSelection) return
+  const known = rankings.regionById(regionId)
+  const feature = mapLayers.states?.features.find(
+    (candidate) => candidate.properties.UF === regionId,
+  )
+  const name = known?.name ?? feature?.properties.name
+  if (name) selection.select(regionId, name)
+}
+
+watch(booting, (isBooting) => {
+  if (!isBooting) applyDeepLink()
+})
+
+onMounted(() => {
+  void rankings.load()
+  void mapLayers.loadGeo()
+  window.addEventListener('keydown', onKeydown)
+})
+
+onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
+</script>
+
+<template>
+  <div class="app-shell">
+    <MapView />
+    <MapScanEffect />
+    <ScanlineOverlay />
+    <HudFrame />
+    <HudHeader @select-national="selectNational" />
+
+    <transition name="pa-fade">
+      <div v-if="!selection.hasSelection && !booting" class="idle-hint">
+        <p class="pa-data idle-line">
+          ▸ SELECIONE UM ESTADO NO MAPA<span class="pa-blink">_</span>
+        </p>
+        <button class="idle-national pa-data" type="button" @click="selectNational">
+          OU ABRIR VISÃO NACIONAL [BR]
+        </button>
+      </div>
+    </transition>
+
+    <transition name="pa-panel" mode="out-in">
+      <aside
+        v-if="selection.hasSelection"
+        :key="selection.selectedId ?? 'none'"
+        class="panel-slot"
+      >
+        <HudPanel :title="panelTitle" :subtitle="panelSubtitle">
+          <template #actions>
+            <button
+              class="close pa-data"
+              type="button"
+              aria-label="Fechar painel (Esc)"
+              @click="selection.clear()"
+            >
+              [X]
+            </button>
+          </template>
+
+          <div v-if="region" class="columns">
+            <RankingColumn variant="official" :entities="region.official" />
+            <RankingColumn variant="hidden" :entities="region.hidden" />
+          </div>
+
+          <div v-else class="no-data" data-reveal>
+            <p class="no-data-title pa-data">SEM DADOS PARA ESTA REGIÃO</p>
+            <p class="no-data-sub">
+              A fase 1 cobre o recorte nacional e 5 estados de amostra (SP, RJ, AM, BA,
+              SE). A cobertura completa chega com o pipeline de dados da fase 2.
+            </p>
+          </div>
+        </HudPanel>
+      </aside>
+    </transition>
+
+    <MapLegend />
+
+    <footer class="disclaimer pa-data" role="note">
+      ⚠ {{ rankings.disclaimer || 'PROTÓTIPO · DADOS SIMULADOS · ENTIDADES FICTÍCIAS' }}
+    </footer>
+
+    <!-- explicit duration: timer-based removal even if the tab is hidden
+         and transitionend never fires -->
+    <transition name="pa-fade" :duration="450">
+      <div v-if="booting" class="boot" aria-live="polite">
+        <template v-if="!bootError">
+          <p class="boot-line pa-data">
+            INICIALIZANDO MATRIZ DE PODER<span class="pa-blink">▌</span>
+          </p>
+          <p class="pa-label">CARREGANDO MALHAS IBGE + DATASET SIMULADO…</p>
+        </template>
+        <template v-else>
+          <p class="boot-line boot-error pa-data">FALHA DE INICIALIZAÇÃO</p>
+          <p class="pa-label">{{ bootError }}</p>
+          <button class="retry pa-data" type="button" @click="reload">
+            TENTAR NOVAMENTE
+          </button>
+        </template>
+      </div>
+    </transition>
+  </div>
+</template>
+
+<style scoped>
+.app-shell {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: var(--pa-bg-void);
+}
+
+.panel-slot {
+  position: absolute;
+  top: 84px;
+  right: 24px;
+  bottom: 64px;
+  z-index: 20;
+  display: flex;
+  width: min(520px, 44vw);
+}
+
+.panel-slot > * {
+  flex: 1;
+}
+
+.columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.idle-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 100px;
+  z-index: 15;
+  transform: translateX(-50%);
+  text-align: center;
+}
+
+.idle-line {
+  margin: 0;
+  font-size: var(--pa-text-sm);
+  letter-spacing: 0.14em;
+  color: var(--pa-text-primary);
+  text-shadow: 0 0 12px rgba(61, 225, 255, 0.4);
+}
+
+.idle-national {
+  margin-top: 10px;
+  padding: 6px 12px;
+  font-size: var(--pa-text-2xs);
+  letter-spacing: 0.12em;
+  color: var(--pa-series-official);
+  background: rgba(3, 6, 8, 0.6);
+  border: 1px solid var(--pa-border-cyan);
+  cursor: pointer;
+}
+
+.idle-national:hover {
+  box-shadow: var(--pa-glow-cyan);
+}
+
+.close {
+  flex: none;
+  padding: 2px 6px;
+  font-size: var(--pa-text-xs);
+  color: var(--pa-text-dim);
+  background: none;
+  border: 1px solid var(--pa-border-faint);
+  cursor: pointer;
+}
+
+.close:hover {
+  color: var(--pa-series-official);
+  border-color: var(--pa-border-cyan);
+}
+
+.no-data-title {
+  margin: 12px 0 6px;
+  font-size: var(--pa-text-md);
+  letter-spacing: 0.12em;
+  color: var(--pa-series-hidden);
+}
+
+.no-data-sub {
+  margin: 0;
+  max-width: 46ch;
+  font-size: var(--pa-text-sm);
+  line-height: 1.5;
+  color: var(--pa-text-dim);
+}
+
+.disclaimer {
+  position: absolute;
+  left: 50%;
+  bottom: 16px;
+  z-index: 25;
+  transform: translateX(-50%);
+  padding: 4px 12px;
+  font-size: var(--pa-text-2xs);
+  letter-spacing: 0.14em;
+  white-space: nowrap;
+  color: var(--pa-series-hidden);
+  background: rgba(3, 6, 8, 0.72);
+  border: 1px solid color-mix(in srgb, var(--pa-series-hidden) 35%, transparent);
+}
+
+.boot {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-content: center;
+  gap: 10px;
+  text-align: center;
+  background: color-mix(in srgb, var(--pa-bg-void) 88%, transparent);
+}
+
+.boot-line {
+  margin: 0;
+  font-size: var(--pa-text-lg);
+  letter-spacing: 0.18em;
+  color: var(--pa-text-primary);
+  text-shadow: 0 0 14px rgba(61, 225, 255, 0.45);
+}
+
+.boot-error {
+  color: var(--pa-danger);
+  text-shadow: none;
+}
+
+.retry {
+  justify-self: center;
+  margin-top: 6px;
+  padding: 6px 14px;
+  font-size: var(--pa-text-xs);
+  letter-spacing: 0.12em;
+  color: var(--pa-series-official);
+  background: transparent;
+  border: 1px solid var(--pa-border-cyan);
+  cursor: pointer;
+}
+
+@media (max-width: 900px) {
+  .panel-slot {
+    top: auto;
+    right: 12px;
+    bottom: 52px;
+    left: 12px;
+    width: auto;
+    max-height: 58vh;
+  }
+
+  .columns {
+    grid-template-columns: 1fr;
+  }
+
+  .disclaimer {
+    display: none;
+  }
+}
+</style>

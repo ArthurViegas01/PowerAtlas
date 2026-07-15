@@ -1,0 +1,110 @@
+@import 'tailwindcss';
+@import './tokens.css';
+
+/*
+ * Tailwind v4 reads the hand-written tokens: utilities like bg-pa-void,
+ * text-pa-official or font-data resolve to the same custom properties the
+ * component CSS uses, so the two worlds cannot drift apart.
+ */
+@theme inline {
+  --color-pa-void: var(--pa-bg-void);
+  --color-pa-deep: var(--pa-bg-deep);
+  --color-pa-official: var(--pa-series-official);
+  --color-pa-hidden: var(--pa-series-hidden);
+  --color-pa-text: var(--pa-text-primary);
+  --color-pa-dim: var(--pa-text-dim);
+  --color-pa-faint: var(--pa-text-faint);
+  --color-pa-conf-high: var(--pa-confidence-high);
+  --color-pa-conf-medium: var(--pa-confidence-medium);
+  --color-pa-conf-low: var(--pa-confidence-low);
+  --font-data: var(--pa-font-data);
+  --font-label: var(--pa-font-label);
+}
+
+html,
+body,
+#app {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  overflow: hidden;
+  background: var(--pa-bg-void);
+  color: var(--pa-text-primary);
+  font-family: var(--pa-font-label);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* --- shared HUD primitives --- */
+.pa-label {
+  font-family: var(--pa-font-data);
+  font-size: var(--pa-text-2xs);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--pa-text-dim);
+}
+
+.pa-data {
+  font-family: var(--pa-font-data);
+  font-variant-numeric: tabular-nums;
+}
+
+.pa-blink {
+  animation: pa-blink 1.1s steps(2, start) infinite;
+}
+
+@keyframes pa-blink {
+  to {
+    visibility: hidden;
+  }
+}
+
+/* side panel slide (Vue <transition name="pa-panel">) */
+.pa-panel-enter-active,
+.pa-panel-leave-active {
+  transition:
+    transform var(--pa-dur-med) var(--pa-ease-hud),
+    opacity var(--pa-dur-med) var(--pa-ease-hud);
+}
+
+.pa-panel-enter-from,
+.pa-panel-leave-to {
+  transform: translateX(26px);
+  opacity: 0;
+}
+
+/* generic fade (Vue <transition name="pa-fade">) */
+.pa-fade-enter-active,
+.pa-fade-leave-active {
+  transition: opacity var(--pa-dur-med) ease;
+}
+
+.pa-fade-enter-from,
+.pa-fade-leave-to {
+  opacity: 0;
+}
+
+/* maplibre chrome tuned to the HUD */
+.maplibregl-ctrl-attrib {
+  background: rgba(3, 6, 8, 0.6) !important;
+  font-family: var(--pa-font-data);
+  font-size: 10px;
+}
+
+.maplibregl-ctrl-attrib,
+.maplibregl-ctrl-attrib a {
+  color: var(--pa-text-faint) !important;
+}
+
+/* Global motion kill-switch; JS-driven motion is gated in the composables. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
