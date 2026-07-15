@@ -22,10 +22,16 @@ const booting = computed(() => !rankings.ready || !mapLayers.layerModel.ready)
 const bootError = computed(() => rankings.error ?? mapLayers.error)
 
 const panelTitle = computed(() =>
-  (selection.selectedName ?? selection.selectedId ?? '').toUpperCase(),
+  (
+    selection.selectedName ??
+    selection.lockedWorld?.name ??
+    selection.selectedId ??
+    ''
+  ).toUpperCase(),
 )
 
 const panelSubtitle = computed(() => {
+  if (selection.lockedWorld) return 'REGIÃO NÃO MAPEADA · COBERTURA FUTURA'
   if (!region.value) return 'SEM COBERTURA NESTA FASE'
   const updated = new Date(region.value.updatedAt).toLocaleDateString('pt-BR')
   return `ATUALIZADO ${updated} · STATUS: SIMULAÇÃO`
@@ -40,7 +46,7 @@ function reload() {
 }
 
 function onKeydown(event: KeyboardEvent) {
-  if (event.key === 'Escape') selection.clear()
+  if (event.key === 'Escape') selection.goHome()
 }
 
 /** Deep link: /?region=SP preselects a region once data is ready. */
@@ -77,10 +83,13 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
     <MapScanEffect />
     <ScanlineOverlay />
     <HudFrame />
-    <HudHeader @select-national="selectNational" />
+    <HudHeader
+      @select-national="selectNational"
+      @view-global="selection.requestCamera('global')"
+    />
 
     <transition name="pa-fade">
-      <div v-if="!selection.hasSelection && !booting" class="idle-hint">
+      <div v-if="!selection.hasPanel && !booting" class="idle-hint">
         <p class="pa-data idle-line">
           ▸ SELECIONE UM ESTADO NO MAPA<span class="pa-blink">_</span>
         </p>
@@ -92,8 +101,8 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 
     <transition name="pa-panel" mode="out-in">
       <aside
-        v-if="selection.hasSelection"
-        :key="selection.selectedId ?? 'none'"
+        v-if="selection.hasPanel"
+        :key="selection.selectedId ?? selection.lockedWorld?.iso ?? 'none'"
         class="panel-slot"
       >
         <HudPanel :title="panelTitle" :subtitle="panelSubtitle">
@@ -102,7 +111,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
               class="close pa-data"
               type="button"
               aria-label="Fechar painel (Esc)"
-              @click="selection.clear()"
+              @click="selection.closePanels()"
             >
               [X]
             </button>
@@ -111,6 +120,18 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
           <div v-if="region" class="columns">
             <RankingColumn variant="official" :entities="region.official" />
             <RankingColumn variant="hidden" :entities="region.hidden" />
+          </div>
+
+          <div v-else-if="selection.lockedWorld" class="no-data" data-reveal>
+            <p class="no-data-title pa-data">◫ ÁREA BLOQUEADA — NÃO MAPEADA</p>
+            <p class="no-data-sub">
+              Esta região ainda não foi mapeada pela matriz. A cobertura
+              internacional entra em fases futuras — o foco atual do PowerAtlas é o
+              Brasil.
+            </p>
+            <button class="back-home pa-data" type="button" @click="selection.goHome()">
+              ◄ VOLTAR AO BRASIL
+            </button>
           </div>
 
           <div v-else class="no-data" data-reveal>
@@ -240,6 +261,21 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
   font-size: var(--pa-text-sm);
   line-height: 1.5;
   color: var(--pa-text-dim);
+}
+
+.back-home {
+  margin-top: 14px;
+  padding: 6px 12px;
+  font-size: var(--pa-text-2xs);
+  letter-spacing: 0.12em;
+  color: var(--pa-series-official);
+  background: transparent;
+  border: 1px solid var(--pa-border-cyan);
+  cursor: pointer;
+}
+
+.back-home:hover {
+  box-shadow: var(--pa-glow-cyan);
 }
 
 .disclaimer {
