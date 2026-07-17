@@ -29,6 +29,21 @@ const NATIONAL_CAMERA = {
   bearing: -8,
 }
 
+/** Cinematic bearing presets per framing; a manual override beats them all. */
+const CONTEXT_BEARING = {
+  national: NATIONAL_CAMERA.bearing,
+  region: -12,
+  global: 0,
+} as const
+
+/** Last framing applied — tells the AUTO reset which preset to ease back to. */
+let cameraContext: keyof typeof CONTEXT_BEARING = 'national'
+
+function cameraBearing(context: keyof typeof CONTEXT_BEARING): number {
+  cameraContext = context
+  return selection.bearingOverride ?? CONTEXT_BEARING[context]
+}
+
 /** World minus Antarctica (filtered out of the backdrop file). */
 const WORLD_BOUNDS: Bounds = [
   [-168, -56],
@@ -76,14 +91,20 @@ function flyToGlobal() {
   const duration = reduced.value ? 0 : 1600
   const camera = map.cameraForBounds(WORLD_BOUNDS, { padding: 56 })
   if (!camera) return
-  map.flyTo({ center: camera.center, zoom: camera.zoom, pitch: 24, bearing: 0, duration })
+  map.flyTo({
+    center: camera.center,
+    zoom: camera.zoom,
+    pitch: 24,
+    bearing: cameraBearing('global'),
+    duration,
+  })
 }
 
 function flyToRegion(regionId: string | null) {
   if (!map) return
   const duration = reduced.value ? 0 : 1400
   if (!regionId || regionId === 'BR') {
-    map.flyTo({ ...NATIONAL_CAMERA, duration })
+    map.flyTo({ ...NATIONAL_CAMERA, bearing: cameraBearing('national'), duration })
     return
   }
   const bounds = mapLayers.boundsFor(regionId)
@@ -101,7 +122,7 @@ function flyToRegion(regionId: string | null) {
     center: camera.center,
     zoom: camera.zoom,
     pitch: 52,
-    bearing: -12,
+    bearing: cameraBearing('region'),
     duration,
   })
 }
@@ -129,11 +150,23 @@ onMounted(() => {
     }),
     'bottom-right',
   )
+  if (import.meta.env.DEV) {
+    ;(window as unknown as { __paMap?: maplibregl.Map }).__paMap = map
+  }
   overlay = new MapboxOverlay({ interleaved: false, layers: [] })
   map.addControl(overlay as unknown as maplibregl.IControl)
   map.on('click', handleClick)
   map.on('load', () => {
     mapReady.value = true
+  })
+  selection.setMapBearing(map.getBearing())
+  map.on('rotate', () => {
+    if (map) selection.setMapBearing(map.getBearing())
+  })
+  // Only user gestures (drag/keyboard) carry originalEvent — programmatic
+  // flights must not be mistaken for a manual bearing choice.
+  map.on('rotateend', (event) => {
+    if (map && event.originalEvent) selection.setBearingOverride(map.getBearing())
   })
 })
 
@@ -173,6 +206,29 @@ watch(
   () => {
     if (selection.cameraRequest.target === 'global') flyToGlobal()
     else flyToRegion(null)
+  },
+)
+
+watch(
+  () => selection.rotateRequest.seq,
+  () => {
+    if (!map) return
+    const { kind, delta } = selection.rotateRequest
+    const duration = reduced.value ? 0 : 280
+    if (kind === 'by') {
+      const target = map.getBearing() + delta
+      selection.setBearingOverride(target)
+      map.easeTo({ bearing: target, duration })
+    } else if (kind === 'north') {
+      selection.setBearingOverride(0)
+      map.easeTo({ bearing: 0, duration })
+    } else {
+      selection.setBearingOverride(null)
+      map.easeTo({
+        bearing: CONTEXT_BEARING[cameraContext],
+        duration: reduced.value ? 0 : 600,
+      })
+    }
   },
 )
 </script>
