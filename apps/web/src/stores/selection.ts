@@ -14,6 +14,8 @@ export interface WorldRegionRef {
 
 export type CameraTarget = 'national' | 'global'
 
+export type RotateKind = 'by' | 'north' | 'auto'
+
 /** Which region the operator is inspecting, plus hover/ping/camera UI state. */
 export const useSelectionStore = defineStore('selection', () => {
   const selectedId = ref<string | null>(null)
@@ -31,6 +33,20 @@ export const useSelectionStore = defineStore('selection', () => {
   /** Imperative camera bus — MapView watches `seq` and flies to `target`. */
   const cameraRequest = ref<{ target: CameraTarget; seq: number }>({
     target: 'national',
+    seq: 0,
+  })
+  /** Live map bearing in degrees — mirrored from MapLibre for the compass. */
+  const mapBearing = ref(0)
+  /**
+   * Bearing chosen by the operator (compass buttons or drag-rotate). While
+   * set, camera flights keep it instead of the cinematic presets; `null`
+   * returns framing to automatic.
+   */
+  const bearingOverride = ref<number | null>(null)
+  /** Imperative rotation bus — MapView watches `seq` and applies `kind`. */
+  const rotateRequest = ref<{ kind: RotateKind; delta: number; seq: number }>({
+    kind: 'by',
+    delta: 0,
     seq: 0,
   })
 
@@ -73,6 +89,28 @@ export const useSelectionStore = defineStore('selection', () => {
     cameraRequest.value = { target, seq: cameraRequest.value.seq + 1 }
   }
 
+  /** Rotate the camera by `delta` degrees (positive = counterclockwise). */
+  function requestRotate(delta: number) {
+    rotateRequest.value = { kind: 'by', delta, seq: rotateRequest.value.seq + 1 }
+  }
+
+  function requestNorth() {
+    rotateRequest.value = { kind: 'north', delta: 0, seq: rotateRequest.value.seq + 1 }
+  }
+
+  /** Drop the manual bearing and ease back to the cinematic framing. */
+  function requestAutoBearing() {
+    rotateRequest.value = { kind: 'auto', delta: 0, seq: rotateRequest.value.seq + 1 }
+  }
+
+  function setMapBearing(bearing: number) {
+    mapBearing.value = bearing
+  }
+
+  function setBearingOverride(bearing: number | null) {
+    bearingOverride.value = bearing
+  }
+
   function setHovered(id: string | null, name: string | null = null) {
     hoveredId.value = id
     hoveredName.value = name
@@ -92,6 +130,9 @@ export const useSelectionStore = defineStore('selection', () => {
     lastPing,
     pingSeq,
     cameraRequest,
+    mapBearing,
+    bearingOverride,
+    rotateRequest,
     hasSelection,
     hasPanel,
     select,
@@ -99,6 +140,11 @@ export const useSelectionStore = defineStore('selection', () => {
     closePanels,
     goHome,
     requestCamera,
+    requestRotate,
+    requestNorth,
+    requestAutoBearing,
+    setMapBearing,
+    setBearingOverride,
     setHovered,
     setHoveredWorld,
   }
