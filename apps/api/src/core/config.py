@@ -33,6 +33,16 @@ class Settings(BaseSettings):
     api_host: str = "0.0.0.0"
     api_port: int = 8000
 
+    # -- Database ----------------------------------------------------------
+    # asyncpg DSN (postgresql://...). Empty means "no database": the API falls
+    # back to reading the bundled mock JSON, so offline dev and unit tests need
+    # no Postgres. Set it (or run via docker-compose) to read from PostGIS.
+    database_url: str = ""
+
+    @property
+    def use_database(self) -> bool:
+        return bool(self.database_url)
+
     # -- Security ----------------------------------------------------------
     # Comma-separated allowlist of browser origins for CORS. Defaults cover the
     # Vite dev server (5173) and the production-build preview (4173), on both
