@@ -1,7 +1,7 @@
 # PowerAtlas — common development commands.
 
 .PHONY: help web-install web-dev web-build web-preview web-typecheck geo-refresh \
-	api-install api-dev api-test api-lint
+	api-install api-dev api-test api-lint db-up db-down db-migrate db-seed migrate
 
 help:
 	@echo "PowerAtlas — make targets"
@@ -15,6 +15,10 @@ help:
 	@echo "  make api-dev        Start the FastAPI dev server (http://localhost:8000)"
 	@echo "  make api-test       Run the API test suite (pytest)"
 	@echo "  make api-lint       Lint + type-check the API (ruff + mypy)"
+	@echo "  make db-up          Start PostGIS via docker compose"
+	@echo "  make db-migrate     Apply SQL migrations (F4)"
+	@echo "  make db-seed        Seed the database from the mock JSON"
+	@echo "  make migrate        db-up + db-migrate + db-seed"
 
 web-install:
 	pnpm install
@@ -44,4 +48,18 @@ api-test:
 	cd apps/api && .venv/Scripts/python -m pytest -q
 
 api-lint:
-	cd apps/api && .venv/Scripts/python -m ruff check src tests && .venv/Scripts/python -m mypy src
+	cd apps/api && .venv/Scripts/python -m ruff check src tests scripts && .venv/Scripts/python -m mypy src scripts
+
+db-up:
+	docker compose up -d postgres
+
+db-down:
+	docker compose down
+
+db-migrate:
+	cd apps/api && .venv/Scripts/python -m scripts.migrate
+
+db-seed:
+	cd apps/api && .venv/Scripts/python -m scripts.seed
+
+migrate: db-up db-migrate db-seed
