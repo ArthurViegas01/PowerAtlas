@@ -1,0 +1,161 @@
+{
+  "id": "RR",
+  "name": "Roraima",
+  "kind": "state",
+  "capital": {
+    "name": "Boa Vista",
+    "coordinates": [
+      -60.673,
+      2.82
+    ]
+  },
+  "updatedAt": "2026-06-11T09:30:00Z",
+  "official": [
+    {
+      "id": "rr-off-executivo",
+      "name": "Chefia do Executivo Estadual",
+      "kind": "office",
+      "dimension": "official",
+      "score": 44,
+      "delta": 0,
+      "confidence": "high",
+      "status": "published",
+      "sources": [
+        {
+          "id": "src-matriz-01",
+          "label": "Matriz institucional simulada",
+          "note": "Fonte fictícia — pesos de placeholder para desenvolvimento de UI."
+        }
+      ],
+      "note": "Cargo constitucional genérico — não se refere a nenhum ocupante."
+    },
+    {
+      "id": "rr-off-legislativo",
+      "name": "Assembleia Legislativa (colegiado)",
+      "kind": "office",
+      "dimension": "official",
+      "score": 40,
+      "delta": -2,
+      "confidence": "high",
+      "status": "published",
+      "sources": [
+        {
+          "id": "src-matriz-01",
+          "label": "Matriz institucional simulada",
+          "note": "Fonte fictícia — pesos de placeholder para desenvolvimento de UI."
+        }
+      ],
+      "note": "Instituição constitucional genérica — não se refere a composição real."
+    },
+    {
+      "id": "rr-off-judiciario",
+      "name": "Cúpula do Judiciário Estadual",
+      "kind": "office",
+      "dimension": "official",
+      "score": 58,
+      "delta": -2,
+      "confidence": "medium",
+      "status": "published",
+      "sources": [
+        {
+          "id": "src-matriz-01",
+          "label": "Matriz institucional simulada",
+          "note": "Fonte fictícia — pesos de placeholder para desenvolvimento de UI."
+        }
+      ],
+      "note": "Órgão constitucional genérico — sem referência a integrantes reais."
+    }
+  ],
+  "hidden": [
+    {
+      "id": "rr-hid-psi",
+      "name": "Bloco Econômico Psi",
+      "kind": "economic-bloc",
+      "dimension": "hidden",
+      "score": 63,
+      "delta": 1,
+      "confidence": "low",
+      "status": "published",
+      "sources": [
+        {
+          "id": "src-dossie-679",
+          "label": "Dossiê sintético 680",
+          "note": "Fonte fictícia para desenvolvimento."
+        }
+      ],
+      "note": "Entidade fictícia — placeholder para desenvolvimento de UI."
+    },
+    {
+      "id": "rr-hid-iota",
+      "name": "Rede Iota",
+      "kind": "organization",
+      "dimension": "hidden",
+      "score": 59,
+      "delta": 0,
+      "confidence": "high",
+      "status": "draft",
+      "sources": [
+        {
+          "id": "src-dossie-680",
+          "label": "Dossiê sintético 681",
+          "note": "Fonte fictícia para desenvolvimento."
+        }
+      ],
+      "note": "Entidade fictícia — placeholder para desenvolvimento de UI."
+    },
+    {
+      "id": "rr-hid-ipsilon",
+      "name": "Instituição Ípsilon",
+      "kind": "institution",
+      "dimension": "hidden",
+      "score": 60,
+      "delta": -2,
+      "confidence": "medium",
+      "status": "draft",
+      "sources": [
+        {
+          "id": "src-dossie-681",
+          "label": "Dossiê sintético 682",
+          "note": "Fonte fictícia para desenvolvimento."
+        }
+      ],
+      "note": "Entidade fictícia — placeholder para desenvolvimento de UI."
+    },
+    {
+      "id": "rr-hid-zeta",
+      "name": "Facção Zeta",
+      "kind": "faction",
+      "dimension": "hidden",
+      "score": 62,
+      "delta": -1,
+      "confidence": "low",
+      "status": "published",
+      "sources": [
+        {
+          "id": "src-dossie-682",
+          "label": "Dossiê sintético 683",
+          "note": "Fonte fictícia para desenvolvimento."
+        }
+      ],
+      "note": "Entidade fictícia — placeholder para desenvolvimento de UI."
+    },
+    {
+      "id": "rr-hid-eta",
+      "name": "Rede Eta",
+      "kind": "organization",
+      "dimension": "hidden",
+      "score": 42,
+      "delta": -1,
+      "confidence": "medium",
+      "status": "published",
+      "sources": [
+        {
+          "id": "src-dossie-683",
+          "label": "Dossiê sintético 684",
+          "note": "Fonte fictícia para desenvolvimento."
+        }
+      ],
+      "note": "Entidade fictícia — placeholder para desenvolvimento de UI."
+    }
+  ]
+}
