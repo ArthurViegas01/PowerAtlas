@@ -1,0 +1,37 @@
+# PowerAtlas F4 - local infra: PostGIS plus the read API.
+#
+# Primary dev flow runs the API on the host (`pnpm api-dev`) against the
+# dockerized database; the `api` service here mirrors the production shape and
+# lets `docker compose up` bring the whole backend up on its own.
+
+services:
+  postgres:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_USER: poweratlas
+      POSTGRES_PASSWORD: poweratlas_local_dev
+      POSTGRES_DB: poweratlas
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U poweratlas -d poweratlas"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build: ./apps/api
+    environment:
+      PA_DATABASE_URL: postgresql://poweratlas:poweratlas_local_dev@postgres:5432/poweratlas
+      PA_CORS_ALLOWED_ORIGINS: "http://localhost:5173,http://localhost:4173,http://127.0.0.1:5173,http://127.0.0.1:4173"
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    profiles: ["full"]   # `docker compose --profile full up` to include the API
+
+volumes:
+  pgdata:
