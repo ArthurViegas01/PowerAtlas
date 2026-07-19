@@ -28,7 +28,7 @@ dashed borders), global view button and the "área bloqueada" panel.
 ±15°, snap to north, bearing readout, AUTO button, manual-bearing override
 of the cinematic cameras) plus static deploy on Netlify (`netlify.toml`).
 
-**F3 — read-only FastAPI backend: shipped.** `apps/api` serves the exact
+**F3 — read-only FastAPI backend: shipped (v0.4.0).** `apps/api` serves the exact
 `power-entity` contract over HTTP (`GET /api/v1/power-data`); the web swaps
 its mock loader for the API when `VITE_API_URL` is set and stays fully
 offline on the bundled mock otherwise. No database or auth yet (those are
