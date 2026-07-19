@@ -1,8 +1,8 @@
 # PowerAtlas — Plano de continuação (F3+)
 
-> **Handoff para um chat novo.** Estado em 2026-07-17: F1 e F2 released
-> (`main` = **v0.2.0**); `develop` à frente com o compasso de rotação
-> (trilha frontend). Este arquivo agora é **versionado** no repo — atualize
+> **Handoff para um chat novo.** Estado em 2026-07-19: F1, F2 e o compasso
+> released (`main` = **v0.3.0**, tags `v0.2.0`/`v0.3.0`); `develop` à frente
+> com a F3 (API FastAPI de leitura). Este arquivo agora é **versionado** no repo — atualize
 > a seção de estado quando uma fase fechar e enxugue o que já foi entregue.
 > Leia junto: `ARCHITECTURE.md` (decisões + seção 6 "deferred"),
 > `docs/data-sources.md`, `README.md` (status + QA checklist).
@@ -28,9 +28,19 @@
   / global 0) respeitam o bearing manual (`bearingOverride`) até o AUTO
   limpar; drag-rotate do usuário também vira override (`rotateend` com
   `originalEvent`). Em dev, `window.__paMap` expõe o mapa para depuração.
+- **F3 (API FastAPI de leitura, 2026-07-19)**: `apps/api` (layout `src/`,
+  pydantic-settings, ruff/mypy/pytest) serve `GET /api/v1/power-data` com o
+  contrato `power-entity` byte-compatível com o `mockDataLoader` (mesma ordem
+  de regiões e disclaimer). Modelos Pydantic espelham os tipos TS (camelCase
+  via alias, `extra="forbid"`). A API tem cópia própria dos JSONs em
+  `src/data/mock`. No web, `services/dataSource.ts` escolhe `apiClient` (fetch)
+  quando `VITE_API_URL` está setado, ou o mock offline caso contrário. Sem
+  banco/auth/escrita. Teste de contrato valida o payload contra os JSONs de
+  origem.
 - **Comandos**: `pnpm dev` (5173) · `pnpm build` (vue-tsc + vite) ·
-  `pnpm preview` (4173) · `pnpm geo`. Deep-link de QA: `/?region=SP`
-  (qualquer UF ou BR).
+  `pnpm preview` (4173) · `pnpm geo`. API: `pnpm api-install` · `pnpm api-dev`
+  (uvicorn :8000) · `pnpm api-test` · `pnpm api-lint`. Deep-link de QA:
+  `/?region=SP` (qualquer UF ou BR); com API: `VITE_API_URL=http://localhost:8000 pnpm dev`.
 - **Pendências conhecidas da trilha frontend**: bundle único ~2 MB
   (code-splitting), mock cobre só BR + 5 UFs, sem testes automatizados no
   web, toggle de `prefers-reduced-motion` nunca exercitado de ponta a ponta.
@@ -77,7 +87,12 @@ simulados permanece na UI. Detalhe: ARCHITECTURE.md §5.
 
 ## 3. Roadmap
 
-### F3 — API FastAPI de leitura (próxima recomendada)
+### F3 — API FastAPI de leitura (ENTREGUE 2026-07-19; ver seção 1)
+
+> Entregue em `feat/f3-api-fastapi` -> `develop`. Verificação abaixo passou
+> (pytest/ruff/mypy verdes, build do web verde, HUD carregando da API via
+> `VITE_API_URL`). A próxima fase recomendada é a **F4** (Postgres + PostGIS).
+> As "decisões travadas" abaixo ficam como registro do que foi construído.
 
 **Objetivo:** servir o contrato de `power-entity.ts` pela rede e trocar o
 loader do web por um client HTTP — sem mudar nada de UI.
