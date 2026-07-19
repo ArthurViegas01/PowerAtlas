@@ -24,6 +24,10 @@ boundary pipeline, fictional dataset.
 Earth world layer rendered as a locked, not-yet-mapped zone (dim fill +
 dashed borders), global view button and the "área bloqueada" panel.
 
+**v0.3.0 (frontend track).** Map rotation compass (`MapCompass.vue`: turn
+±15°, snap to north, bearing readout, AUTO button, manual-bearing override
+of the cinematic cameras) plus static deploy on Netlify (`netlify.toml`).
+
 Deviations from the original plans: [ARCHITECTURE.md](ARCHITECTURE.md) §3
 and [docs/data-sources.md](docs/data-sources.md). Next phases (FastAPI
 backend, PostGIS, scoring pipeline, review workflow): ARCHITECTURE.md §6.
