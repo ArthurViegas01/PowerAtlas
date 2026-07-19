@@ -40,6 +40,11 @@ a seed from the fictional dataset, and the API reading from the database via
 raw asyncpg (`docker compose up postgres`). The payload is byte-identical
 whether served from the DB or the mock. No auth or writes yet.
 
+**Frontend track: v0.6.0.** Bundle code-splitting (app shell ~104 kB, heavy
+WebGL libs in their own chunks), fictional rankings for all 27 UFs (every
+state opens a panel), and a vitest suite over the Pinia stores and motion
+composables (`pnpm test`).
+
 Deviations from the original plans: [ARCHITECTURE.md](ARCHITECTURE.md) §3
 and [docs/data-sources.md](docs/data-sources.md). Next phases (scoring
 pipeline, review workflow): ARCHITECTURE.md §6.
