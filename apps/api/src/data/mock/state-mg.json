@@ -1,0 +1,143 @@
+{
+  "id": "MG",
+  "name": "Minas Gerais",
+  "kind": "state",
+  "capital": {
+    "name": "Belo Horizonte",
+    "coordinates": [
+      -43.938,
+      -19.921
+    ]
+  },
+  "updatedAt": "2026-06-20T09:30:00Z",
+  "official": [
+    {
+      "id": "mg-off-executivo",
+      "name": "Chefia do Executivo Estadual",
+      "kind": "office",
+      "dimension": "official",
+      "score": 52,
+      "delta": -2,
+      "confidence": "high",
+      "status": "published",
+      "sources": [
+        {
+          "id": "src-matriz-01",
+          "label": "Matriz institucional simulada",
+          "note": "Fonte fictícia — pesos de placeholder para desenvolvimento de UI."
+        }
+      ],
+      "note": "Cargo constitucional genérico — não se refere a nenhum ocupante."
+    },
+    {
+      "id": "mg-off-legislativo",
+      "name": "Assembleia Legislativa (colegiado)",
+      "kind": "office",
+      "dimension": "official",
+      "score": 41,
+      "delta": 2,
+      "confidence": "high",
+      "status": "published",
+      "sources": [
+        {
+          "id": "src-matriz-01",
+          "label": "Matriz institucional simulada",
+          "note": "Fonte fictícia — pesos de placeholder para desenvolvimento de UI."
+        }
+      ],
+      "note": "Instituição constitucional genérica — não se refere a composição real."
+    },
+    {
+      "id": "mg-off-judiciario",
+      "name": "Cúpula do Judiciário Estadual",
+      "kind": "office",
+      "dimension": "official",
+      "score": 49,
+      "delta": -2,
+      "confidence": "medium",
+      "status": "published",
+      "sources": [
+        {
+          "id": "src-matriz-01",
+          "label": "Matriz institucional simulada",
+          "note": "Fonte fictícia — pesos de placeholder para desenvolvimento de UI."
+        }
+      ],
+      "note": "Órgão constitucional genérico — sem referência a integrantes reais."
+    }
+  ],
+  "hidden": [
+    {
+      "id": "mg-hid-omega",
+      "name": "Movimento Ômega",
+      "kind": "movement",
+      "dimension": "hidden",
+      "score": 52,
+      "delta": -1,
+      "confidence": "low",
+      "status": "draft",
+      "sources": [
+        {
+          "id": "src-dossie-639",
+          "label": "Dossiê sintético 640",
+          "note": "Fonte fictícia para desenvolvimento."
+        }
+      ],
+      "note": "Entidade fictícia — placeholder para desenvolvimento de UI."
+    },
+    {
+      "id": "mg-hid-ipsilon",
+      "name": "Bloco Econômico Ípsilon",
+      "kind": "economic-bloc",
+      "dimension": "hidden",
+      "score": 69,
+      "delta": -2,
+      "confidence": "medium",
+      "status": "published",
+      "sources": [
+        {
+          "id": "src-dossie-640",
+          "label": "Dossiê sintético 641",
+          "note": "Fonte fictícia para desenvolvimento."
+        }
+      ],
+      "note": "Entidade fictícia — placeholder para desenvolvimento de UI."
+    },
+    {
+      "id": "mg-hid-beta",
+      "name": "Rede Beta",
+      "kind": "organization",
+      "dimension": "hidden",
+      "score": 68,
+      "delta": 0,
+      "confidence": "high",
+      "status": "draft",
+      "sources": [
+        {
+          "id": "src-dossie-641",
+          "label": "Dossiê sintético 642",
+          "note": "Fonte fictícia para desenvolvimento."
+        }
+      ],
+      "note": "Entidade fictícia — placeholder para desenvolvimento de UI."
+    },
+    {
+      "id": "mg-hid-ni",
+      "name": "Facção Ni",
+      "kind": "faction",
+      "dimension": "hidden",
+      "score": 64,
+      "delta": 3,
+      "confidence": "high",
+      "status": "published",
+      "sources": [
+        {
+          "id": "src-dossie-642",
+          "label": "Dossiê sintético 643",
+          "note": "Fonte fictícia para desenvolvimento."
+        }
+      ],
+      "note": "Entidade fictícia — placeholder para desenvolvimento de UI."
+    }
+  ]
+}

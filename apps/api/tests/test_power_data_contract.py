@@ -1,13 +1,16 @@
 """Contract test: the endpoint payload must match the source mock JSON.
 
 Parity is checked against the raw JSON files directly (not via the loader), so
-the test independently verifies the envelope, the region ordering and that no
-field is dropped or mutated on the way out.
+the test independently verifies the envelope, the region ordering property and
+that no field is dropped or mutated on the way out. Ordering is asserted as a
+property (country first, then pt-BR accent-folded name order) rather than a
+hard-coded list, so adding states does not break it.
 """
 
 from __future__ import annotations
 
 import json
+import unicodedata
 from pathlib import Path
 
 import pytest
@@ -16,7 +19,6 @@ from fastapi.testclient import TestClient
 MOCK_DIR = Path(__file__).resolve().parents[1] / "src" / "data" / "mock"
 NETWORK_FILE = "influence-network.json"
 
-EXPECTED_REGION_ORDER = ["BR", "AM", "BA", "RJ", "SP", "SE"]
 EXPECTED_DISCLAIMER = 'PROTÓTIPO · DADOS SIMULADOS · ENTIDADES DE "PODER OCULTO" SÃO FICTÍCIAS'
 ENVELOPE_KEYS = {
     "schemaVersion",
@@ -26,6 +28,21 @@ ENVELOPE_KEYS = {
     "links",
     "ambientSignals",
 }
+
+
+def _fold(name: str) -> str:
+    return "".join(
+        ch for ch in unicodedata.normalize("NFKD", name) if not unicodedata.combining(ch)
+    ).casefold()
+
+
+def assert_region_ordering(regions: list[dict]) -> None:
+    """Country first, then states in accent-folded name order."""
+    assert regions, "no regions in payload"
+    assert regions[0]["kind"] == "country"
+    assert all(r["kind"] == "state" for r in regions[1:])
+    state_names = [_fold(r["name"]) for r in regions[1:]]
+    assert state_names == sorted(state_names)
 
 
 def _raw_source() -> tuple[dict[str, dict], dict]:
@@ -55,7 +72,9 @@ def test_envelope_shape(payload: dict) -> None:
 
 
 def test_region_ordering(payload: dict) -> None:
-    assert [r["id"] for r in payload["regions"]] == EXPECTED_REGION_ORDER
+    assert_region_ordering(payload["regions"])
+    regions_by_id, _ = _raw_source()
+    assert {r["id"] for r in payload["regions"]} == set(regions_by_id)
 
 
 def test_parity_with_source_json(payload: dict) -> None:

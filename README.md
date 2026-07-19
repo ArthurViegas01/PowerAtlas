@@ -67,6 +67,7 @@ pnpm install
 pnpm dev        # Vite dev server on http://localhost:5173
 pnpm build      # vue-tsc type-check + production build
 pnpm preview    # serve the production build on http://localhost:4173
+pnpm test       # vitest (stores + composables)
 pnpm geo        # re-fetch + simplify IBGE boundaries (needs network)
 ```
 
@@ -116,8 +117,9 @@ region's ranking panel (any UF sigla or `BR`).
    console errors.
 3. Click São Paulo: scan effect fires, both ranking columns stagger in,
    counters tween, confidence badges and source tags render.
-4. Click a state without data (e.g. MG): graceful "sem dados" panel, no
-   crash.
+4. Click any state (all 27 UFs now carry a fictional ranking): both columns
+   render; drafts show as "EM REVISÃO". The "sem dados" panel remains the
+   graceful fallback for a region that has no entry at all.
 5. Emulate `prefers-reduced-motion: reduce`: stagger/scan/scanline disabled.
 6. `pnpm preview`: click-through matches dev (catches `public/geo`
    asset-path issues).

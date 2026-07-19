@@ -1,0 +1,143 @@
+{
+  "id": "DF",
+  "name": "Distrito Federal",
+  "kind": "state",
+  "capital": {
+    "name": "Brasília",
+    "coordinates": [
+      -47.883,
+      -15.794
+    ]
+  },
+  "updatedAt": "2026-06-14T09:30:00Z",
+  "official": [
+    {
+      "id": "df-off-executivo",
+      "name": "Chefia do Executivo Estadual",
+      "kind": "office",
+      "dimension": "official",
+      "score": 62,
+      "delta": 2,
+      "confidence": "high",
+      "status": "published",
+      "sources": [
+        {
+          "id": "src-matriz-01",
+          "label": "Matriz institucional simulada",
+          "note": "Fonte fictícia — pesos de placeholder para desenvolvimento de UI."
+        }
+      ],
+      "note": "Cargo constitucional genérico — não se refere a nenhum ocupante."
+    },
+    {
+      "id": "df-off-legislativo",
+      "name": "Assembleia Legislativa (colegiado)",
+      "kind": "office",
+      "dimension": "official",
+      "score": 51,
+      "delta": -2,
+      "confidence": "high",
+      "status": "published",
+      "sources": [
+        {
+          "id": "src-matriz-01",
+          "label": "Matriz institucional simulada",
+          "note": "Fonte fictícia — pesos de placeholder para desenvolvimento de UI."
+        }
+      ],
+      "note": "Instituição constitucional genérica — não se refere a composição real."
+    },
+    {
+      "id": "df-off-judiciario",
+      "name": "Cúpula do Judiciário Estadual",
+      "kind": "office",
+      "dimension": "official",
+      "score": 55,
+      "delta": -1,
+      "confidence": "medium",
+      "status": "published",
+      "sources": [
+        {
+          "id": "src-matriz-01",
+          "label": "Matriz institucional simulada",
+          "note": "Fonte fictícia — pesos de placeholder para desenvolvimento de UI."
+        }
+      ],
+      "note": "Órgão constitucional genérico — sem referência a integrantes reais."
+    }
+  ],
+  "hidden": [
+    {
+      "id": "df-hid-qui",
+      "name": "Rede Qui",
+      "kind": "organization",
+      "dimension": "hidden",
+      "score": 51,
+      "delta": -2,
+      "confidence": "high",
+      "status": "draft",
+      "sources": [
+        {
+          "id": "src-dossie-616",
+          "label": "Dossiê sintético 617",
+          "note": "Fonte fictícia para desenvolvimento."
+        }
+      ],
+      "note": "Entidade fictícia — placeholder para desenvolvimento de UI."
+    },
+    {
+      "id": "df-hid-mi",
+      "name": "Facção Mi",
+      "kind": "faction",
+      "dimension": "hidden",
+      "score": 74,
+      "delta": 1,
+      "confidence": "medium",
+      "status": "published",
+      "sources": [
+        {
+          "id": "src-dossie-617",
+          "label": "Dossiê sintético 618",
+          "note": "Fonte fictícia para desenvolvimento."
+        }
+      ],
+      "note": "Entidade fictícia — placeholder para desenvolvimento de UI."
+    },
+    {
+      "id": "df-hid-psi",
+      "name": "Instituição Psi",
+      "kind": "institution",
+      "dimension": "hidden",
+      "score": 49,
+      "delta": -2,
+      "confidence": "high",
+      "status": "published",
+      "sources": [
+        {
+          "id": "src-dossie-618",
+          "label": "Dossiê sintético 619",
+          "note": "Fonte fictícia para desenvolvimento."
+        }
+      ],
+      "note": "Entidade fictícia — placeholder para desenvolvimento de UI."
+    },
+    {
+      "id": "df-hid-tau",
+      "name": "Facção Tau",
+      "kind": "faction",
+      "dimension": "hidden",
+      "score": 51,
+      "delta": 1,
+      "confidence": "low",
+      "status": "published",
+      "sources": [
+        {
+          "id": "src-dossie-619",
+          "label": "Dossiê sintético 620",
+          "note": "Fonte fictícia para desenvolvimento."
+        }
+      ],
+      "note": "Entidade fictícia — placeholder para desenvolvimento de UI."
+    }
+  ]
+}
