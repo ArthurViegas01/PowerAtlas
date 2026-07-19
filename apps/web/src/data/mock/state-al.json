@@ -1,0 +1,143 @@
+{
+  "id": "AL",
+  "name": "Alagoas",
+  "kind": "state",
+  "capital": {
+    "name": "Maceió",
+    "coordinates": [
+      -35.735,
+      -9.665
+    ]
+  },
+  "updatedAt": "2026-06-11T09:30:00Z",
+  "official": [
+    {
+      "id": "al-off-executivo",
+      "name": "Chefia do Executivo Estadual",
+      "kind": "office",
+      "dimension": "official",
+      "score": 48,
+      "delta": -1,
+      "confidence": "high",
+      "status": "published",
+      "sources": [
+        {
+          "id": "src-matriz-01",
+          "label": "Matriz institucional simulada",
+          "note": "Fonte fictícia — pesos de placeholder para desenvolvimento de UI."
+        }
+      ],
+      "note": "Cargo constitucional genérico — não se refere a nenhum ocupante."
+    },
+    {
+      "id": "al-off-legislativo",
+      "name": "Assembleia Legislativa (colegiado)",
+      "kind": "office",
+      "dimension": "official",
+      "score": 43,
+      "delta": 0,
+      "confidence": "high",
+      "status": "published",
+      "sources": [
+        {
+          "id": "src-matriz-01",
+          "label": "Matriz institucional simulada",
+          "note": "Fonte fictícia — pesos de placeholder para desenvolvimento de UI."
+        }
+      ],
+      "note": "Instituição constitucional genérica — não se refere a composição real."
+    },
+    {
+      "id": "al-off-judiciario",
+      "name": "Cúpula do Judiciário Estadual",
+      "kind": "office",
+      "dimension": "official",
+      "score": 53,
+      "delta": -1,
+      "confidence": "medium",
+      "status": "published",
+      "sources": [
+        {
+          "id": "src-matriz-01",
+          "label": "Matriz institucional simulada",
+          "note": "Fonte fictícia — pesos de placeholder para desenvolvimento de UI."
+        }
+      ],
+      "note": "Órgão constitucional genérico — sem referência a integrantes reais."
+    }
+  ],
+  "hidden": [
+    {
+      "id": "al-hid-tau",
+      "name": "Instituição Tau",
+      "kind": "institution",
+      "dimension": "hidden",
+      "score": 61,
+      "delta": 0,
+      "confidence": "low",
+      "status": "published",
+      "sources": [
+        {
+          "id": "src-dossie-603",
+          "label": "Dossiê sintético 604",
+          "note": "Fonte fictícia para desenvolvimento."
+        }
+      ],
+      "note": "Entidade fictícia — placeholder para desenvolvimento de UI."
+    },
+    {
+      "id": "al-hid-omicron",
+      "name": "Facção Ômicron",
+      "kind": "faction",
+      "dimension": "hidden",
+      "score": 62,
+      "delta": -3,
+      "confidence": "low",
+      "status": "published",
+      "sources": [
+        {
+          "id": "src-dossie-604",
+          "label": "Dossiê sintético 605",
+          "note": "Fonte fictícia para desenvolvimento."
+        }
+      ],
+      "note": "Entidade fictícia — placeholder para desenvolvimento de UI."
+    },
+    {
+      "id": "al-hid-sigma",
+      "name": "Facção Sigma",
+      "kind": "faction",
+      "dimension": "hidden",
+      "score": 67,
+      "delta": -1,
+      "confidence": "low",
+      "status": "published",
+      "sources": [
+        {
+          "id": "src-dossie-605",
+          "label": "Dossiê sintético 606",
+          "note": "Fonte fictícia para desenvolvimento."
+        }
+      ],
+      "note": "Entidade fictícia — placeholder para desenvolvimento de UI."
+    },
+    {
+      "id": "al-hid-delta",
+      "name": "Movimento Delta",
+      "kind": "movement",
+      "dimension": "hidden",
+      "score": 52,
+      "delta": -3,
+      "confidence": "high",
+      "status": "published",
+      "sources": [
+        {
+          "id": "src-dossie-606",
+          "label": "Dossiê sintético 607",
+          "note": "Fonte fictícia para desenvolvimento."
+        }
+      ],
+      "note": "Entidade fictícia — placeholder para desenvolvimento de UI."
+    }
+  ]
+}

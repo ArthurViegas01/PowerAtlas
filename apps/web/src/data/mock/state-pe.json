@@ -1,0 +1,125 @@
+{
+  "id": "PE",
+  "name": "Pernambuco",
+  "kind": "state",
+  "capital": {
+    "name": "Recife",
+    "coordinates": [
+      -34.881,
+      -8.054
+    ]
+  },
+  "updatedAt": "2026-06-24T09:30:00Z",
+  "official": [
+    {
+      "id": "pe-off-executivo",
+      "name": "Chefia do Executivo Estadual",
+      "kind": "office",
+      "dimension": "official",
+      "score": 51,
+      "delta": 2,
+      "confidence": "medium",
+      "status": "published",
+      "sources": [
+        {
+          "id": "src-matriz-01",
+          "label": "Matriz institucional simulada",
+          "note": "Fonte fictícia — pesos de placeholder para desenvolvimento de UI."
+        }
+      ],
+      "note": "Cargo constitucional genérico — não se refere a nenhum ocupante."
+    },
+    {
+      "id": "pe-off-legislativo",
+      "name": "Assembleia Legislativa (colegiado)",
+      "kind": "office",
+      "dimension": "official",
+      "score": 60,
+      "delta": -1,
+      "confidence": "high",
+      "status": "published",
+      "sources": [
+        {
+          "id": "src-matriz-01",
+          "label": "Matriz institucional simulada",
+          "note": "Fonte fictícia — pesos de placeholder para desenvolvimento de UI."
+        }
+      ],
+      "note": "Instituição constitucional genérica — não se refere a composição real."
+    },
+    {
+      "id": "pe-off-judiciario",
+      "name": "Cúpula do Judiciário Estadual",
+      "kind": "office",
+      "dimension": "official",
+      "score": 58,
+      "delta": 2,
+      "confidence": "medium",
+      "status": "published",
+      "sources": [
+        {
+          "id": "src-matriz-01",
+          "label": "Matriz institucional simulada",
+          "note": "Fonte fictícia — pesos de placeholder para desenvolvimento de UI."
+        }
+      ],
+      "note": "Órgão constitucional genérico — sem referência a integrantes reais."
+    }
+  ],
+  "hidden": [
+    {
+      "id": "pe-hid-eta",
+      "name": "Facção Eta",
+      "kind": "faction",
+      "dimension": "hidden",
+      "score": 67,
+      "delta": -3,
+      "confidence": "low",
+      "status": "published",
+      "sources": [
+        {
+          "id": "src-dossie-658",
+          "label": "Dossiê sintético 659",
+          "note": "Fonte fictícia para desenvolvimento."
+        }
+      ],
+      "note": "Entidade fictícia — placeholder para desenvolvimento de UI."
+    },
+    {
+      "id": "pe-hid-sigma",
+      "name": "Movimento Sigma",
+      "kind": "movement",
+      "dimension": "hidden",
+      "score": 46,
+      "delta": 1,
+      "confidence": "high",
+      "status": "published",
+      "sources": [
+        {
+          "id": "src-dossie-659",
+          "label": "Dossiê sintético 660",
+          "note": "Fonte fictícia para desenvolvimento."
+        }
+      ],
+      "note": "Entidade fictícia — placeholder para desenvolvimento de UI."
+    },
+    {
+      "id": "pe-hid-fi",
+      "name": "Bloco Econômico Fi",
+      "kind": "economic-bloc",
+      "dimension": "hidden",
+      "score": 60,
+      "delta": 0,
+      "confidence": "low",
+      "status": "published",
+      "sources": [
+        {
+          "id": "src-dossie-660",
+          "label": "Dossiê sintético 661",
+          "note": "Fonte fictícia para desenvolvimento."
+        }
+      ],
+      "note": "Entidade fictícia — placeholder para desenvolvimento de UI."
+    }
+  ]
+}

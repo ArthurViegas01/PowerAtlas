@@ -1,0 +1,161 @@
+{
+  "id": "PB",
+  "name": "Paraíba",
+  "kind": "state",
+  "capital": {
+    "name": "João Pessoa",
+    "coordinates": [
+      -34.861,
+      -7.115
+    ]
+  },
+  "updatedAt": "2026-06-22T09:30:00Z",
+  "official": [
+    {
+      "id": "pb-off-executivo",
+      "name": "Chefia do Executivo Estadual",
+      "kind": "office",
+      "dimension": "official",
+      "score": 65,
+      "delta": 1,
+      "confidence": "high",
+      "status": "published",
+      "sources": [
+        {
+          "id": "src-matriz-01",
+          "label": "Matriz institucional simulada",
+          "note": "Fonte fictícia — pesos de placeholder para desenvolvimento de UI."
+        }
+      ],
+      "note": "Cargo constitucional genérico — não se refere a nenhum ocupante."
+    },
+    {
+      "id": "pb-off-legislativo",
+      "name": "Assembleia Legislativa (colegiado)",
+      "kind": "office",
+      "dimension": "official",
+      "score": 54,
+      "delta": 2,
+      "confidence": "medium",
+      "status": "published",
+      "sources": [
+        {
+          "id": "src-matriz-01",
+          "label": "Matriz institucional simulada",
+          "note": "Fonte fictícia — pesos de placeholder para desenvolvimento de UI."
+        }
+      ],
+      "note": "Instituição constitucional genérica — não se refere a composição real."
+    },
+    {
+      "id": "pb-off-judiciario",
+      "name": "Cúpula do Judiciário Estadual",
+      "kind": "office",
+      "dimension": "official",
+      "score": 37,
+      "delta": 1,
+      "confidence": "medium",
+      "status": "published",
+      "sources": [
+        {
+          "id": "src-matriz-01",
+          "label": "Matriz institucional simulada",
+          "note": "Fonte fictícia — pesos de placeholder para desenvolvimento de UI."
+        }
+      ],
+      "note": "Órgão constitucional genérico — sem referência a integrantes reais."
+    }
+  ],
+  "hidden": [
+    {
+      "id": "pb-hid-psi",
+      "name": "Movimento Psi",
+      "kind": "movement",
+      "dimension": "hidden",
+      "score": 48,
+      "delta": -3,
+      "confidence": "medium",
+      "status": "published",
+      "sources": [
+        {
+          "id": "src-dossie-648",
+          "label": "Dossiê sintético 649",
+          "note": "Fonte fictícia para desenvolvimento."
+        }
+      ],
+      "note": "Entidade fictícia — placeholder para desenvolvimento de UI."
+    },
+    {
+      "id": "pb-hid-iota",
+      "name": "Rede Iota",
+      "kind": "organization",
+      "dimension": "hidden",
+      "score": 66,
+      "delta": -1,
+      "confidence": "medium",
+      "status": "draft",
+      "sources": [
+        {
+          "id": "src-dossie-649",
+          "label": "Dossiê sintético 650",
+          "note": "Fonte fictícia para desenvolvimento."
+        }
+      ],
+      "note": "Entidade fictícia — placeholder para desenvolvimento de UI."
+    },
+    {
+      "id": "pb-hid-omicron",
+      "name": "Instituição Ômicron",
+      "kind": "institution",
+      "dimension": "hidden",
+      "score": 59,
+      "delta": -2,
+      "confidence": "low",
+      "status": "published",
+      "sources": [
+        {
+          "id": "src-dossie-650",
+          "label": "Dossiê sintético 651",
+          "note": "Fonte fictícia para desenvolvimento."
+        }
+      ],
+      "note": "Entidade fictícia — placeholder para desenvolvimento de UI."
+    },
+    {
+      "id": "pb-hid-sigma",
+      "name": "Movimento Sigma",
+      "kind": "movement",
+      "dimension": "hidden",
+      "score": 50,
+      "delta": 1,
+      "confidence": "high",
+      "status": "draft",
+      "sources": [
+        {
+          "id": "src-dossie-651",
+          "label": "Dossiê sintético 652",
+          "note": "Fonte fictícia para desenvolvimento."
+        }
+      ],
+      "note": "Entidade fictícia — placeholder para desenvolvimento de UI."
+    },
+    {
+      "id": "pb-hid-ni",
+      "name": "Instituição Ni",
+      "kind": "institution",
+      "dimension": "hidden",
+      "score": 37,
+      "delta": -1,
+      "confidence": "high",
+      "status": "published",
+      "sources": [
+        {
+          "id": "src-dossie-652",
+          "label": "Dossiê sintético 653",
+          "note": "Fonte fictícia para desenvolvimento."
+        }
+      ],
+      "note": "Entidade fictícia — placeholder para desenvolvimento de UI."
+    }
+  ]
+}

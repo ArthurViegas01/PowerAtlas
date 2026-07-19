@@ -1,0 +1,143 @@
+{
+  "id": "RS",
+  "name": "Rio Grande do Sul",
+  "kind": "state",
+  "capital": {
+    "name": "Porto Alegre",
+    "coordinates": [
+      -51.23,
+      -30.033
+    ]
+  },
+  "updatedAt": "2026-06-27T09:30:00Z",
+  "official": [
+    {
+      "id": "rs-off-executivo",
+      "name": "Chefia do Executivo Estadual",
+      "kind": "office",
+      "dimension": "official",
+      "score": 49,
+      "delta": 1,
+      "confidence": "high",
+      "status": "published",
+      "sources": [
+        {
+          "id": "src-matriz-01",
+          "label": "Matriz institucional simulada",
+          "note": "Fonte fictícia — pesos de placeholder para desenvolvimento de UI."
+        }
+      ],
+      "note": "Cargo constitucional genérico — não se refere a nenhum ocupante."
+    },
+    {
+      "id": "rs-off-legislativo",
+      "name": "Assembleia Legislativa (colegiado)",
+      "kind": "office",
+      "dimension": "official",
+      "score": 43,
+      "delta": 0,
+      "confidence": "high",
+      "status": "published",
+      "sources": [
+        {
+          "id": "src-matriz-01",
+          "label": "Matriz institucional simulada",
+          "note": "Fonte fictícia — pesos de placeholder para desenvolvimento de UI."
+        }
+      ],
+      "note": "Instituição constitucional genérica — não se refere a composição real."
+    },
+    {
+      "id": "rs-off-judiciario",
+      "name": "Cúpula do Judiciário Estadual",
+      "kind": "office",
+      "dimension": "official",
+      "score": 54,
+      "delta": 1,
+      "confidence": "medium",
+      "status": "published",
+      "sources": [
+        {
+          "id": "src-matriz-01",
+          "label": "Matriz institucional simulada",
+          "note": "Fonte fictícia — pesos de placeholder para desenvolvimento de UI."
+        }
+      ],
+      "note": "Órgão constitucional genérico — sem referência a integrantes reais."
+    }
+  ],
+  "hidden": [
+    {
+      "id": "rs-hid-ro",
+      "name": "Facção Rô",
+      "kind": "faction",
+      "dimension": "hidden",
+      "score": 55,
+      "delta": 1,
+      "confidence": "low",
+      "status": "published",
+      "sources": [
+        {
+          "id": "src-dossie-670",
+          "label": "Dossiê sintético 671",
+          "note": "Fonte fictícia para desenvolvimento."
+        }
+      ],
+      "note": "Entidade fictícia — placeholder para desenvolvimento de UI."
+    },
+    {
+      "id": "rs-hid-epsilon",
+      "name": "Bloco Econômico Épsilon",
+      "kind": "economic-bloc",
+      "dimension": "hidden",
+      "score": 56,
+      "delta": 4,
+      "confidence": "low",
+      "status": "published",
+      "sources": [
+        {
+          "id": "src-dossie-671",
+          "label": "Dossiê sintético 672",
+          "note": "Fonte fictícia para desenvolvimento."
+        }
+      ],
+      "note": "Entidade fictícia — placeholder para desenvolvimento de UI."
+    },
+    {
+      "id": "rs-hid-iota",
+      "name": "Bloco Econômico Iota",
+      "kind": "economic-bloc",
+      "dimension": "hidden",
+      "score": 64,
+      "delta": 4,
+      "confidence": "high",
+      "status": "published",
+      "sources": [
+        {
+          "id": "src-dossie-672",
+          "label": "Dossiê sintético 673",
+          "note": "Fonte fictícia para desenvolvimento."
+        }
+      ],
+      "note": "Entidade fictícia — placeholder para desenvolvimento de UI."
+    },
+    {
+      "id": "rs-hid-alfa",
+      "name": "Bloco Econômico Alfa",
+      "kind": "economic-bloc",
+      "dimension": "hidden",
+      "score": 53,
+      "delta": -3,
+      "confidence": "medium",
+      "status": "published",
+      "sources": [
+        {
+          "id": "src-dossie-673",
+          "label": "Dossiê sintético 674",
+          "note": "Fonte fictícia para desenvolvimento."
+        }
+      ],
+      "note": "Entidade fictícia — placeholder para desenvolvimento de UI."
+    }
+  ]
+}
