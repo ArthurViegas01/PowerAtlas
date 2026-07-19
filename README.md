@@ -34,7 +34,7 @@ its mock loader for the API when `VITE_API_URL` is set and stays fully
 offline on the bundled mock otherwise. Details:
 [apps/api/README.md](apps/api/README.md).
 
-**F4 — Postgres + PostGIS persistence: shipped.** SQL migrations in
+**F4 — Postgres + PostGIS persistence: shipped (v0.5.0).** SQL migrations in
 `db/migrations`, PostGIS point geometries for capitals and ambient signals,
 a seed from the fictional dataset, and the API reading from the database via
 raw asyncpg (`docker compose up postgres`). The payload is byte-identical
