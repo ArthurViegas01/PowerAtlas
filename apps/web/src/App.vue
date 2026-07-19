@@ -5,6 +5,7 @@ import HudFrame from '@/components/hud/HudFrame.vue'
 import HudHeader from '@/components/hud/HudHeader.vue'
 import HudPanel from '@/components/hud/HudPanel.vue'
 import ScanlineOverlay from '@/components/hud/ScanlineOverlay.vue'
+import MapCompass from '@/components/map/MapCompass.vue'
 import MapLegend from '@/components/map/MapLegend.vue'
 import MapScanEffect from '@/components/map/MapScanEffect.vue'
 import MapView from '@/components/map/MapView.vue'
@@ -146,6 +147,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
     </transition>
 
     <MapLegend />
+    <MapCompass />
 
     <footer class="disclaimer pa-data" role="note">
       ⚠ {{ rankings.disclaimer || 'PROTÓTIPO · DADOS SIMULADOS · ENTIDADES FICTÍCIAS' }}
