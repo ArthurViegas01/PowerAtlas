@@ -48,3 +48,20 @@ stays fully offline on the bundled mock.
 
 CORS defaults to the Vite dev (5173) and preview (4173) origins on both
 `localhost` and `127.0.0.1`; override with `PA_CORS_ALLOWED_ORIGINS`.
+
+## Database (F4)
+
+The API reads from PostgreSQL + PostGIS when `PA_DATABASE_URL` is set, and from
+the bundled mock JSON otherwise. The payload is byte-identical either way; the
+access layer is raw asyncpg (no ORM). From the repository root:
+
+```sh
+pnpm db-up        # start PostGIS (docker compose)
+pnpm db-migrate   # apply db/migrations/*.sql (tracked in schema_migrations)
+pnpm db-seed      # load apps/api/src/data/mock into the database
+pnpm api-dev-db   # uvicorn against the database
+```
+
+`GET /health` reports `"database": true/false`. DB-backed tests are opt-in
+(`pytest -m integration`) and need a migrated + seeded database. Migration and
+seed scripts live in `scripts/`; the schema lives in `db/migrations`.

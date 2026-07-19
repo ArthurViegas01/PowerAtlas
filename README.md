@@ -31,12 +31,18 @@ of the cinematic cameras) plus static deploy on Netlify (`netlify.toml`).
 **F3 — read-only FastAPI backend: shipped (v0.4.0).** `apps/api` serves the exact
 `power-entity` contract over HTTP (`GET /api/v1/power-data`); the web swaps
 its mock loader for the API when `VITE_API_URL` is set and stays fully
-offline on the bundled mock otherwise. No database or auth yet (those are
-F4+). Details: [apps/api/README.md](apps/api/README.md).
+offline on the bundled mock otherwise. Details:
+[apps/api/README.md](apps/api/README.md).
+
+**F4 — Postgres + PostGIS persistence: shipped.** SQL migrations in
+`db/migrations`, PostGIS point geometries for capitals and ambient signals,
+a seed from the fictional dataset, and the API reading from the database via
+raw asyncpg (`docker compose up postgres`). The payload is byte-identical
+whether served from the DB or the mock. No auth or writes yet.
 
 Deviations from the original plans: [ARCHITECTURE.md](ARCHITECTURE.md) §3
-and [docs/data-sources.md](docs/data-sources.md). Next phases (PostGIS,
-scoring pipeline, review workflow): ARCHITECTURE.md §6.
+and [docs/data-sources.md](docs/data-sources.md). Next phases (scoring
+pipeline, review workflow): ARCHITECTURE.md §6.
 
 ## Stack (Phase 1)
 
@@ -67,15 +73,22 @@ pnpm geo        # re-fetch + simplify IBGE boundaries (needs network)
 Equivalent `make web-*` targets exist in the Makefile for machines with GNU
 make installed.
 
-### API (F3)
+### API (F3/F4)
 
-Requires Python >= 3.11. From the repository root:
+Requires Python >= 3.11 (and Docker for the F4 database). From the repository
+root:
 
 ```sh
 pnpm api-install    # create apps/api/.venv and install deps
-pnpm api-dev        # uvicorn --reload on http://localhost:8000
-pnpm api-test       # pytest
+pnpm api-dev        # uvicorn --reload on http://localhost:8000 (mock mode)
+pnpm api-test       # pytest (DB tests are opt-in: -m integration)
 pnpm api-lint       # ruff + mypy
+
+# F4 database (PostGIS via Docker):
+pnpm db-up          # start postgres
+pnpm db-migrate     # apply SQL migrations
+pnpm db-seed        # seed from the fictional dataset
+pnpm api-dev-db     # uvicorn against the database
 ```
 
 Point the web at it with `VITE_API_URL=http://localhost:8000`
@@ -115,8 +128,8 @@ region's ranking panel (any UF sigla or `BR`).
 
 ```
 apps/web/            Phase 1 frontend (Vite + Vue 3 + TS)
-apps/api/            F3 backend — read-only FastAPI (power-data endpoint)
-db/migrations/       Phase 2 stub — Postgres/PostGIS (not started)
+apps/api/            F3/F4 backend — FastAPI over PostGIS (power-data endpoint)
+db/migrations/       F4 — Postgres/PostGIS SQL migrations + seed
 infra/               deferred — Terraform (not started)
 docs/data-sources.md boundary data provenance
 ARCHITECTURE.md      topology, decisions, deviations, deferred work
