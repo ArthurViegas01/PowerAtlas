@@ -1,0 +1,143 @@
+{
+  "id": "AP",
+  "name": "Amapá",
+  "kind": "state",
+  "capital": {
+    "name": "Macapá",
+    "coordinates": [
+      -51.07,
+      0.034
+    ]
+  },
+  "updatedAt": "2026-06-12T09:30:00Z",
+  "official": [
+    {
+      "id": "ap-off-executivo",
+      "name": "Chefia do Executivo Estadual",
+      "kind": "office",
+      "dimension": "official",
+      "score": 60,
+      "delta": 1,
+      "confidence": "medium",
+      "status": "published",
+      "sources": [
+        {
+          "id": "src-matriz-01",
+          "label": "Matriz institucional simulada",
+          "note": "Fonte fictícia — pesos de placeholder para desenvolvimento de UI."
+        }
+      ],
+      "note": "Cargo constitucional genérico — não se refere a nenhum ocupante."
+    },
+    {
+      "id": "ap-off-legislativo",
+      "name": "Assembleia Legislativa (colegiado)",
+      "kind": "office",
+      "dimension": "official",
+      "score": 62,
+      "delta": -2,
+      "confidence": "medium",
+      "status": "published",
+      "sources": [
+        {
+          "id": "src-matriz-01",
+          "label": "Matriz institucional simulada",
+          "note": "Fonte fictícia — pesos de placeholder para desenvolvimento de UI."
+        }
+      ],
+      "note": "Instituição constitucional genérica — não se refere a composição real."
+    },
+    {
+      "id": "ap-off-judiciario",
+      "name": "Cúpula do Judiciário Estadual",
+      "kind": "office",
+      "dimension": "official",
+      "score": 52,
+      "delta": 1,
+      "confidence": "medium",
+      "status": "published",
+      "sources": [
+        {
+          "id": "src-matriz-01",
+          "label": "Matriz institucional simulada",
+          "note": "Fonte fictícia — pesos de placeholder para desenvolvimento de UI."
+        }
+      ],
+      "note": "Órgão constitucional genérico — sem referência a integrantes reais."
+    }
+  ],
+  "hidden": [
+    {
+      "id": "ap-hid-beta",
+      "name": "Instituição Beta",
+      "kind": "institution",
+      "dimension": "hidden",
+      "score": 75,
+      "delta": 1,
+      "confidence": "high",
+      "status": "published",
+      "sources": [
+        {
+          "id": "src-dossie-607",
+          "label": "Dossiê sintético 608",
+          "note": "Fonte fictícia para desenvolvimento."
+        }
+      ],
+      "note": "Entidade fictícia — placeholder para desenvolvimento de UI."
+    },
+    {
+      "id": "ap-hid-fi",
+      "name": "Rede Fi",
+      "kind": "organization",
+      "dimension": "hidden",
+      "score": 54,
+      "delta": -3,
+      "confidence": "medium",
+      "status": "published",
+      "sources": [
+        {
+          "id": "src-dossie-608",
+          "label": "Dossiê sintético 609",
+          "note": "Fonte fictícia para desenvolvimento."
+        }
+      ],
+      "note": "Entidade fictícia — placeholder para desenvolvimento de UI."
+    },
+    {
+      "id": "ap-hid-zeta",
+      "name": "Movimento Zeta",
+      "kind": "movement",
+      "dimension": "hidden",
+      "score": 63,
+      "delta": -1,
+      "confidence": "high",
+      "status": "draft",
+      "sources": [
+        {
+          "id": "src-dossie-609",
+          "label": "Dossiê sintético 610",
+          "note": "Fonte fictícia para desenvolvimento."
+        }
+      ],
+      "note": "Entidade fictícia — placeholder para desenvolvimento de UI."
+    },
+    {
+      "id": "ap-hid-eta",
+      "name": "Bloco Econômico Eta",
+      "kind": "economic-bloc",
+      "dimension": "hidden",
+      "score": 48,
+      "delta": -2,
+      "confidence": "medium",
+      "status": "draft",
+      "sources": [
+        {
+          "id": "src-dossie-610",
+          "label": "Dossiê sintético 611",
+          "note": "Fonte fictícia para desenvolvimento."
+        }
+      ],
+      "note": "Entidade fictícia — placeholder para desenvolvimento de UI."
+    }
+  ]
+}

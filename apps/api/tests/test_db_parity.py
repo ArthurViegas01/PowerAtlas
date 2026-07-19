@@ -16,8 +16,8 @@ from src.main import create_app
 from tests.test_power_data_contract import (
     ENVELOPE_KEYS,
     EXPECTED_DISCLAIMER,
-    EXPECTED_REGION_ORDER,
     _raw_source,
+    assert_region_ordering,
 )
 
 pytestmark = pytest.mark.integration
@@ -43,7 +43,7 @@ def test_db_envelope_and_order(db_payload: dict) -> None:
     assert db_payload["schemaVersion"] == 1
     assert db_payload["disclaimer"] == EXPECTED_DISCLAIMER
     assert db_payload["generatedAt"].endswith("Z")
-    assert [r["id"] for r in db_payload["regions"]] == EXPECTED_REGION_ORDER
+    assert_region_ordering(db_payload["regions"])
 
 
 def test_db_parity_with_source_json(db_payload: dict) -> None:

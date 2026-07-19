@@ -1,0 +1,125 @@
+{
+  "id": "MT",
+  "name": "Mato Grosso",
+  "kind": "state",
+  "capital": {
+    "name": "Cuiabá",
+    "coordinates": [
+      -56.097,
+      -15.601
+    ]
+  },
+  "updatedAt": "2026-06-18T09:30:00Z",
+  "official": [
+    {
+      "id": "mt-off-executivo",
+      "name": "Chefia do Executivo Estadual",
+      "kind": "office",
+      "dimension": "official",
+      "score": 56,
+      "delta": 2,
+      "confidence": "high",
+      "status": "published",
+      "sources": [
+        {
+          "id": "src-matriz-01",
+          "label": "Matriz institucional simulada",
+          "note": "Fonte fictícia — pesos de placeholder para desenvolvimento de UI."
+        }
+      ],
+      "note": "Cargo constitucional genérico — não se refere a nenhum ocupante."
+    },
+    {
+      "id": "mt-off-legislativo",
+      "name": "Assembleia Legislativa (colegiado)",
+      "kind": "office",
+      "dimension": "official",
+      "score": 47,
+      "delta": -2,
+      "confidence": "high",
+      "status": "published",
+      "sources": [
+        {
+          "id": "src-matriz-01",
+          "label": "Matriz institucional simulada",
+          "note": "Fonte fictícia — pesos de placeholder para desenvolvimento de UI."
+        }
+      ],
+      "note": "Instituição constitucional genérica — não se refere a composição real."
+    },
+    {
+      "id": "mt-off-judiciario",
+      "name": "Cúpula do Judiciário Estadual",
+      "kind": "office",
+      "dimension": "official",
+      "score": 53,
+      "delta": 0,
+      "confidence": "medium",
+      "status": "published",
+      "sources": [
+        {
+          "id": "src-matriz-01",
+          "label": "Matriz institucional simulada",
+          "note": "Fonte fictícia — pesos de placeholder para desenvolvimento de UI."
+        }
+      ],
+      "note": "Órgão constitucional genérico — sem referência a integrantes reais."
+    }
+  ],
+  "hidden": [
+    {
+      "id": "mt-hid-beta",
+      "name": "Rede Beta",
+      "kind": "organization",
+      "dimension": "hidden",
+      "score": 50,
+      "delta": -1,
+      "confidence": "high",
+      "status": "published",
+      "sources": [
+        {
+          "id": "src-dossie-633",
+          "label": "Dossiê sintético 634",
+          "note": "Fonte fictícia para desenvolvimento."
+        }
+      ],
+      "note": "Entidade fictícia — placeholder para desenvolvimento de UI."
+    },
+    {
+      "id": "mt-hid-iota",
+      "name": "Rede Iota",
+      "kind": "organization",
+      "dimension": "hidden",
+      "score": 60,
+      "delta": -1,
+      "confidence": "low",
+      "status": "draft",
+      "sources": [
+        {
+          "id": "src-dossie-634",
+          "label": "Dossiê sintético 635",
+          "note": "Fonte fictícia para desenvolvimento."
+        }
+      ],
+      "note": "Entidade fictícia — placeholder para desenvolvimento de UI."
+    },
+    {
+      "id": "mt-hid-sigma",
+      "name": "Rede Sigma",
+      "kind": "organization",
+      "dimension": "hidden",
+      "score": 45,
+      "delta": 3,
+      "confidence": "medium",
+      "status": "published",
+      "sources": [
+        {
+          "id": "src-dossie-635",
+          "label": "Dossiê sintético 636",
+          "note": "Fonte fictícia para desenvolvimento."
+        }
+      ],
+      "note": "Entidade fictícia — placeholder para desenvolvimento de UI."
+    }
+  ]
+}

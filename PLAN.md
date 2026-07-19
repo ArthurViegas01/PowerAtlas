@@ -53,9 +53,15 @@
   `pnpm db-up` · `pnpm db-migrate` · `pnpm db-seed` · `pnpm api-dev-db`
   (`make migrate` encadeia os três). Deep-link de QA: `/?region=SP`
   (qualquer UF ou BR); com API: `VITE_API_URL=http://localhost:8000 pnpm dev`.
-- **Pendências conhecidas da trilha frontend**: bundle único ~2 MB
-  (code-splitting), mock cobre só BR + 5 UFs, sem testes automatizados no
-  web, toggle de `prefers-reduced-motion` nunca exercitado de ponta a ponta.
+- **Trilha frontend (pós-v0.5.0, 2026-07-19)**: code-splitting do bundle
+  (manualChunks para maplibre/deck/gsap; shell do app de ~2 MB para ~104 kB);
+  mock dos **27 UFs** (todos abrem ranking, padrão fictício grego, algumas
+  entidades em draft); testes **vitest** (14) nos stores e composables
+  (`pnpm test`).
+- **Pendências conhecidas da trilha frontend**: tooltips mais ricos / labels
+  de estados / refino mobile; `prefers-reduced-motion` ainda não exercitado
+  de ponta a ponta na UI real (o gating tem teste unitário, mas falta o
+  item 5 do QA no navegador).
 
 ## 2. Convenções obrigatórias (não pular)
 
@@ -165,11 +171,11 @@ reais nomeadas podem aparecer no produto. Os campos
 
 ### Trilha frontend paralela (intercalável, sem número de fase)
 
-- Mock dos 27 estados (entidades fictícias novas no mesmo padrão).
-- Code-splitting do bundle (~2 MB): manualChunks p/ maplibre e deck.gl.
-- Tooltips mais ricos, labels de estados, refinamento mobile.
-- Testes: vitest nos stores/composables (selection, rankings, counter).
-- Exercitar `prefers-reduced-motion` de ponta a ponta (item 5 do QA).
+- [x] Mock dos 27 estados (entidades fictícias novas no mesmo padrão).
+- [x] Code-splitting do bundle: manualChunks p/ maplibre e deck.gl.
+- [x] Testes: vitest nos stores/composables (selection, rankings, counter).
+- [ ] Tooltips mais ricos, labels de estados, refinamento mobile.
+- [ ] Exercitar `prefers-reduced-motion` de ponta a ponta (item 5 do QA).
 
 ## 4. Verificação padrão de toda fase
 

@@ -40,6 +40,11 @@ a seed from the fictional dataset, and the API reading from the database via
 raw asyncpg (`docker compose up postgres`). The payload is byte-identical
 whether served from the DB or the mock. No auth or writes yet.
 
+**Frontend track: v0.6.0.** Bundle code-splitting (app shell ~104 kB, heavy
+WebGL libs in their own chunks), fictional rankings for all 27 UFs (every
+state opens a panel), and a vitest suite over the Pinia stores and motion
+composables (`pnpm test`).
+
 Deviations from the original plans: [ARCHITECTURE.md](ARCHITECTURE.md) §3
 and [docs/data-sources.md](docs/data-sources.md). Next phases (scoring
 pipeline, review workflow): ARCHITECTURE.md §6.
@@ -67,6 +72,7 @@ pnpm install
 pnpm dev        # Vite dev server on http://localhost:5173
 pnpm build      # vue-tsc type-check + production build
 pnpm preview    # serve the production build on http://localhost:4173
+pnpm test       # vitest (stores + composables)
 pnpm geo        # re-fetch + simplify IBGE boundaries (needs network)
 ```
 
@@ -116,8 +122,9 @@ region's ranking panel (any UF sigla or `BR`).
    console errors.
 3. Click São Paulo: scan effect fires, both ranking columns stagger in,
    counters tween, confidence badges and source tags render.
-4. Click a state without data (e.g. MG): graceful "sem dados" panel, no
-   crash.
+4. Click any state (all 27 UFs now carry a fictional ranking): both columns
+   render; drafts show as "EM REVISÃO". The "sem dados" panel remains the
+   graceful fallback for a region that has no entry at all.
 5. Emulate `prefers-reduced-motion: reduce`: stagger/scan/scanline disabled.
 6. `pnpm preview`: click-through matches dev (catches `public/geo`
    asset-path issues).
