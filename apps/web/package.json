@@ -8,6 +8,8 @@
     "build": "vue-tsc --noEmit && vite build",
     "preview": "vite preview --port 4173 --strictPort",
     "typecheck": "vue-tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "geo": "node scripts/fetch-geo.mjs"
   },
   "dependencies": {
@@ -29,10 +31,12 @@
     "@types/node": "^22.10.0",
     "@vitejs/plugin-vue": "^6.0.0",
     "@vue/tsconfig": "^0.7.0",
+    "jsdom": "^25.0.1",
     "mapshaper": "^0.6.0",
     "tailwindcss": "^4.1.0",
     "typescript": "~5.8.3",
     "vite": "^7.0.0",
+    "vitest": "^3.2.7",
     "vue-tsc": "^2.2.0"
   }
 }
