@@ -1,10 +1,10 @@
 import { defineStore } from 'pinia'
 import { computed, ref, shallowRef } from 'vue'
 
-import { loadRegionPowerData } from '@/services/mockDataLoader'
+import { loadRegionPowerData } from '@/services/dataSource'
 import type { PowerRegion, RegionPowerData } from '@/types/power-entity'
 
-/** Loaded mock dataset (Phase 2: same shape, served by FastAPI). */
+/** Loaded dataset (mock by default, or the FastAPI backend when VITE_API_URL is set). */
 export const useRankingsStore = defineStore('rankings', () => {
   const data = shallowRef<RegionPowerData | null>(null)
   const loading = ref(false)

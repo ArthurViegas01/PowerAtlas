@@ -1,6 +1,7 @@
 # PowerAtlas — common development commands.
 
-.PHONY: help web-install web-dev web-build web-preview web-typecheck geo-refresh
+.PHONY: help web-install web-dev web-build web-preview web-typecheck geo-refresh \
+	api-install api-dev api-test api-lint
 
 help:
 	@echo "PowerAtlas — make targets"
@@ -10,6 +11,10 @@ help:
 	@echo "  make web-preview    Serve the production build (http://localhost:4173)"
 	@echo "  make web-typecheck  Run vue-tsc --noEmit"
 	@echo "  make geo-refresh    Re-fetch + simplify IBGE boundary files"
+	@echo "  make api-install    Create the API venv and install (F3)"
+	@echo "  make api-dev        Start the FastAPI dev server (http://localhost:8000)"
+	@echo "  make api-test       Run the API test suite (pytest)"
+	@echo "  make api-lint       Lint + type-check the API (ruff + mypy)"
 
 web-install:
 	pnpm install
@@ -28,3 +33,15 @@ web-typecheck:
 
 geo-refresh:
 	pnpm --filter @poweratlas/web geo
+
+api-install:
+	cd apps/api && py -m venv .venv && .venv/Scripts/python -m pip install -e ".[dev]"
+
+api-dev:
+	cd apps/api && .venv/Scripts/python -m uvicorn src.main:app --reload --port 8000
+
+api-test:
+	cd apps/api && .venv/Scripts/python -m pytest -q
+
+api-lint:
+	cd apps/api && .venv/Scripts/python -m ruff check src tests && .venv/Scripts/python -m mypy src

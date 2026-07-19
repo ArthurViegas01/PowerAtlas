@@ -14,7 +14,7 @@
 |                                                                      |
 |  Pinia stores                                                        |
 |    selection   <- click/hover state from deck.gl picking             |
-|    rankings    <- services/mockDataLoader  (Phase 2: apiClient)      |
+|    rankings    <- services/dataSource  (mock JSON or FastAPI, per VITE_API_URL)      |
 |    mapLayers   <- derives a plain deck.gl "layer model" from both    |
 |                                                                      |
 |  MapLibre GL JS (camera, minimal dark style)                         |
@@ -138,11 +138,17 @@ Estadual") without naming or scoring any real officeholder. The UI carries a
 permanent simulated-data banner. This rule holds until the Phase 2 review
 workflow exists.
 
-## 6. Deferred to future phases (F3+) — noted, deliberately not designed here
+## 6. Deferred to future phases (F4+) — noted, deliberately not designed here
 
-- **FastAPI backend** (Python — chosen over Node to deepen FastAPI skills
-  and for the NLP ecosystem), mirroring ZapAgent's `src/` +
-  `pyproject.toml` (ruff/mypy/pytest) conventions, serving the §4 contract.
+**Shipped in F3:** the **read-only FastAPI backend** (`apps/api`) now serves
+the §4 contract over HTTP (`GET /api/v1/power-data`), mirroring ZapAgent's
+`src/` + `pyproject.toml` (ruff/mypy/pytest) conventions. Python was chosen
+over Node to deepen FastAPI skills and for the NLP ecosystem the scoring
+pipeline will need. The web selects it via `VITE_API_URL` and falls back to
+the bundled mock otherwise. No database, auth or writes yet.
+
+Still deferred:
+
 - **PostgreSQL + PostGIS** for regions/entities/scores.
 - **Celery + Redis + pgvector**: news scraping → embedding → LLM scoring
   pipeline for the "hidden power" indices.

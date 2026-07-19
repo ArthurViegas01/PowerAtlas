@@ -28,9 +28,15 @@ dashed borders), global view button and the "área bloqueada" panel.
 ±15°, snap to north, bearing readout, AUTO button, manual-bearing override
 of the cinematic cameras) plus static deploy on Netlify (`netlify.toml`).
 
+**F3 — read-only FastAPI backend: shipped.** `apps/api` serves the exact
+`power-entity` contract over HTTP (`GET /api/v1/power-data`); the web swaps
+its mock loader for the API when `VITE_API_URL` is set and stays fully
+offline on the bundled mock otherwise. No database or auth yet (those are
+F4+). Details: [apps/api/README.md](apps/api/README.md).
+
 Deviations from the original plans: [ARCHITECTURE.md](ARCHITECTURE.md) §3
-and [docs/data-sources.md](docs/data-sources.md). Next phases (FastAPI
-backend, PostGIS, scoring pipeline, review workflow): ARCHITECTURE.md §6.
+and [docs/data-sources.md](docs/data-sources.md). Next phases (PostGIS,
+scoring pipeline, review workflow): ARCHITECTURE.md §6.
 
 ## Stack (Phase 1)
 
@@ -60,6 +66,21 @@ pnpm geo        # re-fetch + simplify IBGE boundaries (needs network)
 
 Equivalent `make web-*` targets exist in the Makefile for machines with GNU
 make installed.
+
+### API (F3)
+
+Requires Python >= 3.11. From the repository root:
+
+```sh
+pnpm api-install    # create apps/api/.venv and install deps
+pnpm api-dev        # uvicorn --reload on http://localhost:8000
+pnpm api-test       # pytest
+pnpm api-lint       # ruff + mypy
+```
+
+Point the web at it with `VITE_API_URL=http://localhost:8000`
+(`apps/web/.env.example`); leave it unset to run offline on the mock.
+More: [apps/api/README.md](apps/api/README.md).
 
 Dev tip: `http://localhost:5173/?region=SP` deep-links straight into a
 region's ranking panel (any UF sigla or `BR`).
@@ -94,7 +115,7 @@ region's ranking panel (any UF sigla or `BR`).
 
 ```
 apps/web/            Phase 1 frontend (Vite + Vue 3 + TS)
-apps/api/            Phase 2 stub — FastAPI backend (not started)
+apps/api/            F3 backend — read-only FastAPI (power-data endpoint)
 db/migrations/       Phase 2 stub — Postgres/PostGIS (not started)
 infra/               deferred — Terraform (not started)
 docs/data-sources.md boundary data provenance
