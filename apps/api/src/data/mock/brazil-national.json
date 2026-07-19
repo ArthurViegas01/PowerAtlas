@@ -1,0 +1,137 @@
+{
+  "id": "BR",
+  "name": "Brasil",
+  "kind": "country",
+  "capital": { "name": "Brasília", "coordinates": [-47.8825, -15.7942] },
+  "updatedAt": "2026-07-01T12:00:00Z",
+  "official": [
+    {
+      "id": "br-off-executivo",
+      "name": "Chefia do Executivo Federal",
+      "kind": "office",
+      "dimension": "official",
+      "score": 78,
+      "delta": 2,
+      "confidence": "high",
+      "status": "published",
+      "sources": [
+        { "id": "src-matriz-01", "label": "Matriz institucional simulada", "note": "Fonte fictícia — pesos de placeholder para desenvolvimento de UI." }
+      ],
+      "note": "Cargo constitucional genérico — não se refere a nenhum ocupante."
+    },
+    {
+      "id": "br-off-legislativo",
+      "name": "Colegiado Legislativo Federal",
+      "kind": "office",
+      "dimension": "official",
+      "score": 66,
+      "delta": -1,
+      "confidence": "high",
+      "status": "published",
+      "sources": [
+        { "id": "src-matriz-01", "label": "Matriz institucional simulada", "note": "Fonte fictícia — pesos de placeholder para desenvolvimento de UI." }
+      ],
+      "note": "Instituição constitucional genérica — não se refere a composição real."
+    },
+    {
+      "id": "br-off-judiciario",
+      "name": "Cúpula do Judiciário Federal",
+      "kind": "office",
+      "dimension": "official",
+      "score": 61,
+      "delta": 3,
+      "confidence": "high",
+      "status": "published",
+      "sources": [
+        { "id": "src-matriz-01", "label": "Matriz institucional simulada", "note": "Fonte fictícia — pesos de placeholder para desenvolvimento de UI." }
+      ],
+      "note": "Instituição constitucional genérica — não se refere a composição real."
+    },
+    {
+      "id": "br-off-controle",
+      "name": "Órgãos Federais de Controle (agregado)",
+      "kind": "institution",
+      "dimension": "official",
+      "score": 48,
+      "delta": 1,
+      "confidence": "medium",
+      "status": "published",
+      "sources": [
+        { "id": "src-matriz-01", "label": "Matriz institucional simulada", "note": "Fonte fictícia — pesos de placeholder para desenvolvimento de UI." }
+      ],
+      "note": "Agregado genérico — não se refere a órgãos específicos."
+    }
+  ],
+  "hidden": [
+    {
+      "id": "br-hid-alpha",
+      "name": "Instituição Federal Alpha",
+      "kind": "institution",
+      "dimension": "hidden",
+      "score": 84,
+      "delta": 4,
+      "confidence": "medium",
+      "status": "published",
+      "sources": [
+        { "id": "src-dossie-001", "label": "Dossiê sintético 001", "note": "Fonte fictícia para desenvolvimento." }
+      ],
+      "note": "Entidade fictícia — placeholder para desenvolvimento de UI."
+    },
+    {
+      "id": "br-hid-zeta",
+      "name": "Conglomerado Financeiro Zeta",
+      "kind": "economic-bloc",
+      "dimension": "hidden",
+      "score": 77,
+      "delta": -2,
+      "confidence": "medium",
+      "status": "published",
+      "sources": [
+        { "id": "src-dossie-002", "label": "Dossiê sintético 002", "note": "Fonte fictícia para desenvolvimento." }
+      ],
+      "note": "Entidade fictícia — placeholder para desenvolvimento de UI."
+    },
+    {
+      "id": "br-hid-kappa",
+      "name": "Rede Midiática Kappa",
+      "kind": "organization",
+      "dimension": "hidden",
+      "score": 71,
+      "delta": 1,
+      "confidence": "low",
+      "status": "published",
+      "sources": [
+        { "id": "src-dossie-003", "label": "Dossiê sintético 003", "note": "Fonte fictícia para desenvolvimento." }
+      ],
+      "note": "Entidade fictícia — placeholder para desenvolvimento de UI."
+    },
+    {
+      "id": "br-hid-gama",
+      "name": "Bancada Suprapartidária Gama",
+      "kind": "faction",
+      "dimension": "hidden",
+      "score": 68,
+      "delta": 5,
+      "confidence": "medium",
+      "status": "published",
+      "sources": [
+        { "id": "src-dossie-004", "label": "Dossiê sintético 004", "note": "Fonte fictícia para desenvolvimento." }
+      ],
+      "note": "Entidade fictícia — placeholder para desenvolvimento de UI."
+    },
+    {
+      "id": "br-hid-sigma",
+      "name": "Consórcio Logístico Sigma",
+      "kind": "organization",
+      "dimension": "hidden",
+      "score": 62,
+      "delta": 0,
+      "confidence": "low",
+      "status": "published",
+      "sources": [
+        { "id": "src-dossie-005", "label": "Dossiê sintético 005", "note": "Fonte fictícia para desenvolvimento." }
+      ],
+      "note": "Entidade fictícia — placeholder para desenvolvimento de UI."
+    }
+  ]
+}

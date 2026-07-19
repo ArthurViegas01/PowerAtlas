@@ -1,0 +1,67 @@
+{
+  "id": "SE",
+  "name": "Sergipe",
+  "kind": "state",
+  "capital": { "name": "Aracaju", "coordinates": [-37.0731, -10.9472] },
+  "updatedAt": "2026-06-20T10:45:00Z",
+  "official": [
+    {
+      "id": "se-off-executivo",
+      "name": "Chefia do Executivo Estadual",
+      "kind": "office",
+      "dimension": "official",
+      "score": 58,
+      "delta": 0,
+      "confidence": "high",
+      "status": "published",
+      "sources": [
+        { "id": "src-matriz-01", "label": "Matriz institucional simulada", "note": "Fonte fictícia — pesos de placeholder para desenvolvimento de UI." }
+      ],
+      "note": "Cargo constitucional genérico — não se refere a nenhum ocupante."
+    },
+    {
+      "id": "se-off-legislativo",
+      "name": "Assembleia Legislativa (colegiado)",
+      "kind": "office",
+      "dimension": "official",
+      "score": 45,
+      "delta": 1,
+      "confidence": "medium",
+      "status": "published",
+      "sources": [
+        { "id": "src-matriz-01", "label": "Matriz institucional simulada", "note": "Fonte fictícia — pesos de placeholder para desenvolvimento de UI." }
+      ],
+      "note": "Instituição constitucional genérica — não se refere a composição real."
+    }
+  ],
+  "hidden": [
+    {
+      "id": "se-hid-phi",
+      "name": "Rede Costeira Fi",
+      "kind": "organization",
+      "dimension": "hidden",
+      "score": 68,
+      "delta": 1,
+      "confidence": "low",
+      "status": "published",
+      "sources": [
+        { "id": "src-dossie-501", "label": "Dossiê sintético 501", "note": "Fonte fictícia para desenvolvimento." }
+      ],
+      "note": "Entidade fictícia — placeholder para desenvolvimento de UI."
+    },
+    {
+      "id": "se-hid-psi",
+      "name": "Cooperativa Litorânea Psi",
+      "kind": "organization",
+      "dimension": "hidden",
+      "score": 54,
+      "delta": -1,
+      "confidence": "low",
+      "status": "published",
+      "sources": [
+        { "id": "src-dossie-502", "label": "Dossiê sintético 502", "note": "Fonte fictícia para desenvolvimento." }
+      ],
+      "note": "Entidade fictícia — placeholder para desenvolvimento de UI."
+    }
+  ]
+}
