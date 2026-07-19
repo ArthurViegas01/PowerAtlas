@@ -1,8 +1,8 @@
 # PowerAtlas — Plano de continuação (F3+)
 
-> **Handoff para um chat novo.** Estado em 2026-07-19: F1, F2 e o compasso
-> released (`main` = **v0.3.0**, tags `v0.2.0`/`v0.3.0`); `develop` à frente
-> com a F3 (API FastAPI de leitura). Este arquivo agora é **versionado** no repo — atualize
+> **Handoff para um chat novo.** Estado em 2026-07-19: F1, F2, compasso e F3
+> released (`main` = **v0.4.0**, tags `v0.2.0`..`v0.4.0`); `develop` à frente
+> com a F4 (Postgres + PostGIS). Este arquivo agora é **versionado** no repo — atualize
 > a seção de estado quando uma fase fechar e enxugue o que já foi entregue.
 > Leia junto: `ARCHITECTURE.md` (decisões + seção 6 "deferred"),
 > `docs/data-sources.md`, `README.md` (status + QA checklist).
@@ -37,10 +37,22 @@
   quando `VITE_API_URL` está setado, ou o mock offline caso contrário. Sem
   banco/auth/escrita. Teste de contrato valida o payload contra os JSONs de
   origem.
+- **F4 (Postgres + PostGIS, 2026-07-19)**: `db/migrations/0001_init.sql`
+  (regions, entities, sources, entity_sources, influence_links,
+  ambient_signals; geometrias PostGIS Point/4326 p/ capitais e sinais; colunas
+  `ord` preservam a ordem dos arrays). Migrations SQL puras (sem ORM/Alembic),
+  tracked em `schema_migrations`. Runner e seed em `apps/api/scripts/`
+  (`migrate.py`, `seed.py`). **Camada de acesso: asyncpg puro** (espelha o
+  runtime do ZapAgent). `strength`/`weight` são `double precision` (não `real`,
+  que distorceria). A API lê do banco quando `PA_DATABASE_URL` está setado, ou
+  do mock caso contrário; payload byte-idêntico. `docker-compose.yml`
+  (postgres + api). Teste de paridade DB->fonte marcado `-m integration`.
 - **Comandos**: `pnpm dev` (5173) · `pnpm build` (vue-tsc + vite) ·
   `pnpm preview` (4173) · `pnpm geo`. API: `pnpm api-install` · `pnpm api-dev`
-  (uvicorn :8000) · `pnpm api-test` · `pnpm api-lint`. Deep-link de QA:
-  `/?region=SP` (qualquer UF ou BR); com API: `VITE_API_URL=http://localhost:8000 pnpm dev`.
+  (uvicorn :8000) · `pnpm api-test` · `pnpm api-lint`. Banco:
+  `pnpm db-up` · `pnpm db-migrate` · `pnpm db-seed` · `pnpm api-dev-db`
+  (`make migrate` encadeia os três). Deep-link de QA: `/?region=SP`
+  (qualquer UF ou BR); com API: `VITE_API_URL=http://localhost:8000 pnpm dev`.
 - **Pendências conhecidas da trilha frontend**: bundle único ~2 MB
   (code-splitting), mock cobre só BR + 5 UFs, sem testes automatizados no
   web, toggle de `prefers-reduced-motion` nunca exercitado de ponta a ponta.
@@ -130,14 +142,15 @@ loader do web por um client HTTP — sem mudar nada de UI.
 
 **Fora de escopo da F3:** Docker, banco, auth, escrita.
 
-### F4 — Postgres + PostGIS + persistência
+### F4 — Postgres + PostGIS + persistência (ENTREGUE 2026-07-19; ver seção 1)
 
-Migrations SQL em `db/migrations/` (0001: regions, entities com
-score/delta/confidence/status, sources, entity_sources, influence_links,
-ambient_signals), seed a partir dos JSONs, API lendo do banco,
-`docker-compose.yml` (api + postgres/postgis) nasce aqui, `make migrate`.
-Decisão a registrar no início da fase: camada de acesso (SQL puro asyncpg
-vs SQLAlchemy) — espelhar o que o ZapAgent usa.
+> Entregue em `feat/f4-postgres-postgis` -> `develop`. Decisão travada:
+> **asyncpg puro** (sem ORM), espelhando o runtime do ZapAgent. Migrations SQL
+> em `db/migrations/` (0001: regions, entities, sources, entity_sources,
+> influence_links, ambient_signals), seed dos JSONs, API lendo do banco,
+> `docker-compose.yml` (api + postgres/postgis), `make migrate`. Verificação:
+> unit sem banco + `-m integration` com banco (paridade byte a byte),
+> ruff/mypy verdes, smoke HTTP lendo do PostGIS. Próxima recomendada: **F5**.
 
 ### F5 — Pipeline de ingestão e scoring (intenção, não desenhar ainda)
 
