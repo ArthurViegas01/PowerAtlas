@@ -1,11 +1,11 @@
 import { HeatmapLayer } from '@deck.gl/aggregation-layers'
 import type { Color, Layer, PickingInfo } from '@deck.gl/core'
 import { PathStyleExtension, type PathStyleExtensionProps } from '@deck.gl/extensions'
-import { ArcLayer, ColumnLayer, GeoJsonLayer } from '@deck.gl/layers'
+import { ArcLayer, ColumnLayer, GeoJsonLayer, TextLayer } from '@deck.gl/layers'
 
 import type { BoundaryFeature, WorldFeature, WorldProps } from '@/lib/geo'
 import { paColor, shade, type RGBA } from '@/lib/palette'
-import type { ArcDatum, ColumnDatum, MapLayerModel } from '@/stores/mapLayers'
+import type { ArcDatum, ColumnDatum, LabelDatum, MapLayerModel } from '@/stores/mapLayers'
 import type { AmbientSignal, PowerDimension } from '@/types/power-entity'
 
 export interface BuildLayersOptions {
@@ -147,6 +147,36 @@ export function buildDeckLayers({
       },
     }),
   )
+
+  // State siglas at each capital. Drawn above the fills; the selected state's
+  // label brightens. Billboarded so it stays readable through the map tilt.
+  if (model.labels.length > 0) {
+    layers.push(
+      new TextLayer<LabelDatum>({
+        id: 'state-labels',
+        data: model.labels,
+        pickable: false,
+        billboard: true,
+        getPosition: (d) => d.coordinates,
+        getText: (d) => d.text,
+        getSize: (d) => (d.regionId === model.selectedId ? 15 : 12),
+        sizeUnits: 'pixels',
+        getColor: (d) =>
+          d.regionId === model.selectedId ? paColor.official(255) : paColor.official(150),
+        getPixelOffset: [0, -22],
+        fontFamily: '"Fira Code", monospace',
+        fontWeight: 600,
+        fontSettings: { sdf: true },
+        outlineWidth: 3,
+        outlineColor: [3, 8, 14, 220],
+        characterSet: 'auto',
+        updateTriggers: {
+          getColor: [model.selectedId],
+          getSize: [model.selectedId],
+        },
+      }),
+    )
+  }
 
   for (const dimension of ['official', 'hidden'] as const) {
     layers.push(

@@ -16,6 +16,12 @@ export interface ColumnDatum {
   coordinates: [number, number]
 }
 
+export interface LabelDatum {
+  regionId: string
+  text: string
+  coordinates: [number, number]
+}
+
 export interface ArcDatum {
   id: string
   source: [number, number]
@@ -39,6 +45,7 @@ export interface MapLayerModel {
   dataRegionIds: string[]
   columns: ColumnDatum[]
   arcs: ArcDatum[]
+  labels: LabelDatum[]
   heatmapPoints: AmbientSignal[]
   heatmapVisible: boolean
 }
@@ -113,6 +120,16 @@ export const useMapLayersStore = defineStore('mapLayers', () => {
     })
   })
 
+  const labels = computed<LabelDatum[]>(() =>
+    (rankings.data?.regions ?? [])
+      .filter((region) => region.kind === 'state')
+      .map((region) => ({
+        regionId: region.id,
+        text: region.id,
+        coordinates: region.capital.coordinates,
+      })),
+  )
+
   const layerModel = computed<MapLayerModel>(() => ({
     ready: states.value !== null && national.value !== null,
     states: states.value,
@@ -124,6 +141,7 @@ export const useMapLayersStore = defineStore('mapLayers', () => {
     dataRegionIds: rankings.dataRegionIds,
     columns: columns.value,
     arcs: arcs.value,
+    labels: labels.value,
     heatmapPoints: rankings.ambientSignals,
     heatmapVisible: !selection.hasSelection,
   }))
