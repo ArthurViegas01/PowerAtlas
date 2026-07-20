@@ -24,6 +24,7 @@ const bootError = computed(() => rankings.error ?? mapLayers.error)
 
 const panelTitle = computed(() =>
   (
+    selection.selectedMunicipio?.name ??
     selection.selectedName ??
     selection.lockedWorld?.name ??
     selection.selectedId ??
@@ -32,6 +33,8 @@ const panelTitle = computed(() =>
 )
 
 const panelSubtitle = computed(() => {
+  if (selection.selectedMunicipio)
+    return `MUNICÍPIO · ${selection.selectedMunicipio.codigo} · ${selection.selectedId}`
   if (selection.lockedWorld) return 'REGIÃO NÃO MAPEADA · COBERTURA FUTURA'
   if (!region.value) return 'SEM COBERTURA NESTA FASE'
   const updated = new Date(region.value.updatedAt).toLocaleDateString('pt-BR')
@@ -47,7 +50,10 @@ function reload() {
 }
 
 function onKeydown(event: KeyboardEvent) {
-  if (event.key === 'Escape') selection.goHome()
+  if (event.key !== 'Escape') return
+  // Step out one level at a time: municipality -> state -> national.
+  if (selection.selectedMunicipio) selection.clearMunicipio()
+  else selection.goHome()
 }
 
 /** Deep link: /?region=SP preselects a region once data is ready. */
@@ -118,7 +124,23 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
             </button>
           </template>
 
-          <div v-if="region" class="columns">
+          <div v-if="selection.selectedMunicipio" class="no-data" data-reveal>
+            <p class="no-data-title pa-data">◫ MUNICÍPIO · PILOTO</p>
+            <p class="no-data-sub">
+              Ranking municipal ainda não disponível. O piloto cobre a malha de
+              {{ selection.selectedId }} (drill-down por município); os índices por
+              município chegam com o pipeline de dados das próximas fases.
+            </p>
+            <button
+              class="back-home pa-data"
+              type="button"
+              @click="selection.clearMunicipio()"
+            >
+              ◄ VOLTAR AO ESTADO
+            </button>
+          </div>
+
+          <div v-else-if="region" class="columns">
             <RankingColumn variant="official" :entities="region.official" />
             <RankingColumn variant="hidden" :entities="region.hidden" />
           </div>

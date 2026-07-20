@@ -21,11 +21,24 @@ function model(overrides: Partial<MapLayerModel> = {}): MapLayerModel {
       { regionId: 'SP', text: 'SP', coordinates: [-46.6, -23.5] },
       { regionId: 'RJ', text: 'RJ', coordinates: [-43.2, -22.9] },
     ],
+    municipios: null,
+    selectedMunicipioCodigo: null,
     heatmapPoints: [],
     heatmapVisible: false,
     ...overrides,
   }
 }
+
+const munFc = {
+  type: 'FeatureCollection',
+  features: [
+    {
+      type: 'Feature',
+      properties: { codigo: '3550308', name: 'São Paulo' },
+      geometry: { type: 'Polygon', coordinates: [[[0, 0], [0, 1], [1, 1], [0, 0]]] },
+    },
+  ],
+} as unknown as MapLayerModel['municipios']
 
 const noop = () => {}
 
@@ -47,5 +60,11 @@ describe('buildDeckLayers', () => {
   it('omits the labels layer when there are no labels', () => {
     const layers = build(model({ labels: [] }))
     expect(layers.find((l) => l.id === 'state-labels')).toBeUndefined()
+  })
+
+  it('adds the municipios layer only when a municipal mesh is loaded', () => {
+    expect(build(model()).find((l) => l.id === 'municipios')).toBeUndefined()
+    const withMun = build(model({ municipios: munFc, selectedMunicipioCodigo: '3550308' }))
+    expect(withMun.find((l) => l.id === 'municipios')).toBeDefined()
   })
 })

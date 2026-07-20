@@ -20,6 +20,8 @@ export type RotateKind = 'by' | 'north' | 'auto'
 export const useSelectionStore = defineStore('selection', () => {
   const selectedId = ref<string | null>(null)
   const selectedName = ref<string | null>(null)
+  /** Municipality drilled into within the selected state (pilot: SP). */
+  const selectedMunicipio = ref<{ codigo: string; name: string } | null>(null)
   const hoveredId = ref<string | null>(null)
   const hoveredName = ref<string | null>(null)
   /** World-country hover on the backdrop layer. */
@@ -56,10 +58,24 @@ export const useSelectionStore = defineStore('selection', () => {
   function select(id: string, name: string, point?: ScreenPoint) {
     if (selectedId.value === id) return
     lockedWorld.value = null
+    selectedMunicipio.value = null
     selectedId.value = id
     selectedName.value = name
     lastPing.value = point ?? null
     pingSeq.value += 1
+  }
+
+  /** Drill into a municipality of the current state (keeps the state selected). */
+  function selectMunicipio(codigo: string, name: string, point?: ScreenPoint) {
+    if (selectedMunicipio.value?.codigo === codigo) return
+    selectedMunicipio.value = { codigo, name }
+    lastPing.value = point ?? null
+    pingSeq.value += 1
+  }
+
+  /** Leave the municipality view, back to the state's ranking. */
+  function clearMunicipio() {
+    selectedMunicipio.value = null
   }
 
   /** Click on a not-yet-mapped country: swap any open panel for the lock panel. */
@@ -76,6 +92,7 @@ export const useSelectionStore = defineStore('selection', () => {
   function closePanels() {
     selectedId.value = null
     selectedName.value = null
+    selectedMunicipio.value = null
     lockedWorld.value = null
   }
 
@@ -123,6 +140,7 @@ export const useSelectionStore = defineStore('selection', () => {
   return {
     selectedId,
     selectedName,
+    selectedMunicipio,
     hoveredId,
     hoveredName,
     hoveredWorld,
@@ -136,6 +154,8 @@ export const useSelectionStore = defineStore('selection', () => {
     hasSelection,
     hasPanel,
     select,
+    selectMunicipio,
+    clearMunicipio,
     lockWorld,
     closePanels,
     goHome,

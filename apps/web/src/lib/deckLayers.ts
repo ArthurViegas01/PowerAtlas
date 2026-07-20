@@ -3,7 +3,7 @@ import type { Color, Layer, PickingInfo } from '@deck.gl/core'
 import { PathStyleExtension, type PathStyleExtensionProps } from '@deck.gl/extensions'
 import { ArcLayer, ColumnLayer, GeoJsonLayer, TextLayer } from '@deck.gl/layers'
 
-import type { BoundaryFeature, WorldFeature, WorldProps } from '@/lib/geo'
+import type { BoundaryFeature, MunicipioProps, WorldFeature, WorldProps } from '@/lib/geo'
 import { paColor, shade, type RGBA } from '@/lib/palette'
 import type { ArcDatum, ColumnDatum, LabelDatum, MapLayerModel } from '@/stores/mapLayers'
 import type { AmbientSignal, PowerDimension } from '@/types/power-entity'
@@ -127,6 +127,33 @@ export function buildDeckLayers({
       lineWidthMinPixels: 1.5,
     }),
   )
+
+  // Municipal drill-down (pilot: SP). Only present once the selected state's
+  // mesh has loaded; the selected municipality brightens.
+  if (model.municipios) {
+    layers.push(
+      new GeoJsonLayer<MunicipioProps>({
+        id: 'municipios',
+        data: model.municipios,
+        pickable: true,
+        stroked: true,
+        filled: true,
+        getFillColor: (feature) =>
+          feature.properties.codigo === model.selectedMunicipioCodigo
+            ? paColor.official(120)
+            : paColor.official(18),
+        getLineColor: paColor.official(130),
+        getLineWidth: (feature) =>
+          feature.properties.codigo === model.selectedMunicipioCodigo ? 2 : 0.6,
+        lineWidthUnits: 'pixels',
+        lineWidthMinPixels: 0.5,
+        updateTriggers: {
+          getFillColor: [model.selectedMunicipioCodigo],
+          getLineWidth: [model.selectedMunicipioCodigo],
+        },
+      }),
+    )
+  }
 
   layers.push(
     new ArcLayer<ArcDatum>({
