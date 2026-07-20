@@ -45,6 +45,11 @@ WebGL libs in their own chunks), fictional rankings for all 27 UFs (every
 state opens a panel), and a vitest suite over the Pinia stores and motion
 composables (`pnpm test`).
 
+**Polish: v0.7.0.** State sigla labels on the map (deck.gl `TextLayer`),
+corrected empty-region copy, plus an audit confirming the mobile layout and
+the `prefers-reduced-motion` gating (global CSS kill-switch + JS composables)
+were already solid.
+
 Deviations from the original plans: [ARCHITECTURE.md](ARCHITECTURE.md) §3
 and [docs/data-sources.md](docs/data-sources.md). Next phases (scoring
 pipeline, review workflow): ARCHITECTURE.md §6.
