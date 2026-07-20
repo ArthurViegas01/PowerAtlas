@@ -64,9 +64,19 @@
   pelo breakpoint de 900px (painel vira bottom-sheet); reduced-motion já
   totalmente coberto (kill-switch CSS global em `main.css` + gating JS nos
   composables).
+- **Municípios (piloto SP, pós-v0.7.0, 2026-07-19)**: drill-down municipal.
+  `fetch-geo.mjs` gera `public/geo/municipios/{UF}.geojson` (malha IBGE
+  `estados/{code}?intrarregiao=municipio` + nomes da API de localidades, props
+  `{codigo,name}`); só SP por ora (`MUNICIPIOS=[['SP',35]]`, extensível). O
+  `mapLayers` carrega a malha sob demanda ao selecionar o estado (404/fallback
+  SPA tratados sem retry); camada `municipios` no `buildDeckLayers`; clique em
+  município → `selectMunicipio` → câmera fecha no município + painel leve
+  ("ranking em breve"); Esc sobe um nível (município → estado → nacional).
+  Sem ranking municipal (isso depende da F5). Verificado: fetch da malha ao
+  selecionar SP, build/typecheck/22 testes verdes.
 - **Pendências conhecidas da trilha frontend**: tooltip de hover mais rico no
-  mapa (dirigido por picking do deck.gl; exige navegador visível para validar);
-  municípios (drill-down sob demanda por UF; ver conversa de escopo).
+  mapa (picking do deck.gl; exige navegador visível para validar); estender o
+  drill-down municipal aos demais UFs; ranking por município (depende da F5).
 
 ## 2. Convenções obrigatórias (não pular)
 

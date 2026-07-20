@@ -22,6 +22,16 @@ export interface WorldProps {
 export type WorldFeature = Feature<Polygon | MultiPolygon, WorldProps>
 export type WorldCollection = FeatureCollection<Polygon | MultiPolygon, WorldProps>
 
+/** Municipal mesh properties (scripts/fetch-geo.mjs, municipios/{UF}.geojson). */
+export interface MunicipioProps {
+  /** 7-digit IBGE municipality code. */
+  codigo: string
+  name: string
+}
+
+export type MunicipioFeature = Feature<Polygon | MultiPolygon, MunicipioProps>
+export type MunicipioCollection = FeatureCollection<Polygon | MultiPolygon, MunicipioProps>
+
 /** [[west, south], [east, north]] — the shape maplibre's fitBounds accepts. */
 export type Bounds = [[number, number], [number, number]]
 
@@ -34,7 +44,7 @@ function walkPositions(coords: unknown, visit: (lon: number, lat: number) => voi
   for (const child of coords) walkPositions(child, visit)
 }
 
-export function featureBounds(feature: BoundaryFeature): Bounds {
+export function featureBounds(feature: Feature<Polygon | MultiPolygon, unknown>): Bounds {
   let west = Infinity
   let south = Infinity
   let east = -Infinity

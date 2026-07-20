@@ -30,8 +30,22 @@ const CACHE = join(HERE, '.cache')
 const OUT = join(HERE, '..', 'public', 'geo')
 
 const QUALIDADE = 'maxima'
-const BASE = 'https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR'
+const BASE_MALHAS = 'https://servicodados.ibge.gov.br/api/v3/malhas'
+const BASE = `${BASE_MALHAS}/paises/BR`
 const STATES_URL = `${BASE}?formato=application/vnd.geo%2Bjson&qualidade=${QUALIDADE}&intrarregiao=UF`
+
+// Per-state municipal meshes (F-municipios pilot). Loaded on demand by the app
+// when a state is selected, so each file lives on its own under public/geo/
+// municipios/{UF}.geojson. Extend this list to cover more states. The malha
+// carries only `codarea` (7-digit IBGE code); names come from the localidades
+// API and are joined in by code.
+const MUNICIPIOS = [['SP', 35]]
+const MUN_QUALIDADE = 'intermediaria'
+const MUN_SIMPLIFY = '25%'
+const municipioMalhaUrl = (code) =>
+  `${BASE_MALHAS}/estados/${code}?formato=application/vnd.geo%2Bjson&qualidade=${MUN_QUALIDADE}&intrarregiao=municipio`
+const municipioNamesUrl = (code) =>
+  `https://servicodados.ibge.gov.br/api/v1/localidades/estados/${code}/municipios`
 
 // Natural Earth 1:110m admin-0 countries (public domain) — dim world
 // backdrop only; IBGE stays the authoritative source for Brazil itself.
@@ -40,7 +54,7 @@ const WORLD_URL =
 
 // keep-shapes prevents small polygons (islands) from collapsing entirely.
 const SIMPLIFY = '30%'
-const BUDGET_KB = { national: 200, states: 500, world: 400 }
+const BUDGET_KB = { national: 200, states: 500, world: 400, municipios: 900 }
 
 // IBGE 2-digit UF geocode -> [sigla, name]
 const UF_BY_CODE = {
@@ -91,8 +105,8 @@ function mapshaper(args) {
   execSync(cmd, { stdio: 'inherit' })
 }
 
-function simplify(inFile, outFile) {
-  mapshaper(`"${inFile}" -simplify ${SIMPLIFY} keep-shapes -clean -o precision=0.0001 format=geojson "${outFile}"`)
+function simplify(inFile, outFile, percent = SIMPLIFY) {
+  mapshaper(`"${inFile}" -simplify ${percent} keep-shapes -clean -o precision=0.0001 format=geojson "${outFile}"`)
 }
 
 function dissolve(inFile, outFile) {
@@ -136,6 +150,30 @@ function decorateWorld(file) {
   writeFileSync(file, JSON.stringify(fc))
 }
 
+/** Fetch + simplify one state's municipal mesh, joining in municipality names. */
+async function buildMunicipios([uf, code], outDir) {
+  const rawMalha = join(CACHE, `ibge-mun-${uf}-raw.geojson`)
+  const outFile = join(outDir, `${uf}.geojson`)
+  await download(municipioMalhaUrl(code), rawMalha)
+
+  console.log(`[geo] GET municipality names for ${uf}`)
+  const res = await fetch(municipioNamesUrl(code))
+  if (!res.ok) throw new Error(`IBGE names failed: ${res.status} ${res.statusText} (${uf})`)
+  const nameByCode = new Map(JSON.parse(await res.text()).map((m) => [String(m.id), m.nome]))
+
+  simplify(rawMalha, outFile, MUN_SIMPLIFY)
+
+  const fc = JSON.parse(readFileSync(outFile, 'utf8'))
+  for (const feature of fc.features) {
+    const codigo = String(feature.properties?.codarea ?? '')
+    const name = nameByCode.get(codigo)
+    if (!name) throw new Error(`No name for municipality "${codigo}" in ${uf}`)
+    feature.properties = { codigo, name }
+  }
+  writeFileSync(outFile, JSON.stringify(fc))
+  report(outFile, BUDGET_KB.municipios)
+}
+
 function report(file, budgetKb) {
   const size = kb(file)
   const flag = size > budgetKb ? `  << OVER BUDGET (${budgetKb} KB) — lower SIMPLIFY` : ''
@@ -164,4 +202,11 @@ decorateWorld(outWorld)
 report(outStates, BUDGET_KB.states)
 report(outNational, BUDGET_KB.national)
 report(outWorld, BUDGET_KB.world)
+
+const munOut = join(OUT, 'municipios')
+mkdirSync(munOut, { recursive: true })
+for (const entry of MUNICIPIOS) {
+  await buildMunicipios(entry, munOut)
+}
+
 console.log('[geo] done.')
