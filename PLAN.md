@@ -58,10 +58,15 @@
   mock dos **27 UFs** (todos abrem ranking, padrão fictício grego, algumas
   entidades em draft); testes **vitest** (14) nos stores e composables
   (`pnpm test`).
-- **Pendências conhecidas da trilha frontend**: tooltips mais ricos / labels
-  de estados / refino mobile; `prefers-reduced-motion` ainda não exercitado
-  de ponta a ponta na UI real (o gating tem teste unitário, mas falta o
-  item 5 do QA no navegador).
+- **Polish frontend (pós-v0.6.0, 2026-07-19)**: labels de estado no mapa
+  (siglas via `TextLayer`, teste do `buildDeckLayers`); copy do painel
+  "sem dados" corrigida (27 estados, não 5). Auditoria: mobile já responsivo
+  pelo breakpoint de 900px (painel vira bottom-sheet); reduced-motion já
+  totalmente coberto (kill-switch CSS global em `main.css` + gating JS nos
+  composables).
+- **Pendências conhecidas da trilha frontend**: tooltip de hover mais rico no
+  mapa (dirigido por picking do deck.gl; exige navegador visível para validar);
+  municípios (drill-down sob demanda por UF; ver conversa de escopo).
 
 ## 2. Convenções obrigatórias (não pular)
 
