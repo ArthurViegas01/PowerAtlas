@@ -33,6 +33,26 @@ after simplification.
 
 **Attribution:** the map UI credits "Malhas territoriais: IBGE".
 
+## Municipal boundaries (`apps/web/public/geo/municipios/{UF}.geojson`)
+
+**Pilot: São Paulo.** Per-state municipal meshes, loaded on demand when a
+state is selected (the app never loads all 5,570 municipalities at once).
+Same IBGE Malhas v3 API, plus the Localidades API for names.
+
+**Endpoints used (downloaded 2026-07-19, SP = code 35):**
+
+```
+malha:  https://servicodados.ibge.gov.br/api/v3/malhas/estados/35?formato=application/vnd.geo%2Bjson&qualidade=intermediaria&intrarregiao=municipio
+nomes:  https://servicodados.ibge.gov.br/api/v1/localidades/estados/35/municipios
+```
+
+**Processing** (`apps/web/scripts/fetch-geo.mjs`, `pnpm geo`): the malha carries
+only `codarea` (7-digit IBGE municipality code); names are joined in from the
+Localidades API by that code. `mapshaper -simplify 25% keep-shapes -clean`,
+properties normalized to `{ codigo, name }`. SP: 645 municipalities,
+**347 KB** (budget 900 KB). Extend the `MUNICIPIOS` list in the script to cover
+more states.
+
 ## World countries backdrop (`apps/web/public/geo/world-countries.geojson`)
 
 **Source:** Natural Earth, 1:110m Cultural Vectors — Admin 0 Countries
