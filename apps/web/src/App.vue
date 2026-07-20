@@ -138,8 +138,9 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
           <div v-else class="no-data" data-reveal>
             <p class="no-data-title pa-data">SEM DADOS PARA ESTA REGIÃO</p>
             <p class="no-data-sub">
-              A fase 1 cobre o recorte nacional e 5 estados de amostra (SP, RJ, AM, BA,
-              SE). A cobertura completa chega com o pipeline de dados da fase 2.
+              Esta região ainda não tem matriz de poder carregada. O recorte
+              nacional e os 27 estados já trazem dados simulados; a cobertura
+              real chega com o pipeline de dados das próximas fases.
             </p>
           </div>
         </HudPanel>
