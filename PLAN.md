@@ -3,7 +3,8 @@
 > **Handoff para um chat novo.** Estado em 2026-07-22: F1–F4 + trilha
 > frontend released (`origin/main` = **v0.9.0**, tags `v0.2.0`..`v0.9.0`);
 > `develop` = `origin/develop`. Fase atual: **F5** (desenho na seção 3;
-> etapa 1/3 — infra do worker — entregue em 2026-07-22). Este arquivo é
+> etapas 1 e 2 de 3 entregues em 2026-07-22 — falta a F5c,
+> embeddings + scoring). Este arquivo é
 > **versionado** no repo — atualize a seção de estado quando uma fase fechar
 > e enxugue o que já foi entregue.
 > Leia junto: `ARCHITECTURE.md` (decisões + seção 6 "deferred"),
@@ -125,6 +126,18 @@
   7 unit + 2 integration (paridade) verdes, ruff/mypy verdes, migrations
   aplicadas em banco novo, round-trip real do smoke via Redis (SUCCESS no
   result backend).
+- **F5b — ingestão RSS (2026-07-22, `feat/f5b-ingestao-rss`)**: módulo
+  `src/ingest/` (feedparser + httpx; `FeedItem`, strip de HTML, hash
+  sha256 url+título+conteúdo), `ingest_source`/`ingest_all` com UA honesto,
+  timeout, delay entre fontes e isolamento de erro por feed; task Celery
+  `pipeline_ingest` + CLI `pnpm pipeline-ingest` (roda direto, sem broker).
+  Allowlist seedada (upsert antes do `--if-empty`): Agência Brasil, Agência
+  Câmara e Agência Senado (URLs verificadas ao vivo em 2026-07-22 — a da
+  Câmara é `noticias/rss/ultimas-noticias`, a do Senado `noticias/rss`).
+  Config `PA_INGEST_*`. Verificado: 12 unit + 3 integration verdes (dedup
+  em re-runs com respx), ruff/mypy verdes, E2E real com 45 docs dos 3 feeds
+  no banco e dedup confirmado na segunda rodada (0 inserts; timeout
+  transitório do Senado não derrubou a rodada — isolamento funcionou).
 - **Pendências conhecidas da trilha frontend**: ranking por município
   (depende da F5); reativar a dimensão oculta (flip do flag) quando F5/F6
   existirem. (Tooltip de hover validado com mouse real em 2026-07-22.)
@@ -253,7 +266,7 @@ só existe na F6, com revisão humana. O teste de paridade garante: payload de
    imagem de banco com pgvector, migration 0002, task de smoke.
    **(ENTREGUE 2026-07-22; ver seção 1.)**
 2. `feat/f5b-ingestao-rss` — fetch RSS → `raw_documents` (dedup), seed das
-   fontes, testes com respx.
+   fontes, testes com respx. **(ENTREGUE 2026-07-22; ver seção 1.)**
 3. `feat/f5c-embeddings-scoring` — chunking + embeddings + scoring LLM →
    `entity_candidates` + citações.
 
