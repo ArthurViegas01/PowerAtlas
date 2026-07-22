@@ -20,6 +20,17 @@ interface TooltipModel {
 }
 
 const model = computed<TooltipModel | null>(() => {
+  const demografia = selection.hoveredDemografia
+  if (demografia) {
+    return {
+      title: demografia.name,
+      tag: `MUNICÍPIO · ${demografia.codigo}`,
+      lines: [
+        { label: 'POP', value: formatPeopleCompact(demografia.population) },
+        { label: 'PIB', value: formatGdpThousands(demografia.gdpBrlThousands) },
+      ],
+    }
+  }
   const municipio = selection.hoveredMunicipio
   if (municipio) {
     const data = indicators.forMunicipio(selection.selectedId, municipio.codigo)

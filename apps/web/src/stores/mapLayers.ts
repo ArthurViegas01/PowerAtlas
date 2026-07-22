@@ -9,8 +9,10 @@ import type {
   MunicipioCollection,
   WorldCollection,
 } from '@/lib/geo'
+import type { DemografiaMetric, DemografiaMunicipio } from '@/types/demografia'
 import type { AmbientSignal, PowerDimension } from '@/types/power-entity'
 
+import { useDemografiaStore } from './demografia'
 import { useRankingsStore } from './rankings'
 import { useSelectionStore } from './selection'
 
@@ -58,6 +60,13 @@ export interface MapLayerModel {
   hoveredMunicipioCodigo: string | null
   heatmapPoints: AmbientSignal[]
   heatmapVisible: boolean
+  /** Demographic view: per-município columns replace the influence layers. */
+  demographic: {
+    active: boolean
+    metric: DemografiaMetric
+    munis: DemografiaMunicipio[]
+    hoveredCodigo: string | null
+  }
 }
 
 /** Twin columns straddle the capital: official west, hidden east. */
@@ -66,6 +75,7 @@ const COLUMN_LON_OFFSET = 0.32
 export const useMapLayersStore = defineStore('mapLayers', () => {
   const selection = useSelectionStore()
   const rankings = useRankingsStore()
+  const demografia = useDemografiaStore()
 
   const states = shallowRef<BoundaryCollection | null>(null)
   const national = shallowRef<BoundaryCollection | null>(null)
@@ -167,7 +177,13 @@ export const useMapLayersStore = defineStore('mapLayers', () => {
     selectedMunicipioCodigo: selection.selectedMunicipio?.codigo ?? null,
     hoveredMunicipioCodigo: selection.hoveredMunicipio?.codigo ?? null,
     heatmapPoints: rankings.ambientSignals,
-    heatmapVisible: !selection.hasSelection,
+    heatmapVisible: !selection.hasSelection && !selection.demographicView,
+    demographic: {
+      active: selection.demographicView,
+      metric: selection.demographicMetric,
+      munis: selection.demographicView ? demografia.municipios : [],
+      hoveredCodigo: selection.hoveredDemografia?.codigo ?? null,
+    },
   }))
 
   async function fetchGeoFile<T>(file: string): Promise<T> {

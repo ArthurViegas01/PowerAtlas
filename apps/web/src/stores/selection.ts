@@ -16,6 +16,16 @@ export type CameraTarget = 'national' | 'global'
 
 export type RotateKind = 'by' | 'north' | 'auto'
 
+export type DemografiaMetric = 'population' | 'gdp'
+
+/** Município under the cursor in the demographic view (feeds the tooltip). */
+export interface DemografiaHover {
+  codigo: string
+  name: string
+  population: number
+  gdpBrlThousands: number
+}
+
 /** Which region the operator is inspecting, plus hover/ping/camera UI state. */
 export const useSelectionStore = defineStore('selection', () => {
   const selectedId = ref<string | null>(null)
@@ -55,6 +65,11 @@ export const useSelectionStore = defineStore('selection', () => {
     delta: 0,
     seq: 0,
   })
+
+  /** Demographic view: per-município columns instead of the influence HUD. */
+  const demographicView = ref(false)
+  const demographicMetric = ref<DemografiaMetric>('population')
+  const hoveredDemografia = ref<DemografiaHover | null>(null)
 
   const hasSelection = computed(() => selectedId.value !== null)
   const hasPanel = computed(() => selectedId.value !== null || lockedWorld.value !== null)
@@ -112,6 +127,30 @@ export const useSelectionStore = defineStore('selection', () => {
     cameraRequest.value = { target, seq: cameraRequest.value.seq + 1 }
   }
 
+  /** Open the demographic view: closes panels, reframes on the country. */
+  function enterDemographicView() {
+    if (demographicView.value) return
+    closePanels()
+    hoveredDemografia.value = null
+    demographicView.value = true
+    requestCamera('national')
+  }
+
+  /** Back to the influence HUD (Esc or the other view buttons). */
+  function exitDemographicView() {
+    if (!demographicView.value) return
+    demographicView.value = false
+    hoveredDemografia.value = null
+  }
+
+  function setDemographicMetric(metric: DemografiaMetric) {
+    demographicMetric.value = metric
+  }
+
+  function setHoveredDemografia(hover: DemografiaHover | null) {
+    hoveredDemografia.value = hover
+  }
+
   /** Rotate the camera by `delta` degrees (positive = counterclockwise). */
   function requestRotate(delta: number) {
     rotateRequest.value = { kind: 'by', delta, seq: rotateRequest.value.seq + 1 }
@@ -167,6 +206,9 @@ export const useSelectionStore = defineStore('selection', () => {
     mapBearing,
     bearingOverride,
     rotateRequest,
+    demographicView,
+    demographicMetric,
+    hoveredDemografia,
     hasSelection,
     hasPanel,
     select,
@@ -176,6 +218,10 @@ export const useSelectionStore = defineStore('selection', () => {
     closePanels,
     goHome,
     requestCamera,
+    enterDemographicView,
+    exitDemographicView,
+    setDemographicMetric,
+    setHoveredDemografia,
     requestRotate,
     requestNorth,
     requestAutoBearing,
