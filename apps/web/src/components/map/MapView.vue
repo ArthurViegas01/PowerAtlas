@@ -263,13 +263,8 @@ onMounted(() => {
     renderWorldCopies: false,
     attributionControl: false,
   })
-  map.addControl(
-    new maplibregl.AttributionControl({
-      compact: true,
-      customAttribution: 'Malhas territoriais: IBGE',
-    }),
-    'bottom-right',
-  )
+  // No AttributionControl on purpose: the "(i)" toggle cluttered the corner
+  // and the IBGE credit already lives permanently in the legend.
   if (import.meta.env.DEV) {
     ;(window as unknown as { __paMap?: maplibregl.Map }).__paMap = map
   }
@@ -415,7 +410,9 @@ watch(
 .map-root {
   position: absolute;
   inset: 0;
-  background: var(--pa-bg-void);
+  /* Transparent on purpose: the void background lives on .app-shell and the
+     scan band (ScanBand.vue) slides between it and the map canvases. */
+  background: transparent;
 }
 
 .map-root :deep(canvas) {

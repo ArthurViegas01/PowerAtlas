@@ -34,18 +34,18 @@ const rows = computed(() =>
 
 <template>
   <aside v-if="rows.length" class="monitoring" aria-label="Monitoramento de fontes">
-    <header class="monitoring-head">
-      <p class="pa-label monitoring-title">MONITORAMENTO // FONTES OFICIAIS</p>
-      <button
-        class="collapse pa-data"
-        type="button"
-        :title="collapsed ? 'Expandir painel' : 'Recolher painel'"
-        :aria-expanded="!collapsed"
-        @click="collapsed = !collapsed"
-      >
+    <button
+      class="monitoring-head"
+      type="button"
+      :title="collapsed ? 'Expandir painel' : 'Recolher painel'"
+      :aria-expanded="!collapsed"
+      @click="collapsed = !collapsed"
+    >
+      <span class="pa-label monitoring-title">MONITORAMENTO // FONTES OFICIAIS</span>
+      <span class="collapse pa-data" aria-hidden="true">
         {{ collapsed ? '[+]' : '[–]' }}
-      </button>
-    </header>
+      </span>
+    </button>
     <template v-if="!collapsed">
       <ul class="m-0 flex list-none flex-col gap-2 p-0">
         <li v-for="row in rows" :key="row.id" class="doc">
@@ -69,7 +69,7 @@ const rows = computed(() =>
   left: 22px;
   top: 96px;
   z-index: 18;
-  width: 264px;
+  width: 290px;
   max-height: calc(100vh - 420px);
   overflow-y: auto;
   padding: 12px 14px;
@@ -78,12 +78,19 @@ const rows = computed(() =>
   backdrop-filter: blur(6px);
 }
 
+/* The whole title bar toggles the panel — the [–]/[+] is just the hint. */
 .monitoring-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  width: 100%;
   margin: 0 0 10px;
+  padding: 0;
+  text-align: left;
+  background: none;
+  border: 0;
+  cursor: pointer;
 }
 
 .monitoring-title {
@@ -91,19 +98,20 @@ const rows = computed(() =>
   color: var(--pa-text-dim);
 }
 
-.collapse {
-  flex: none;
-  padding: 1px 5px;
-  font-size: var(--pa-text-2xs);
-  color: var(--pa-text-dim);
-  background: none;
-  border: 1px solid var(--pa-border-faint);
-  cursor: pointer;
+.monitoring-head:hover .monitoring-title {
+  color: var(--pa-text-primary);
 }
 
-.collapse:hover {
+.collapse {
+  flex: none;
+  padding: 1px 6px;
+  font-size: var(--pa-text-xs);
   color: var(--pa-series-official);
-  border-color: var(--pa-border-cyan);
+  border: 1px solid var(--pa-border-cyan);
+}
+
+.monitoring-head:hover .collapse {
+  box-shadow: var(--pa-glow-cyan);
 }
 
 .doc-meta {

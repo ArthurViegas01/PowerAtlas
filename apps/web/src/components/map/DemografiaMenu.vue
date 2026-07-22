@@ -33,7 +33,11 @@ const sourceLabel = computed(() =>
         v-for="metric in metrics"
         :key="metric.id"
         class="metric-btn pa-data"
-        :class="{ 'metric-btn--active': selection.demographicMetric === metric.id }"
+        :class="{
+          'metric-btn--active': selection.demographicMetric === metric.id,
+          'metric-btn--pop': metric.id === 'population',
+          'metric-btn--gdp': metric.id === 'gdp',
+        }"
         type="button"
         role="radio"
         :aria-checked="selection.demographicMetric === metric.id"
@@ -66,14 +70,6 @@ const sourceLabel = computed(() =>
     </p>
 
     <p class="pa-label demo-source">{{ sourceLabel }}</p>
-
-    <button
-      class="exit-btn pa-data"
-      type="button"
-      @click="selection.exitDemographicView()"
-    >
-      ◄ SAIR DA VISÃO [ESC]
-    </button>
   </aside>
 </template>
 
@@ -83,7 +79,7 @@ const sourceLabel = computed(() =>
   top: 96px;
   right: 24px;
   z-index: 20;
-  width: 250px;
+  width: 300px;
   padding: 14px 16px;
   background: rgba(3, 6, 8, 0.82);
   border: 1px solid var(--pa-border-cyan);
@@ -114,10 +110,17 @@ const sourceLabel = computed(() =>
   color: var(--pa-text-primary);
 }
 
-.metric-btn--active {
-  color: var(--pa-series-official);
-  border-color: var(--pa-border-cyan);
-  box-shadow: var(--pa-glow-cyan);
+/* Active state tinted by the series color of the metric itself. */
+.metric-btn--active.metric-btn--pop {
+  color: color-mix(in srgb, var(--pa-demo-pop) 70%, var(--pa-text-primary));
+  border-color: color-mix(in srgb, var(--pa-demo-pop) 55%, transparent);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--pa-demo-pop) 40%, transparent);
+}
+
+.metric-btn--active.metric-btn--gdp {
+  color: color-mix(in srgb, var(--pa-demo-gdp) 55%, var(--pa-text-primary));
+  border-color: color-mix(in srgb, var(--pa-demo-gdp) 60%, transparent);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--pa-demo-gdp) 45%, transparent);
 }
 
 .metric-mark {
@@ -183,20 +186,9 @@ const sourceLabel = computed(() =>
   color: var(--pa-text-faint);
 }
 
-.exit-btn {
-  margin-top: 14px;
-  width: 100%;
-  padding: 7px 12px;
-  font-size: var(--pa-text-2xs);
-  letter-spacing: 0.12em;
-  color: var(--pa-series-official);
-  background: transparent;
-  border: 1px solid var(--pa-border-cyan);
-  cursor: pointer;
-}
-
-.exit-btn:hover {
-  box-shadow: var(--pa-glow-cyan);
+.demo-hint {
+  margin: 10px 0 0;
+  color: var(--pa-text-faint);
 }
 
 @media (max-width: 900px) {

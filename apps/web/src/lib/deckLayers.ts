@@ -10,7 +10,7 @@ import type {
   WorldFeature,
   WorldProps,
 } from '@/lib/geo'
-import { paColor, shade, type RGBA } from '@/lib/palette'
+import { over, overVoid, paColor, shade, type RGBA } from '@/lib/palette'
 import type { ArcDatum, ColumnDatum, LabelDatum, MapLayerModel } from '@/stores/mapLayers'
 import type { DemografiaMunicipio } from '@/types/demografia'
 import type { AmbientSignal, PowerDimension } from '@/types/power-entity'
@@ -55,6 +55,33 @@ export function buildDeckLayers({
   const demo = model.demographic
   const layers: Layer[] = []
 
+  // Area fills are precomposited over the void so the pixels are OPAQUE:
+  // visually identical (they always sat on the flat void), but this is what
+  // hides the scan band running behind the transparent map canvases.
+  const fills = {
+    world: overVoid(paColor.faint(36)),
+    worldHover: overVoid(paColor.faint(72)),
+    stateNoData: overVoid(paColor.faint(26)),
+    stateSelected: overVoid(paColor.official(110)),
+    stateHovered: overVoid(paColor.official(72)),
+    state: overVoid(paColor.official(42)),
+    stateDemo: overVoid(paColor.faint(22)),
+    stateDemoCropped: overVoid(paColor.official(30)),
+  }
+  // Municípios draw on top of the SELECTED state, so their translucent fills
+  // composite over that state color instead of the raw void.
+  const municipioFills = {
+    selected: over(paColor.official(120), fills.stateSelected),
+    hovered: over(paColor.official(58), fills.stateSelected),
+    base: over(paColor.official(18), fills.stateSelected),
+  }
+
+  // Demographic series color: darker blue for population, forest green for
+  // PIB (tokens --pa-demo-*). Columns, municipal outlines, state lines and
+  // the national border all follow it while the view is on.
+  const demoBase = demo.metric === 'population' ? paColor.demoPop(255) : paColor.demoGdp(255)
+  const demoCroppedFill = overVoid(shade(demoBase, 1, 34))
+
   // "Em breve" backdrop: dim fill + dashed borders, like an unfinished
   // game region. Sits under everything Brazil-related.
   if (model.world) {
@@ -67,8 +94,8 @@ export function buildDeckLayers({
         filled: true,
         getFillColor: (feature) =>
           feature.properties.iso === model.hoveredWorldIso
-            ? paColor.faint(72)
-            : paColor.faint(36),
+            ? fills.worldHover
+            : fills.world,
         getLineColor: paColor.faint(160),
         getLineWidth: 0.9,
         lineWidthUnits: 'pixels',
@@ -106,16 +133,17 @@ export function buildDeckLayers({
       getFillColor: (feature) => {
         const uf = feature.properties.UF
         // Demographic view: faint base under the columns; the cropped state
-        // gets a touch more presence.
-        if (demo.active) return uf === demo.uf ? paColor.official(30) : paColor.faint(22)
-        if (!dataRegions.has(uf)) return paColor.faint(26)
-        if (uf === model.selectedId) return paColor.official(110)
-        if (uf === model.hoveredId) return paColor.official(72)
-        return paColor.official(42)
+        // gets a touch more presence, tinted by the metric color.
+        if (demo.active) return uf === demo.uf ? demoCroppedFill : fills.stateDemo
+        if (!dataRegions.has(uf)) return fills.stateNoData
+        if (uf === model.selectedId) return fills.stateSelected
+        if (uf === model.hoveredId) return fills.stateHovered
+        return fills.state
       },
       getLineColor: (feature) => {
         const uf = feature.properties.UF
         const highlighted = demo.active ? uf === demo.uf : uf === model.selectedId
+        if (demo.active) return shade(demoBase, 1, highlighted ? 255 : 120)
         return highlighted ? paColor.official(255) : paColor.official(88)
       },
       getLineWidth: (feature) => {
@@ -133,8 +161,9 @@ export function buildDeckLayers({
           model.dataRegionIds.join(','),
           demo.active,
           demo.uf,
+          demo.metric,
         ],
-        getLineColor: [model.selectedId, demo.active, demo.uf],
+        getLineColor: [model.selectedId, demo.active, demo.uf, demo.metric],
         getLineWidth: [model.selectedId, demo.active, demo.uf],
       },
     }),
@@ -147,10 +176,12 @@ export function buildDeckLayers({
       pickable: false,
       stroked: true,
       filled: false,
-      getLineColor: paColor.official(210),
+      // The country border also wears the metric color in the demographic view.
+      getLineColor: demo.active ? shade(demoBase, 1, 210) : paColor.official(210),
       getLineWidth: 1.8,
       lineWidthUnits: 'pixels',
       lineWidthMinPixels: 1.5,
+      updateTriggers: { getLineColor: [demo.active, demo.metric] },
     }),
   )
 
@@ -167,9 +198,9 @@ export function buildDeckLayers({
         filled: true,
         getFillColor: (feature) => {
           const codigo = feature.properties.codigo
-          if (codigo === model.selectedMunicipioCodigo) return paColor.official(120)
-          if (codigo === model.hoveredMunicipioCodigo) return paColor.official(58)
-          return paColor.official(18)
+          if (codigo === model.selectedMunicipioCodigo) return municipioFills.selected
+          if (codigo === model.hoveredMunicipioCodigo) return municipioFills.hovered
+          return municipioFills.base
         },
         getLineColor: paColor.official(130),
         getLineWidth: (feature) =>
@@ -248,23 +279,23 @@ export function buildDeckLayers({
         pickable: false,
         stroked: true,
         filled: false,
-        getLineColor: paColor.official(46),
+        getLineColor: shade(demoBase, 0.9, 60),
         getLineWidth: 0.5,
         lineWidthUnits: 'pixels',
         lineWidthMinPixels: 0.3,
+        updateTriggers: { getLineColor: [demo.metric] },
       }),
     )
   }
 
   // Demographic view: one column per município, height ∝ √metric (linear
-  // would make everything but the SP/RJ metros invisible). Population reads
-  // in the official cyan, PIB in the amber series.
+  // would make everything but the SP/RJ metros invisible).
   if (demo.active && demo.munis.length > 0) {
     const metricValue = (d: DemografiaMunicipio) =>
       demo.metric === 'population' ? d.population : d.gdpBrlThousands
     let max = 0
     for (const municipio of demo.munis) max = Math.max(max, metricValue(municipio))
-    const base = demo.metric === 'population' ? paColor.official(255) : paColor.hidden(255)
+    const base = demoBase
     layers.push(
       new ColumnLayer<DemografiaMunicipio>({
         id: 'demografia-columns',
@@ -279,7 +310,9 @@ export function buildDeckLayers({
         getFillColor: (d) => {
           if (d.codigo === demo.hoveredCodigo) return shade(base, 1, 255)
           const t = max ? Math.sqrt(metricValue(d) / max) : 0
-          return shade(base, 0.35 + 0.65 * t, 90 + Math.round(150 * t))
+          // Floor at 0.45: the darker series colors would sink small
+          // municípios into the void with the old 0.35 ramp.
+          return shade(base, 0.45 + 0.55 * t, 90 + Math.round(150 * t))
         },
         onHover: (info) => onHoverDemografia(info as PickingInfo<DemografiaMunicipio>),
         updateTriggers: {

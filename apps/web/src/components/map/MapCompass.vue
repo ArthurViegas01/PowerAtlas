@@ -44,7 +44,6 @@ const hasOverride = computed(
       aria-label="Alinhar o mapa ao norte"
       @click="selection.requestNorth()"
     >
-      <span class="tick" aria-hidden="true"></span>
       <svg viewBox="0 0 20 20" aria-hidden="true" class="needle" :style="needleStyle">
         <path class="needle-n" d="M10 2.2 12.4 10 7.6 10Z" />
         <path class="needle-s" d="M7.6 10 12.4 10 10 17.8Z" />
@@ -94,16 +93,21 @@ const hasOverride = computed(
 </template>
 
 <style scoped>
+/* Horizontal control strip, centered right above the disclaimer footer. */
 .compass {
   position: absolute;
-  left: 22px;
-  top: 50%;
+  left: 50%;
+  bottom: 52px;
   z-index: 18;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
   gap: 6px;
-  transform: translateY(-50%);
+  transform: translateX(-50%);
+  padding: 5px 10px;
+  background: rgba(3, 6, 8, 0.6);
+  border: 1px solid var(--pa-border-faint);
+  backdrop-filter: blur(6px);
 }
 
 .ctrl {
@@ -142,18 +146,8 @@ const hasOverride = computed(
   fill: rgba(61, 225, 255, 0.22);
 }
 
-.tick {
-  position: absolute;
-  top: 2px;
-  left: 50%;
-  width: 1px;
-  height: 4px;
-  background: var(--pa-text-dim);
-  transform: translateX(-50%);
-}
-
 .readout {
-  margin: 2px 0 0;
+  margin: 0 6px;
   font-size: var(--pa-text-2xs);
   letter-spacing: 0.1em;
   color: var(--pa-text-dim);
@@ -182,9 +176,7 @@ const hasOverride = computed(
 
 @media (max-width: 900px) {
   .compass {
-    top: 84px;
-    left: 12px;
-    transform: none;
+    bottom: 12px; /* the disclaimer footer is hidden on mobile */
   }
 }
 </style>

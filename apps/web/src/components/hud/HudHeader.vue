@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed } from 'vue'
 
 import { useSelectionStore } from '@/stores/selection'
 
@@ -10,20 +10,6 @@ const emit = defineEmits<{
 }>()
 
 const selection = useSelectionStore()
-
-const clock = ref('--:--:--Z')
-let timer: number | undefined
-
-function tick() {
-  clock.value = `${new Date().toISOString().slice(11, 19)}Z`
-}
-
-onMounted(() => {
-  tick()
-  timer = window.setInterval(tick, 1000)
-})
-
-onBeforeUnmount(() => window.clearInterval(timer))
 
 const readout = computed(() => {
   if (selection.selectedId) {
@@ -65,16 +51,14 @@ const readout = computed(() => {
       </button>
       <button
         class="national-btn pa-data"
+        :class="{ 'national-btn--active': selection.demographicView }"
         type="button"
-        :disabled="selection.demographicView"
+        :aria-pressed="selection.demographicView"
+        title="Alternar a visão demográfica"
         @click="emit('view-demographic')"
       >
         VISÃO DEMOGRÁFICA [BR]
       </button>
-      <div class="text-right">
-        <p class="clock pa-data">{{ clock }}</p>
-        <p class="pa-label">SIMULAÇÃO · v0.2</p>
-      </div>
     </div>
   </header>
 </template>
@@ -108,7 +92,13 @@ const readout = computed(() => {
   margin: 2px 0 0;
 }
 
+/* Dead-centered on the header (not flex-distributed), clipped politely
+   before it can reach the brand or the view buttons. */
 .readout {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 30vw;
   margin: 0;
   font-size: var(--pa-text-sm);
   letter-spacing: 0.12em;
@@ -140,10 +130,11 @@ const readout = computed(() => {
   cursor: default;
 }
 
-.clock {
-  margin: 0;
-  font-size: var(--pa-text-sm);
-  color: var(--pa-text-primary);
+/* Toggled-on state (demographic view active): stays clickable to exit. */
+.national-btn--active {
+  color: var(--pa-bg-void);
+  background: var(--pa-series-official);
+  box-shadow: var(--pa-glow-cyan);
 }
 
 @media (max-width: 900px) {
