@@ -26,7 +26,14 @@ function model(overrides: Partial<MapLayerModel> = {}): MapLayerModel {
     hoveredMunicipioCodigo: null,
     heatmapPoints: [],
     heatmapVisible: false,
-    demographic: { active: false, metric: 'population', munis: [], hoveredCodigo: null },
+    demographic: {
+      active: false,
+      metric: 'population',
+      munis: [],
+      hoveredCodigo: null,
+      borders: null,
+      uf: null,
+    },
     ...overrides,
   }
 }
@@ -122,13 +129,37 @@ describe('buildDeckLayers', () => {
           metric: 'population',
           munis: [muni],
           hoveredCodigo: null,
+          borders: null,
+          uf: null,
         },
       }),
     )
     expect(layers.find((l) => l.id === 'demografia-columns')).toBeDefined()
     expect(layers.find((l) => l.id === 'power-columns-official')).toBeUndefined()
+    // States stay pickable: clicking one crops the demographic camera on it.
     const states = layers.find((l) => l.id === 'states-choropleth')
-    expect((states!.props as { pickable: boolean }).pickable).toBe(false)
+    expect((states!.props as { pickable: boolean }).pickable).toBe(true)
+  })
+
+  it('draws municipal outlines in the demographic view once meshes load', () => {
+    const demographic = {
+      active: true,
+      metric: 'population' as const,
+      munis: [],
+      hoveredCodigo: null,
+      borders: munFc,
+      uf: null,
+    }
+    const layers = build(model({ demographic }))
+    const borders = layers.find((l) => l.id === 'demografia-borders')
+    expect(borders).toBeDefined()
+    expect((borders!.props as { pickable: boolean }).pickable).toBe(false)
+    // Not loaded yet -> no layer, no crash.
+    expect(
+      build(model({ demographic: { ...demographic, borders: null } })).find(
+        (l) => l.id === 'demografia-borders',
+      ),
+    ).toBeUndefined()
   })
 
   it('keeps the demografia layer pickable so hover reaches the tooltip', () => {
@@ -147,6 +178,8 @@ describe('buildDeckLayers', () => {
             },
           ],
           hoveredCodigo: null,
+          borders: null,
+          uf: null,
         },
       }),
     ).find((l) => l.id === 'demografia-columns')

@@ -100,23 +100,29 @@ export function buildDeckLayers({
     new GeoJsonLayer<BoundaryFeature['properties']>({
       id: 'states-choropleth',
       data: model.states,
-      pickable: !demo.active,
+      pickable: true,
       stroked: true,
       filled: true,
       getFillColor: (feature) => {
-        // Demographic view: the mesh recedes to a faint base under the columns.
-        if (demo.active) return paColor.faint(22)
         const uf = feature.properties.UF
+        // Demographic view: faint base under the columns; the cropped state
+        // gets a touch more presence.
+        if (demo.active) return uf === demo.uf ? paColor.official(30) : paColor.faint(22)
         if (!dataRegions.has(uf)) return paColor.faint(26)
         if (uf === model.selectedId) return paColor.official(110)
         if (uf === model.hoveredId) return paColor.official(72)
         return paColor.official(42)
       },
-      getLineColor: (feature) =>
-        feature.properties.UF === model.selectedId
-          ? paColor.official(255)
-          : paColor.official(88),
-      getLineWidth: (feature) => (feature.properties.UF === model.selectedId ? 2 : 1),
+      getLineColor: (feature) => {
+        const uf = feature.properties.UF
+        const highlighted = demo.active ? uf === demo.uf : uf === model.selectedId
+        return highlighted ? paColor.official(255) : paColor.official(88)
+      },
+      getLineWidth: (feature) => {
+        const uf = feature.properties.UF
+        const highlighted = demo.active ? uf === demo.uf : uf === model.selectedId
+        return highlighted ? 2 : 1
+      },
       lineWidthUnits: 'pixels',
       lineWidthMinPixels: 1,
       onHover: (info) => onHoverState(info as PickingInfo<BoundaryFeature>),
@@ -126,9 +132,10 @@ export function buildDeckLayers({
           model.hoveredId,
           model.dataRegionIds.join(','),
           demo.active,
+          demo.uf,
         ],
-        getLineColor: [model.selectedId],
-        getLineWidth: [model.selectedId],
+        getLineColor: [model.selectedId, demo.active, demo.uf],
+        getLineWidth: [model.selectedId, demo.active, demo.uf],
       },
     }),
   )
@@ -227,6 +234,24 @@ export function buildDeckLayers({
           getColor: [model.selectedId],
           getSize: [model.selectedId],
         },
+      }),
+    )
+  }
+
+  // Demographic view: municipal outlines as context under the columns —
+  // faint on purpose, they only firm up as you tilt/zoom into a state.
+  if (demo.active && demo.borders) {
+    layers.push(
+      new GeoJsonLayer<MunicipioProps>({
+        id: 'demografia-borders',
+        data: demo.borders,
+        pickable: false,
+        stroked: true,
+        filled: false,
+        getLineColor: paColor.official(46),
+        getLineWidth: 0.5,
+        lineWidthUnits: 'pixels',
+        lineWidthMinPixels: 0.3,
       }),
     )
   }

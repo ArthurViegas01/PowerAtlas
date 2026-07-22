@@ -45,6 +45,18 @@ const sourceLabel = computed(() =>
       </button>
     </div>
 
+    <div v-if="selection.demographicUf" class="demo-crop">
+      <p class="pa-label demo-crop-label">RECORTE: {{ selection.demographicUf }}</p>
+      <button
+        class="demo-crop-clear pa-data"
+        type="button"
+        title="Voltar ao Brasil inteiro (Esc)"
+        @click="selection.selectDemographicUf(null)"
+      >
+        [X]
+      </button>
+    </div>
+
     <p v-if="demografia.loading" class="pa-label demo-note">CARREGANDO MUNICÍPIOS…</p>
     <p v-else-if="demografia.error" class="pa-label demo-note demo-error">
       FALHA AO CARREGAR: {{ demografia.error }}
@@ -125,6 +137,36 @@ const sourceLabel = computed(() =>
 
 .metric-hint {
   color: var(--pa-text-faint);
+}
+
+.demo-crop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 6px 8px;
+  border: 1px solid var(--pa-border-cyan);
+}
+
+.demo-crop-label {
+  margin: 0;
+  color: var(--pa-series-official);
+}
+
+.demo-crop-clear {
+  flex: none;
+  padding: 1px 5px;
+  font-size: var(--pa-text-2xs);
+  color: var(--pa-text-dim);
+  background: none;
+  border: 1px solid var(--pa-border-faint);
+  cursor: pointer;
+}
+
+.demo-crop-clear:hover {
+  color: var(--pa-series-official);
+  border-color: var(--pa-border-cyan);
 }
 
 .demo-note {

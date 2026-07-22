@@ -66,6 +66,8 @@ function viewGlobal() {
 
 function viewDemographic() {
   void demografia.load()
+  // Municipal outlines for the demographic backdrop (27 meshes, cached).
+  void mapLayers.loadAllMunicipios()
   selection.enterDemographicView()
 }
 
@@ -75,11 +77,17 @@ function reload() {
 
 function onKeydown(event: KeyboardEvent) {
   if (event.key !== 'Escape') return
-  // Step out one level at a time: demographic view / municipality -> state
-  // -> national.
-  if (selection.demographicView) selection.exitDemographicView()
-  else if (selection.selectedMunicipio) selection.clearMunicipio()
-  else selection.goHome()
+  // Step out one level at a time: demographic UF crop -> demographic view ->
+  // municipality -> state -> national.
+  if (selection.demographicView && selection.demographicUf) {
+    selection.selectDemographicUf(null)
+  } else if (selection.demographicView) {
+    selection.exitDemographicView()
+  } else if (selection.selectedMunicipio) {
+    selection.clearMunicipio()
+  } else {
+    selection.goHome()
+  }
 }
 
 /** Deep link: /?region=SP preselects a region once data is ready. */

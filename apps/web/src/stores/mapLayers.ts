@@ -66,6 +66,10 @@ export interface MapLayerModel {
     metric: DemografiaMetric
     munis: DemografiaMunicipio[]
     hoveredCodigo: string | null
+    /** Merged municipal outlines of every loaded UF mesh (context lines). */
+    borders: MunicipioCollection | null
+    /** State the camera is cropped on (click selects; Esc clears). */
+    uf: string | null
   }
 }
 
@@ -159,6 +163,21 @@ export const useMapLayersStore = defineStore('mapLayers', () => {
       })),
   )
 
+  /**
+   * All loaded municipal meshes merged into one collection for the
+   * demographic view's context outlines. Fills in progressively while
+   * loadAllMunicipios streams the 27 UF meshes in.
+   */
+  const demografiaBorders = computed<MunicipioCollection | null>(() => {
+    if (!selection.demographicView) return null
+    const collections = [...municipiosByUf.value.values()]
+    if (collections.length === 0) return null
+    return {
+      type: 'FeatureCollection',
+      features: collections.flatMap((collection) => collection.features),
+    } as MunicipioCollection
+  })
+
   const layerModel = computed<MapLayerModel>(() => ({
     ready: states.value !== null && national.value !== null,
     states: states.value,
@@ -183,6 +202,8 @@ export const useMapLayersStore = defineStore('mapLayers', () => {
       metric: selection.demographicMetric,
       munis: selection.demographicView ? demografia.municipios : [],
       hoveredCodigo: selection.hoveredDemografia?.codigo ?? null,
+      borders: demografiaBorders.value,
+      uf: selection.demographicUf,
     },
   }))
 
@@ -245,6 +266,16 @@ export const useMapLayersStore = defineStore('mapLayers', () => {
     }
   }
 
+  /**
+   * Fetch every UF's municipal mesh (demographic-view outlines). Meshes load
+   * one by one and appear as they land; already-loaded UFs are no-ops thanks
+   * to loadMunicipios' attempt cache.
+   */
+  async function loadAllMunicipios() {
+    const ufs = states.value?.features.map((feature) => feature.properties.UF) ?? []
+    await Promise.allSettled(ufs.map((uf) => loadMunicipios(uf)))
+  }
+
   function municipioBoundsFor(uf: string, codigo: string): Bounds | null {
     const feature = municipiosByUf.value.get(uf)?.features.find((f) => f.properties.codigo === codigo)
     return feature ? featureBounds(feature) : null
@@ -260,6 +291,7 @@ export const useMapLayersStore = defineStore('mapLayers', () => {
     loadGeo,
     boundsFor,
     loadMunicipios,
+    loadAllMunicipios,
     municipioBoundsFor,
   }
 })
