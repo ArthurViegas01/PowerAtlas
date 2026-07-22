@@ -257,12 +257,14 @@ só existe na F6, com revisão humana. O teste de paridade garante: payload de
 3. `feat/f5c-embeddings-scoring` — chunking + embeddings + scoring LLM →
    `entity_candidates` + citações.
 
-**Pendência registrada na F5a (pedido do Arthur, 2026-07-22):** documentar/
-unificar o fluxo de subida local. `pnpm dev` continua bastando para o web
-offline (mock); o backend F5 sobe por partes (`db-up`/`redis-up` +
-`worker-dev`/`api-dev-db` no host) ou inteiro via
-`docker compose --profile full up`. Avaliar um alvo único (`stack-up`) e
-registrar o fluxo canônico no README quando a F5 fechar.
+**Fluxo de subida local (RESOLVIDO 2026-07-22, pedido do Arthur):**
+`docker compose up` sobe o backend inteiro — postgres (PostGIS+pgvector),
+redis, serviço one-shot `migrate` (migrations + seed `--if-empty`; o seed
+completo truncaria as tabelas de staging via CASCADE, então só roda em banco
+vazio), api :8000 e worker. O web fica fora do compose: `pnpm dev` (mock)
+ou `VITE_API_URL=http://localhost:8000`. `PA_API_PORT` sobrescreve a porta
+do host em colisão. Alvos granulares (`db-up`/`redis-up`/`api-dev-db`/
+`worker-dev`) continuam valendo p/ dev no host. Documentado no README.
 
 **Verificação F5**
 1. pytest/ruff/mypy verdes; unit com HTTP mockado (respx) e embeddings

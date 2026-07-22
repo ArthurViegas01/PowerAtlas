@@ -113,10 +113,22 @@ pnpm indicators # re-fetch IBGE factual indicators (needs network)
 Equivalent `make web-*` targets exist in the Makefile for machines with GNU
 make installed.
 
-### API (F3/F4)
+### Backend (F3/F4/F5)
 
-Requires Python >= 3.11 (and Docker for the F4 database). From the repository
-root:
+The canonical way to bring the whole backend up is Docker:
+
+```sh
+docker compose up   # PostGIS+pgvector, Redis, migrate+seed, API :8000, worker
+```
+
+Migrations and the fictional seed run automatically on boot (the seed only
+fills an *empty* database, so pipeline data survives restarts). If host port
+8000 is taken by another project, override it:
+`PA_API_PORT=8010 docker compose up`. The web HUD is deliberately **not**
+in compose — run it with `pnpm dev` as usual.
+
+For host development of the API/worker (faster reload; needs Python >= 3.11),
+the granular targets remain:
 
 ```sh
 pnpm api-install    # create apps/api/.venv and install deps
@@ -124,11 +136,13 @@ pnpm api-dev        # uvicorn --reload on http://localhost:8000 (mock mode)
 pnpm api-test       # pytest (DB tests are opt-in: -m integration)
 pnpm api-lint       # ruff + mypy
 
-# F4 database (PostGIS via Docker):
-pnpm db-up          # start postgres
+# Dockerized infra + host processes:
+pnpm db-up          # start postgres only
+pnpm redis-up       # start redis only
 pnpm db-migrate     # apply SQL migrations
-pnpm db-seed        # seed from the fictional dataset
+pnpm db-seed        # full reseed from the fictional dataset (truncates!)
 pnpm api-dev-db     # uvicorn against the database
+pnpm worker-dev     # celery worker on the host (pool=solo)
 ```
 
 Point the web at it with `VITE_API_URL=http://localhost:8000`
