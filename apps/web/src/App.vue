@@ -12,6 +12,7 @@ import MapTooltip from '@/components/map/MapTooltip.vue'
 import MapView from '@/components/map/MapView.vue'
 import RankingColumn from '@/components/rankings/RankingColumn.vue'
 import IndicatorGrid from '@/components/shared/IndicatorGrid.vue'
+import { HIDDEN_INFLUENCE_ENABLED } from '@/lib/features'
 import { useIndicatorsStore } from '@/stores/indicators'
 import { useMapLayersStore } from '@/stores/mapLayers'
 import { useRankingsStore } from '@/stores/rankings'
@@ -151,7 +152,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
               :source-label="indicators.sourceLabel"
             />
             <p class="no-data-sub">
-              Ranking de poder municipal ainda não disponível: os índices por
+              Ranking de influência municipal ainda não disponível: os índices por
               município chegam com o pipeline de dados das próximas fases.
             </p>
             <button
@@ -171,7 +172,22 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
             />
             <div class="columns">
               <RankingColumn variant="official" :entities="region.official" />
-              <RankingColumn variant="hidden" :entities="region.hidden" />
+              <RankingColumn
+                v-if="HIDDEN_INFLUENCE_ENABLED"
+                variant="hidden"
+                :entities="region.hidden"
+              />
+              <div v-else class="hidden-soon" data-reveal>
+                <header class="hidden-soon-head">
+                  <span class="hidden-soon-mark"></span>
+                  <h3 class="hidden-soon-title pa-data">INFLUÊNCIA OCULTA</h3>
+                </header>
+                <p class="pa-label hidden-soon-tag">MÓDULO BLOQUEADO · EM BREVE</p>
+                <p class="hidden-soon-copy">
+                  O ranking de influência oculta entra em fases futuras, depois do
+                  pipeline de dados com fontes citadas e do gate de revisão humana.
+                </p>
+              </div>
             </div>
           </div>
 
@@ -190,7 +206,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
           <div v-else class="no-data" data-reveal>
             <p class="no-data-title pa-data">SEM DADOS PARA ESTA REGIÃO</p>
             <p class="no-data-sub">
-              Esta região ainda não tem matriz de poder carregada. O recorte
+              Esta região ainda não tem matriz de influência carregada. O recorte
               nacional e os 27 estados já trazem dados simulados; a cobertura
               real chega com o pipeline de dados das próximas fases.
             </p>
@@ -212,7 +228,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
       <div v-if="booting" class="boot" aria-live="polite">
         <template v-if="!bootError">
           <p class="boot-line pa-data">
-            INICIALIZANDO MATRIZ DE PODER<span class="pa-blink">▌</span>
+            INICIALIZANDO MATRIZ DE INFLUÊNCIA<span class="pa-blink">▌</span>
           </p>
           <p class="pa-label">CARREGANDO MALHAS IBGE + DATASET SIMULADO…</p>
         </template>
@@ -308,6 +324,49 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
   font-size: var(--pa-text-md);
   letter-spacing: 0.12em;
   color: var(--pa-series-hidden);
+}
+
+/* Locked second column while the hidden dimension is "em breve". */
+.hidden-soon {
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px dashed color-mix(in srgb, var(--pa-series-hidden) 45%, transparent);
+  background: color-mix(in srgb, var(--pa-series-hidden) 4%, transparent);
+}
+
+.hidden-soon-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid color-mix(in srgb, var(--pa-series-hidden) 30%, transparent);
+}
+
+.hidden-soon-mark {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border: 1px dashed var(--pa-series-hidden);
+}
+
+.hidden-soon-title {
+  flex: 1;
+  margin: 0;
+  font-size: var(--pa-text-xs);
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  color: color-mix(in srgb, var(--pa-series-hidden) 75%, transparent);
+}
+
+.hidden-soon-tag {
+  margin: 5px 0 4px;
+}
+
+.hidden-soon-copy {
+  margin: 8px 0 0;
+  font-size: var(--pa-text-2xs);
+  line-height: 1.5;
+  color: var(--pa-text-dim);
 }
 
 .no-data-sub {

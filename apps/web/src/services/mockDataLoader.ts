@@ -16,7 +16,7 @@ import type {
 const SIMULATED_LATENCY_MS = 350
 
 export const MOCK_DISCLAIMER =
-  'PROTÓTIPO · DADOS SIMULADOS · ENTIDADES DE "PODER OCULTO" SÃO FICTÍCIAS'
+  'PROTÓTIPO · DADOS SIMULADOS · RANKINGS E ENTIDADES SÃO FICTÍCIOS'
 
 const moduleLoaders = import.meta.glob<unknown>('../data/mock/*.json', {
   import: 'default',
