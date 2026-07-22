@@ -50,6 +50,13 @@ corrected empty-region copy, plus an audit confirming the mobile layout and
 the `prefers-reduced-motion` gating (global CSS kill-switch + JS composables)
 were already solid.
 
+**Municipal drill-down.** Selecting a state lazily loads its IBGE municipal
+mesh and renders the municipality layer; clicking a municipality closes the
+camera on it and opens a light panel (ranking still pending the data
+pipeline), Esc walks back up one level. Shipped as an SP pilot, then extended
+to all 27 UFs (meshes generated per state, largest 569 KB, loaded on
+demand).
+
 Deviations from the original plans: [ARCHITECTURE.md](ARCHITECTURE.md) §3
 and [docs/data-sources.md](docs/data-sources.md). Next phases (scoring
 pipeline, review workflow): ARCHITECTURE.md §6.

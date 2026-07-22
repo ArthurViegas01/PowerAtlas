@@ -35,23 +35,27 @@ after simplification.
 
 ## Municipal boundaries (`apps/web/public/geo/municipios/{UF}.geojson`)
 
-**Pilot: São Paulo.** Per-state municipal meshes, loaded on demand when a
+**Coverage: all 27 UFs.** Per-state municipal meshes, loaded on demand when a
 state is selected (the app never loads all 5,570 municipalities at once).
 Same IBGE Malhas v3 API, plus the Localidades API for names.
 
-**Endpoints used (downloaded 2026-07-19, SP = code 35):**
+**Endpoints used (SP downloaded 2026-07-19; remaining 26 UFs 2026-07-21;
+`{code}` = 2-digit IBGE UF geocode):**
 
 ```
-malha:  https://servicodados.ibge.gov.br/api/v3/malhas/estados/35?formato=application/vnd.geo%2Bjson&qualidade=intermediaria&intrarregiao=municipio
-nomes:  https://servicodados.ibge.gov.br/api/v1/localidades/estados/35/municipios
+malha:  https://servicodados.ibge.gov.br/api/v3/malhas/estados/{code}?formato=application/vnd.geo%2Bjson&qualidade=intermediaria&intrarregiao=municipio
+nomes:  https://servicodados.ibge.gov.br/api/v1/localidades/estados/{code}/municipios
 ```
 
 **Processing** (`apps/web/scripts/fetch-geo.mjs`, `pnpm geo`): the malha carries
 only `codarea` (7-digit IBGE municipality code); names are joined in from the
 Localidades API by that code. `mapshaper -simplify 25% keep-shapes -clean`,
-properties normalized to `{ codigo, name }`. SP: 645 municipalities,
-**347 KB** (budget 900 KB). Extend the `MUNICIPIOS` list in the script to cover
-more states.
+properties normalized to `{ codigo, name }`. The UF list is derived from the
+script's `UF_BY_CODE` table (nothing to extend by hand); pass
+`--municipios-only` to rebuild only these files without re-downloading the
+state/world meshes. Sizes: largest MG (853 municipalities, **569 KB**), then
+SP (645, **347 KB**); every file is under the 900 KB budget and the 27 files
+total **3.7 MB**, fetched one state at a time.
 
 ## World countries backdrop (`apps/web/public/geo/world-countries.geojson`)
 

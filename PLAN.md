@@ -64,19 +64,22 @@
   pelo breakpoint de 900px (painel vira bottom-sheet); reduced-motion já
   totalmente coberto (kill-switch CSS global em `main.css` + gating JS nos
   composables).
-- **Municípios (piloto SP, pós-v0.7.0, 2026-07-19)**: drill-down municipal.
+- **Municípios (pós-v0.7.0)**: drill-down municipal nos **27 UFs**.
   `fetch-geo.mjs` gera `public/geo/municipios/{UF}.geojson` (malha IBGE
   `estados/{code}?intrarregiao=municipio` + nomes da API de localidades, props
-  `{codigo,name}`); só SP por ora (`MUNICIPIOS=[['SP',35]]`, extensível). O
-  `mapLayers` carrega a malha sob demanda ao selecionar o estado (404/fallback
-  SPA tratados sem retry); camada `municipios` no `buildDeckLayers`; clique em
-  município → `selectMunicipio` → câmera fecha no município + painel leve
-  ("ranking em breve"); Esc sobe um nível (município → estado → nacional).
-  Sem ranking municipal (isso depende da F5). Verificado: fetch da malha ao
-  selecionar SP, build/typecheck/22 testes verdes.
+  `{codigo,name}`); lista de UFs derivada do `UF_BY_CODE` do próprio script e
+  flag `--municipios-only` para regerar só essas malhas (2026-07-21; piloto SP
+  em 2026-07-19). Todas sob o budget de 900 KB (maior: MG 569 KB; total
+  3,7 MB, carregadas uma por vez). O `mapLayers` carrega a malha sob demanda
+  ao selecionar o estado (404/fallback SPA tratados sem retry); camada
+  `municipios` no `buildDeckLayers`; clique em município → `selectMunicipio`
+  → câmera fecha no município + painel leve ("ranking em breve"); Esc sobe um
+  nível (município → estado → nacional). Sem ranking municipal (isso depende
+  da F5). Verificado: malhas íntegras (MG 853 / DF 1 / AC 22 features),
+  build/typecheck/22 testes verdes.
 - **Pendências conhecidas da trilha frontend**: tooltip de hover mais rico no
-  mapa (picking do deck.gl; exige navegador visível para validar); estender o
-  drill-down municipal aos demais UFs; ranking por município (depende da F5).
+  mapa (picking do deck.gl; exige navegador visível para validar); ranking
+  por município (depende da F5).
 
 ## 2. Convenções obrigatórias (não pular)
 
