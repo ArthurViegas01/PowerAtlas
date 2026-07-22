@@ -16,6 +16,8 @@ dependencies = [
     "pydantic>=2.7.0",
     "pydantic-settings>=2.4.0",
     "asyncpg>=0.29.0",
+    "celery>=5.4.0",
+    "redis>=5.0.0",
 ]
 
 [project.optional-dependencies]
@@ -66,4 +68,10 @@ no_implicit_optional = true
 
 [[tool.mypy.overrides]]
 module = "asyncpg"
+ignore_missing_imports = true
+
+# Celery ships no py.typed marker; without this mypy rejects the import and
+# treats every @app.task decorator as an error.
+[[tool.mypy.overrides]]
+module = "celery.*"
 ignore_missing_imports = true
