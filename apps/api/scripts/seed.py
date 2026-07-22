@@ -4,12 +4,18 @@ Truncates and reloads every table so it is repeatable. Array order becomes the
 `ord` columns, so the DB payload matches the mock loader's ordering. Point
 geometries are built with ST_MakePoint(lon, lat) in EPSG:4326.
 Run: `python -m scripts.seed` (or `pnpm db-seed`).
+
+`--if-empty` seeds only when `regions` is empty: the compose `migrate` service
+uses it so every `docker compose up` is boot-safe — the TRUNCATE ... CASCADE
+of a full reseed would also wipe the F5 staging tables (entity_candidates
+references regions), which must survive restarts.
 """
 
 from __future__ import annotations
 
 import asyncio
 import json
+import sys
 from datetime import datetime
 from pathlib import Path
 
@@ -39,6 +45,11 @@ async def main() -> None:
 
     conn = await asyncpg.connect(dsn=dsn)
     try:
+        if "--if-empty" in sys.argv:
+            existing = await conn.fetchval("SELECT count(*) FROM regions")
+            if existing:
+                print(f"seed skipped (--if-empty): {existing} regions already present")
+                return
         async with conn.transaction():
             await conn.execute(
                 "TRUNCATE regions, entities, sources, entity_sources, "

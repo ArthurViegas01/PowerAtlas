@@ -8,13 +8,25 @@ settings. Run: `python -m scripts.migrate` (or `pnpm db-migrate`).
 from __future__ import annotations
 
 import asyncio
+import os
 from pathlib import Path
 
 import asyncpg
 
 from src.core.config import get_settings
 
-MIGRATIONS_DIR = Path(__file__).resolve().parents[3] / "db" / "migrations"
+
+def migrations_dir() -> Path:
+    """db/migrations at the repo root; PA_MIGRATIONS_DIR overrides it.
+
+    The override exists for the docker image, where scripts/ sits at /app and
+    the repo-relative walk (parents[3]) does not exist — compose mounts the
+    migrations and sets the variable.
+    """
+    override = os.environ.get("PA_MIGRATIONS_DIR")
+    if override:
+        return Path(override)
+    return Path(__file__).resolve().parents[3] / "db" / "migrations"
 
 # Local docker-compose default, overridden by PA_DATABASE_URL when set.
 DEFAULT_DSN = "postgresql://poweratlas:poweratlas_local_dev@localhost:5432/poweratlas"
@@ -32,7 +44,7 @@ async def main() -> None:
         )
         rows = await conn.fetch("SELECT filename FROM schema_migrations")
         applied = {r["filename"] for r in rows}
-        for path in sorted(MIGRATIONS_DIR.glob("*.sql")):
+        for path in sorted(migrations_dir().glob("*.sql")):
             if path.name in applied:
                 print(f"skip    {path.name}")
                 continue

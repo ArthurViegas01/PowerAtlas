@@ -1,8 +1,9 @@
-# PowerAtlas local infra: PostGIS+pgvector, Redis and the read API + worker.
-#
-# Primary dev flow runs the API on the host (`pnpm api-dev`) against the
-# dockerized database; the `api`/`worker` services mirror the production shape
-# and `docker compose --profile full up` brings the whole backend up alone.
+# PowerAtlas local backend: `docker compose up` brings up the WHOLE backend —
+# PostGIS+pgvector, Redis, one-shot migrate+seed, then the read API (:8000)
+# and the Celery worker. The web HUD is NOT here: run it with `pnpm dev`
+# (offline mock) or `VITE_API_URL=http://localhost:8000 pnpm dev` to consume
+# this stack. Granular host-dev targets (`pnpm db-up`, `redis-up`, `api-dev`,
+# `worker-dev`) keep working for running api/worker outside Docker.
 
 services:
   postgres:
@@ -33,17 +34,36 @@ services:
       timeout: 3s
       retries: 20
 
+  # One-shot: applies db/migrations then seeds the fictional dataset, but only
+  # into an empty database (--if-empty) so pipeline staging data survives
+  # restarts. api/worker wait for it to finish successfully.
+  migrate:
+    build: ./apps/api
+    command: sh -c "python -m scripts.migrate && python -m scripts.seed --if-empty"
+    environment:
+      PA_DATABASE_URL: postgresql://poweratlas:poweratlas_local_dev@postgres:5432/poweratlas
+      PA_MIGRATIONS_DIR: /db/migrations
+    volumes:
+      - ./db/migrations:/db/migrations:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
   api:
     build: ./apps/api
     environment:
       PA_DATABASE_URL: postgresql://poweratlas:poweratlas_local_dev@postgres:5432/poweratlas
       PA_CORS_ALLOWED_ORIGINS: "http://localhost:5173,http://localhost:4173,http://127.0.0.1:5173,http://127.0.0.1:4173"
     ports:
-      - "8000:8000"
+      # Host port override for collisions (e.g. another project on :8000):
+      # PA_API_PORT=8010 docker compose up
+      - "${PA_API_PORT:-8000}:8000"
     depends_on:
       postgres:
         condition: service_healthy
-    profiles: ["full"]   # `docker compose --profile full up` to include the API
+      migrate:
+        condition: service_completed_successfully
 
   worker:
     build: ./apps/api
@@ -58,7 +78,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    profiles: ["full"]
+      migrate:
+        condition: service_completed_successfully
 
 volumes:
   pgdata:
