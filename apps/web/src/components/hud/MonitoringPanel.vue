@@ -69,7 +69,7 @@ const rows = computed(() =>
   left: 22px;
   top: 96px;
   z-index: 18;
-  width: 264px;
+  width: 290px;
   max-height: calc(100vh - 420px);
   overflow-y: auto;
   padding: 12px 14px;
