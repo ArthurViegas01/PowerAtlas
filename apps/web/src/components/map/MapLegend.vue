@@ -52,7 +52,7 @@ const selection = useSelectionStore()
 .legend {
   position: absolute;
   left: 22px;
-  bottom: 52px;
+  bottom: 16px; /* same height as the disclaimer footer */
   z-index: 18;
   padding: 12px 14px;
   background: rgba(3, 6, 8, 0.72);

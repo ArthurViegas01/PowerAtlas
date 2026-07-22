@@ -30,7 +30,7 @@ onBeforeUnmount(() => window.clearInterval(timer))
 .hud-clock {
   position: absolute;
   right: 24px;
-  bottom: 44px;
+  bottom: 16px; /* same height as the disclaimer footer */
   z-index: 18;
   text-align: right;
 }
