@@ -34,12 +34,11 @@ const BASE_MALHAS = 'https://servicodados.ibge.gov.br/api/v3/malhas'
 const BASE = `${BASE_MALHAS}/paises/BR`
 const STATES_URL = `${BASE}?formato=application/vnd.geo%2Bjson&qualidade=${QUALIDADE}&intrarregiao=UF`
 
-// Per-state municipal meshes (F-municipios pilot). Loaded on demand by the app
-// when a state is selected, so each file lives on its own under public/geo/
-// municipios/{UF}.geojson. Extend this list to cover more states. The malha
+// Per-state municipal meshes. Loaded on demand by the app when a state is
+// selected, so each file lives on its own under public/geo/municipios/
+// {UF}.geojson. Covers all 27 UFs (derived from UF_BY_CODE below). The malha
 // carries only `codarea` (7-digit IBGE code); names come from the localidades
 // API and are joined in by code.
-const MUNICIPIOS = [['SP', 35]]
 const MUN_QUALIDADE = 'intermediaria'
 const MUN_SIMPLIFY = '25%'
 const municipioMalhaUrl = (code) =>
@@ -86,6 +85,9 @@ const UF_BY_CODE = {
   52: ['GO', 'Goiás'],
   53: ['DF', 'Distrito Federal'],
 }
+
+// [sigla, code] for every UF: the municipal pipeline covers the whole country.
+const MUNICIPIOS = Object.entries(UF_BY_CODE).map(([code, [uf]]) => [uf, Number(code)])
 
 const kb = (file) => Math.round(statSync(file).size / 1024)
 
@@ -183,25 +185,31 @@ function report(file, budgetKb) {
 mkdirSync(CACHE, { recursive: true })
 mkdirSync(OUT, { recursive: true })
 
-const rawStates = join(CACHE, 'ibge-states-raw.geojson')
-const rawWorld = join(CACHE, 'ne-world-raw.geojson')
-const outNational = join(OUT, 'brazil-national.geojson')
-const outStates = join(OUT, 'brazil-states.geojson')
-const outWorld = join(OUT, 'world-countries.geojson')
+// `--municipios-only` skips the state/world rebuild: useful when only the
+// municipal coverage changes, so the other outputs do not churn.
+const MUNICIPIOS_ONLY = process.argv.includes('--municipios-only')
 
-await download(STATES_URL, rawStates)
-simplify(rawStates, outStates)
-dissolve(outStates, outNational)
-decorate(outStates)
+if (!MUNICIPIOS_ONLY) {
+  const rawStates = join(CACHE, 'ibge-states-raw.geojson')
+  const rawWorld = join(CACHE, 'ne-world-raw.geojson')
+  const outNational = join(OUT, 'brazil-national.geojson')
+  const outStates = join(OUT, 'brazil-states.geojson')
+  const outWorld = join(OUT, 'world-countries.geojson')
 
-await download(WORLD_URL, rawWorld)
-// 110m is already coarse — just trim coordinate precision (~1 km).
-mapshaper(`"${rawWorld}" -o precision=0.01 format=geojson "${outWorld}"`)
-decorateWorld(outWorld)
+  await download(STATES_URL, rawStates)
+  simplify(rawStates, outStates)
+  dissolve(outStates, outNational)
+  decorate(outStates)
 
-report(outStates, BUDGET_KB.states)
-report(outNational, BUDGET_KB.national)
-report(outWorld, BUDGET_KB.world)
+  await download(WORLD_URL, rawWorld)
+  // 110m is already coarse — just trim coordinate precision (~1 km).
+  mapshaper(`"${rawWorld}" -o precision=0.01 format=geojson "${outWorld}"`)
+  decorateWorld(outWorld)
+
+  report(outStates, BUDGET_KB.states)
+  report(outNational, BUDGET_KB.national)
+  report(outWorld, BUDGET_KB.world)
+}
 
 const munOut = join(OUT, 'municipios')
 mkdirSync(munOut, { recursive: true })
