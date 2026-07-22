@@ -108,6 +108,7 @@ pnpm preview    # serve the production build on http://localhost:4173
 pnpm test       # vitest (stores + composables)
 pnpm geo        # re-fetch + simplify IBGE boundaries (needs network)
 pnpm indicators # re-fetch IBGE factual indicators (needs network)
+pnpm demografia # rebuild the demographic-view dataset (offline join)
 ```
 
 Equivalent `make web-*` targets exist in the Makefile for machines with GNU
