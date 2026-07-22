@@ -415,7 +415,9 @@ watch(
 .map-root {
   position: absolute;
   inset: 0;
-  background: var(--pa-bg-void);
+  /* Transparent on purpose: the void background lives on .app-shell and the
+     scan band (ScanBand.vue) slides between it and the map canvases. */
+  background: transparent;
 }
 
 .map-root :deep(canvas) {
