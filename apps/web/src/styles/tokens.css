@@ -20,6 +20,10 @@
   --pa-series-official: #3de1ff;
   --pa-series-hidden: #ffb347;
 
+  /* demographic view: darker blue = population, forest green = PIB */
+  --pa-demo-pop: #3b82f6;
+  --pa-demo-gdp: #228b22;
+
   /* confidence levels */
   --pa-confidence-high: #4ade80;
   --pa-confidence-medium: #facc15;

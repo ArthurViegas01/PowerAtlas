@@ -33,7 +33,11 @@ const sourceLabel = computed(() =>
         v-for="metric in metrics"
         :key="metric.id"
         class="metric-btn pa-data"
-        :class="{ 'metric-btn--active': selection.demographicMetric === metric.id }"
+        :class="{
+          'metric-btn--active': selection.demographicMetric === metric.id,
+          'metric-btn--pop': metric.id === 'population',
+          'metric-btn--gdp': metric.id === 'gdp',
+        }"
         type="button"
         role="radio"
         :aria-checked="selection.demographicMetric === metric.id"
@@ -66,7 +70,6 @@ const sourceLabel = computed(() =>
     </p>
 
     <p class="pa-label demo-source">{{ sourceLabel }}</p>
-    <p class="pa-label demo-hint">SAIR: BOTÃO DO TOPO OU [ESC]</p>
   </aside>
 </template>
 
@@ -107,10 +110,17 @@ const sourceLabel = computed(() =>
   color: var(--pa-text-primary);
 }
 
-.metric-btn--active {
-  color: var(--pa-series-official);
-  border-color: var(--pa-border-cyan);
-  box-shadow: var(--pa-glow-cyan);
+/* Active state tinted by the series color of the metric itself. */
+.metric-btn--active.metric-btn--pop {
+  color: color-mix(in srgb, var(--pa-demo-pop) 70%, var(--pa-text-primary));
+  border-color: color-mix(in srgb, var(--pa-demo-pop) 55%, transparent);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--pa-demo-pop) 40%, transparent);
+}
+
+.metric-btn--active.metric-btn--gdp {
+  color: color-mix(in srgb, var(--pa-demo-gdp) 55%, var(--pa-text-primary));
+  border-color: color-mix(in srgb, var(--pa-demo-gdp) 60%, transparent);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--pa-demo-gdp) 45%, transparent);
 }
 
 .metric-mark {

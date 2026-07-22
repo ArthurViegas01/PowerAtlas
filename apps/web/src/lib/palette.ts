@@ -43,6 +43,8 @@ export const paColor = {
   hidden: (alpha = 255): RGBA => tokenColor('--pa-series-hidden', alpha, [255, 179, 71, 255]),
   faint: (alpha = 255): RGBA => tokenColor('--pa-text-faint', alpha, [61, 88, 101, 255]),
   void: (): RGBA => tokenColor('--pa-bg-void', 255, [3, 6, 8, 255]),
+  demoPop: (alpha = 255): RGBA => tokenColor('--pa-demo-pop', alpha, [59, 130, 246, 255]),
+  demoGdp: (alpha = 255): RGBA => tokenColor('--pa-demo-gdp', alpha, [34, 139, 34, 255]),
 }
 
 /** Alpha-composite `fg` over an opaque `bg` (opaque result). */

@@ -10,11 +10,11 @@ const selection = useSelectionStore()
 
     <ul v-if="selection.demographicView" class="m-0 flex list-none flex-col gap-1.5 p-0">
       <li class="flex items-center gap-2">
-        <span class="swatch swatch--heat"></span>
+        <span class="swatch swatch--metric"></span>
         <span class="row-label pa-data">COLUNA POR MUNICÍPIO · ALTURA ∝ √MÉTRICA</span>
       </li>
       <li class="flex items-center gap-2">
-        <span class="swatch swatch--official"></span>
+        <span class="swatch swatch--pop"></span>
         <span class="row-label pa-data">POPULAÇÃO (CENSO 2022)</span>
       </li>
       <li class="flex items-center gap-2">
@@ -97,9 +97,16 @@ const selection = useSelectionStore()
   background: linear-gradient(to right, rgba(61, 225, 255, 0.1), rgba(61, 225, 255, 0.85));
 }
 
+.swatch--metric {
+  background: linear-gradient(to right, rgba(127, 163, 180, 0.15), rgba(127, 163, 180, 0.7));
+}
+
+.swatch--pop {
+  background: var(--pa-demo-pop);
+}
+
 .swatch--gdp {
-  background: var(--pa-series-hidden);
-  opacity: 0.85;
+  background: var(--pa-demo-gdp);
 }
 
 .credit {

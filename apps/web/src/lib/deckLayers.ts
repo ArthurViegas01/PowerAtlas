@@ -259,6 +259,10 @@ export function buildDeckLayers({
     )
   }
 
+  // Demographic series color: darker blue for population, forest green for
+  // PIB (tokens --pa-demo-*). Columns AND municipal outlines follow it.
+  const demoBase = demo.metric === 'population' ? paColor.demoPop(255) : paColor.demoGdp(255)
+
   // Demographic view: municipal outlines as context under the columns —
   // faint on purpose, they only firm up as you tilt/zoom into a state.
   if (demo.active && demo.borders) {
@@ -269,23 +273,23 @@ export function buildDeckLayers({
         pickable: false,
         stroked: true,
         filled: false,
-        getLineColor: paColor.official(46),
+        getLineColor: shade(demoBase, 0.9, 60),
         getLineWidth: 0.5,
         lineWidthUnits: 'pixels',
         lineWidthMinPixels: 0.3,
+        updateTriggers: { getLineColor: [demo.metric] },
       }),
     )
   }
 
   // Demographic view: one column per município, height ∝ √metric (linear
-  // would make everything but the SP/RJ metros invisible). Population reads
-  // in the official cyan, PIB in the amber series.
+  // would make everything but the SP/RJ metros invisible).
   if (demo.active && demo.munis.length > 0) {
     const metricValue = (d: DemografiaMunicipio) =>
       demo.metric === 'population' ? d.population : d.gdpBrlThousands
     let max = 0
     for (const municipio of demo.munis) max = Math.max(max, metricValue(municipio))
-    const base = demo.metric === 'population' ? paColor.official(255) : paColor.hidden(255)
+    const base = demoBase
     layers.push(
       new ColumnLayer<DemografiaMunicipio>({
         id: 'demografia-columns',
@@ -300,7 +304,9 @@ export function buildDeckLayers({
         getFillColor: (d) => {
           if (d.codigo === demo.hoveredCodigo) return shade(base, 1, 255)
           const t = max ? Math.sqrt(metricValue(d) / max) : 0
-          return shade(base, 0.35 + 0.65 * t, 90 + Math.round(150 * t))
+          // Floor at 0.45: the darker series colors would sink small
+          // municípios into the void with the old 0.35 ramp.
+          return shade(base, 0.45 + 0.55 * t, 90 + Math.round(150 * t))
         },
         onHover: (info) => onHoverDemografia(info as PickingInfo<DemografiaMunicipio>),
         updateTriggers: {
