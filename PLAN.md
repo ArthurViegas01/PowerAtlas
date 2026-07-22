@@ -1,9 +1,11 @@
 # PowerAtlas — Plano de continuação (F3+)
 
-> **Handoff para um chat novo.** Estado em 2026-07-19: F1, F2, compasso e F3
-> released (`main` = **v0.4.0**, tags `v0.2.0`..`v0.4.0`); `develop` à frente
-> com a F4 (Postgres + PostGIS). Este arquivo agora é **versionado** no repo — atualize
-> a seção de estado quando uma fase fechar e enxugue o que já foi entregue.
+> **Handoff para um chat novo.** Estado em 2026-07-22: F1–F4 + trilha
+> frontend released (`origin/main` = **v0.9.0**, tags `v0.2.0`..`v0.9.0`);
+> `develop` = `origin/develop`, sem trabalho em voo. Próxima fase: **F5**
+> (desenhada na seção 3, implementar em 3 etapas). Este arquivo é
+> **versionado** no repo — atualize a seção de estado quando uma fase fechar
+> e enxugue o que já foi entregue.
 > Leia junto: `ARCHITECTURE.md` (decisões + seção 6 "deferred"),
 > `docs/data-sources.md`, `README.md` (status + QA checklist).
 
@@ -112,8 +114,8 @@
   FICTÍCIOS"), constantes e teste de contrato atualizados (payload segue
   byte-idêntico). Identificadores de código (power-entity etc.) intactos.
 - **Pendências conhecidas da trilha frontend**: ranking por município
-  (depende da F5); validar o hover do tooltip com mouse real num navegador
-  visível; reativar a dimensão oculta (flip do flag) quando F5/F6 existirem.
+  (depende da F5); reativar a dimensão oculta (flip do flag) quando F5/F6
+  existirem. (Tooltip de hover validado com mouse real em 2026-07-22.)
 
 ## 2. Convenções obrigatórias (não pular)
 
@@ -128,7 +130,7 @@ com `--no-ff` ("Merge branch 'feat/fN-slug' into develop"). Release: commit
 `docs: release vX.Y.0 — ...` na develop, depois na main
 `git merge --no-ff develop -m "Release vX.Y.0 — <resumo> (merge develop)"`
 + tag anotada `vX.Y.0`. Fases numeradas pela ordem real de entrega
-(F1 = HUD, F2 = mundo; próxima = F3).
+(F1 = HUD, F2 = mundo, F3 = API, F4 = banco; próxima = F5).
 
 **Gotchas do ambiente (Windows)**
 - O Write tool trunca arquivos >~60 linhas neste mount (null bytes). Usar
@@ -167,46 +169,13 @@ simulados permanece na UI. Detalhe: ARCHITECTURE.md §5.
 
 ### F3 — API FastAPI de leitura (ENTREGUE 2026-07-19; ver seção 1)
 
-> Entregue em `feat/f3-api-fastapi` -> `develop`. Verificação abaixo passou
-> (pytest/ruff/mypy verdes, build do web verde, HUD carregando da API via
-> `VITE_API_URL`). A próxima fase recomendada é a **F4** (Postgres + PostGIS).
-> As "decisões travadas" abaixo ficam como registro do que foi construído.
-
-**Objetivo:** servir o contrato de `power-entity.ts` pela rede e trocar o
-loader do web por um client HTTP — sem mudar nada de UI.
-
-**Decisões travadas**
-- Python + FastAPI (objetivo de aprendizado do Arthur; ecossistema NLP
-  serve a F5). Espelhar convenções do ZapAgent: `apps/api` com layout
-  `src/`, `pyproject.toml` com ruff + mypy + pytest. Antes de escrever,
-  olhar `../ZapAgent/apps/api` para copiar o esqueleto exato
-  (nomes de pastas, config das tools).
-- A API é dona da sua cópia dos dados: os JSONs mock são copiados para
-  dentro de `apps/api` (ex.: `src/<pacote>/data/`). Sync manual com os do
-  web é aceitável — a F4 substitui isso por banco.
-- Um endpoint agregado espelhando o loader atual (menor atrito):
-  `GET /api/v1/power-data` → `RegionPowerData` completo
-  (schemaVersion, generatedAt, disclaimer, regions, links, ambientSignals).
-  Extra: `GET /health`.
-- Modelos Pydantic espelhando os tipos TS campo a campo (mesmos nomes,
-  camelCase via alias) — o payload deve ser byte-compatível com o que o
-  mockDataLoader monta hoje.
-- CORS para http://localhost:5173 e :4173.
-- No web: `services/apiClient.ts` com a mesma assinatura
-  (`loadRegionPowerData(): Promise<RegionPowerData>`); seleção por
-  `VITE_API_URL` (setada → API; ausente → mock). `.env.example` documenta.
-- Scripts: raiz ganha `pnpm api-dev` (uvicorn --reload) etc. no
-  package.json + alvos `api-*` no Makefile.
-
-**Verificação F3**
-1. `pytest` + `ruff check` + `mypy` verdes na api.
-2. Teste de contrato: payload do endpoint validado contra um golden gerado
-   dos mesmos JSONs (garante paridade com o mockDataLoader).
-3. `uvicorn` + `pnpm dev` com `VITE_API_URL` → HUD idêntico ao mock
-   (clicar SP, MG sem dados, BR), rede mostrando o fetch na API.
-4. Sem `VITE_API_URL` → segue 100% offline no mock.
-
-**Fora de escopo da F3:** Docker, banco, auth, escrita.
+> Entregue em `feat/f3-api-fastapi` -> `develop` (v0.4.0). Decisões que
+> ficaram: layout `src/` espelhando o ZapAgent, modelos Pydantic camelCase
+> via alias byte-compatíveis com o mock, endpoint agregado único
+> `GET /api/v1/power-data`, CORS p/ 5173/4173, seleção no web por
+> `VITE_API_URL` (ausente → mock offline). Verificação passou (pytest/ruff/
+> mypy, teste de contrato contra os JSONs de origem, HUD idêntico com e sem
+> API).
 
 ### F4 — Postgres + PostGIS + persistência (ENTREGUE 2026-07-19; ver seção 1)
 
@@ -218,10 +187,77 @@ loader do web por um client HTTP — sem mudar nada de UI.
 > unit sem banco + `-m integration` com banco (paridade byte a byte),
 > ruff/mypy verdes, smoke HTTP lendo do PostGIS. Próxima recomendada: **F5**.
 
-### F5 — Pipeline de ingestão e scoring (intenção, não desenhar ainda)
+### F5 — Pipeline de ingestão e scoring (DESENHADA 2026-07-22; implementar em 3 etapas)
 
-Celery + Redis; scraping de fontes de notícia BR; embeddings pgvector;
-scoring via LLM com citação de fonte obrigatória; tudo entra como `draft`.
+**Objetivo:** primeiro pipeline de dados reais de influência — ingerir
+notícias de fontes públicas BR, indexar com embeddings (pgvector) e gerar
+rankings **candidatos** via LLM com citação de fonte obrigatória. Tudo cai
+em tabelas de staging como `draft`; o payload público continua 100%
+fictício até a F6.
+
+**Princípio de segurança (deriva da regra de conteúdo, §2):** a F5 **não
+escreve** nas tabelas servidas (`entities` etc.). Ela escreve em
+`entity_candidates` + `candidate_citations`. Promoção candidata → `entities`
+só existe na F6, com revisão humana. O teste de paridade garante: payload de
+`GET /api/v1/power-data` byte-idêntico antes/depois de rodar o pipeline.
+
+**Decisões travadas**
+- Infra espelhando o ZapAgent: Celery + Redis com `src/worker/celery_app.py`
+  + `tasks.py` (json serializer, `task_acks_late=True`,
+  `worker_prefetch_multiplier=1`); `docker-compose.yml` ganha serviços
+  `redis` e `worker`. Gotcha: Celery 5 não suporta Windows — o worker roda
+  no compose; se precisar rodar no host, `--pool=solo`.
+- Banco: PostGIS + pgvector juntos exigem imagem própria — `db/Dockerfile`
+  a partir de `postgis/postgis:16-3.4` instalando `postgresql-16-pgvector`
+  (o compose troca `image:` por `build:`; volume `pgdata` preservado).
+  Migration `0002_pipeline.sql`: `ingest_sources` (allowlist de feeds),
+  `raw_documents` (dedup por `content_hash` UNIQUE), `doc_chunks`
+  (`embedding vector(N)`; N e modelo registrados em comentário na
+  migration), `scoring_runs` (modelo, versão do prompt, stats),
+  `entity_candidates` (shape espelha `entities` + `rationale` + `run_id`,
+  `status` sempre `draft`), `candidate_citations` (candidata → documento +
+  trecho citado).
+- Ingestão: **só RSS/Atom de fontes públicas institucionais** no piloto
+  (Agência Brasil, Agência Câmara, Agência Senado) — allowlist vem do seed
+  de `ingest_sources`, nunca hardcoded; User-Agent honesto + rate-limit;
+  sem scraping de HTML nem paywall na F5.
+- Embeddings: Voyage AI (mesmo provedor do ZapAgent), modelo gravado por
+  chunk; servem para recuperar contexto por região na hora do scoring
+  (busca vetorial top-k nos `doc_chunks`).
+- Scoring: Anthropic API, saída estruturada validada por Pydantic; prompt
+  versionado em `src/scoring/`; **candidata sem >=1 citação (documento +
+  trecho) é descartada no código** — coberto por teste. Score 0–100,
+  `confidence` derivada da quantidade/concordância de evidência. Piloto:
+  BR + 1–2 UFs (não as 27).
+- Orquestração: tasks Celery encadeadas, disparo manual por CLI
+  (`pnpm pipeline-ingest`, `pnpm pipeline-score`); Celery beat
+  (agendamento) fica para depois.
+- Config nova em pydantic-settings: `PA_REDIS_URL`, `PA_ANTHROPIC_API_KEY`,
+  `PA_VOYAGE_API_KEY` (documentadas no `.env.example`); sem as chaves o
+  pipeline fica indisponível e a API de leitura segue normal.
+
+**Etapas de entrega (uma branch cada, mergeável sozinha)**
+1. `feat/f5a-worker-infra` — redis + worker no compose, `celery_app`,
+   imagem de banco com pgvector, migration 0002, task de smoke.
+2. `feat/f5b-ingestao-rss` — fetch RSS → `raw_documents` (dedup), seed das
+   fontes, testes com respx.
+3. `feat/f5c-embeddings-scoring` — chunking + embeddings + scoring LLM →
+   `entity_candidates` + citações.
+
+**Verificação F5**
+1. pytest/ruff/mypy verdes; unit com HTTP mockado (respx) e embeddings
+   fake — nada de rede em unit.
+2. `-m integration` (docker: postgres + redis): ingest de fixture RSS →
+   dedup OK; embedding gravado e consultável por similaridade; scoring com
+   LLM mockado → candidatas com citação; candidata sem citação → rejeitada.
+3. Paridade: payload byte-idêntico antes/depois do pipeline rodar.
+4. E2E manual com chaves reais: `docker compose --profile full up`
+   (+ redis/worker), ingest das fontes seed, scoring de 1 UF → drafts em
+   `entity_candidates` com citações plausíveis (conferir via psql).
+
+**Fora de escopo da F5:** promoção para `entities` e revisão (F6), qualquer
+mudança de UI ou de payload, auth/escrita pública, admin UI, agendamento
+automático, scraping HTML, cobertura das 27 UFs no scoring.
 
 ### F6 — Workflow de revisão (gate de conteúdo real)
 
@@ -234,8 +270,10 @@ reais nomeadas podem aparecer no produto. Os campos
 - [x] Mock dos 27 estados (entidades fictícias novas no mesmo padrão).
 - [x] Code-splitting do bundle: manualChunks p/ maplibre e deck.gl.
 - [x] Testes: vitest nos stores/composables (selection, rankings, counter).
-- [ ] Tooltips mais ricos, labels de estados, refinamento mobile.
-- [ ] Exercitar `prefers-reduced-motion` de ponta a ponta (item 5 do QA).
+- [x] Tooltips (hover com indicadores IBGE, validado 2026-07-22), labels de
+      estados (v0.7.0), mobile auditado (bottom-sheet no breakpoint 900px).
+- [x] `prefers-reduced-motion` auditado ponta a ponta (kill-switch CSS
+      global + gating JS; v0.7.0).
 
 ## 4. Verificação padrão de toda fase
 
@@ -247,6 +285,7 @@ conjunto coeso.
 ## 5. Como retomar num chat novo
 
 Prompt sugerido: *"Leia o PLAN.md na raiz do PowerAtlas e o
-ARCHITECTURE.md. Vamos implementar a F3 (API FastAPI) conforme o plano —
-comece pelo esqueleto espelhando o ZapAgent."* O dev server sobe com
+ARCHITECTURE.md. Vamos implementar a etapa F5a (worker + infra) conforme o
+desenho da F5 — comece pelo compose (redis + worker) e pela imagem de banco
+com pgvector, espelhando o worker do ZapAgent."* O dev server sobe com
 `pnpm dev`; QA rápido via `/?region=SP`.
