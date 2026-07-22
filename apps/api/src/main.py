@@ -53,6 +53,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_headers=["*"],
     )
 
+    @app.get("/", tags=["meta"])
+    async def root() -> dict[str, str]:
+        """Landing for whoever opens the API port in a browser: where things live."""
+        return {
+            "service": "poweratlas-api",
+            "health": "/health",
+            "data": "/api/v1/power-data",
+            "docs": "/docs",
+            "hud": "http://localhost:5173",
+        }
+
     @app.get("/health", tags=["meta"])
     async def health() -> dict[str, object]:
         """Liveness probe: process is up, reports whether a database is wired."""
