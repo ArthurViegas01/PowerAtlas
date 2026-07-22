@@ -8,6 +8,7 @@ import ScanlineOverlay from '@/components/hud/ScanlineOverlay.vue'
 import MapCompass from '@/components/map/MapCompass.vue'
 import MapLegend from '@/components/map/MapLegend.vue'
 import MapScanEffect from '@/components/map/MapScanEffect.vue'
+import MapTooltip from '@/components/map/MapTooltip.vue'
 import MapView from '@/components/map/MapView.vue'
 import RankingColumn from '@/components/rankings/RankingColumn.vue'
 import IndicatorGrid from '@/components/shared/IndicatorGrid.vue'
@@ -104,6 +105,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 <template>
   <div class="app-shell">
     <MapView />
+    <MapTooltip />
     <MapScanEffect />
     <ScanlineOverlay />
     <HudFrame />

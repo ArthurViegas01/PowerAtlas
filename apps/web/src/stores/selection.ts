@@ -24,8 +24,12 @@ export const useSelectionStore = defineStore('selection', () => {
   const selectedMunicipio = ref<{ codigo: string; name: string } | null>(null)
   const hoveredId = ref<string | null>(null)
   const hoveredName = ref<string | null>(null)
+  /** Municipality hover on the drill-down layer (belongs to selectedId). */
+  const hoveredMunicipio = ref<{ codigo: string; name: string } | null>(null)
   /** World-country hover on the backdrop layer. */
   const hoveredWorld = ref<WorldRegionRef | null>(null)
+  /** Screen position of the last hover pick — anchors the map tooltip. */
+  const hoverPoint = ref<ScreenPoint | null>(null)
   /** World country clicked — opens the "região não mapeada" panel. */
   const lockedWorld = ref<WorldRegionRef | null>(null)
   /** Screen position of the last selection click — anchors the scan ping. */
@@ -59,6 +63,7 @@ export const useSelectionStore = defineStore('selection', () => {
     if (selectedId.value === id) return
     lockedWorld.value = null
     selectedMunicipio.value = null
+    hoveredMunicipio.value = null // the old state's municipal layer is gone
     selectedId.value = id
     selectedName.value = name
     lastPing.value = point ?? null
@@ -93,6 +98,7 @@ export const useSelectionStore = defineStore('selection', () => {
     selectedId.value = null
     selectedName.value = null
     selectedMunicipio.value = null
+    hoveredMunicipio.value = null
     lockedWorld.value = null
   }
 
@@ -133,8 +139,16 @@ export const useSelectionStore = defineStore('selection', () => {
     hoveredName.value = name
   }
 
+  function setHoveredMunicipio(municipio: { codigo: string; name: string } | null) {
+    hoveredMunicipio.value = municipio
+  }
+
   function setHoveredWorld(region: WorldRegionRef | null) {
     hoveredWorld.value = region
+  }
+
+  function setHoverPoint(point: ScreenPoint | null) {
+    hoverPoint.value = point
   }
 
   return {
@@ -143,7 +157,9 @@ export const useSelectionStore = defineStore('selection', () => {
     selectedMunicipio,
     hoveredId,
     hoveredName,
+    hoveredMunicipio,
     hoveredWorld,
+    hoverPoint,
     lockedWorld,
     lastPing,
     pingSeq,
@@ -166,6 +182,8 @@ export const useSelectionStore = defineStore('selection', () => {
     setMapBearing,
     setBearingOverride,
     setHovered,
+    setHoveredMunicipio,
     setHoveredWorld,
+    setHoverPoint,
   }
 })

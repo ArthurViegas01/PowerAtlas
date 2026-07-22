@@ -92,9 +92,18 @@
   power-entity (decisão em ARCHITECTURE.md §2.5); regra de conteúdo intacta.
   Verificado no browser: painel SP (44.411.238 hab, R$ 3,4 tri) e município
   de São Paulo (11.451.999 hab, R$ 1,1 tri), console limpo, 30 testes verdes.
-- **Pendências conhecidas da trilha frontend**: tooltip de hover mais rico no
-  mapa (picking do deck.gl; exige navegador visível para validar); ranking
-  por município (depende da F5).
+- **Tooltip de hover no mapa (2026-07-21)**: `MapTooltip.vue` ancorado no
+  cursor, alimentado pelo picking do deck.gl via selection store (novos
+  `hoverPoint` e `hoveredMunicipio`; camada municipal ganhou `onHover` +
+  realce de fill; cursor pointer também sobre município). Prioridade
+  município > estado > país; mostra POP/PIB compactos dos indicadores IBGE
+  (`formatPeopleCompact`), "EM BREVE" no backdrop mundial; pointer-events
+  none e flip perto das bordas. Hover real de mouse exige navegador visível;
+  validado via stores no browser pane (MG: 20,5 mi hab / R$ 972 bi;
+  município de São Paulo: 11,5 mi hab / R$ 1,1 tri; Argentina: EM BREVE).
+- **Pendências conhecidas da trilha frontend**: ranking por município
+  (depende da F5); validar o hover do tooltip com mouse real num navegador
+  visível.
 
 ## 2. Convenções obrigatórias (não pular)
 
@@ -129,7 +138,15 @@ com `--no-ff` ("Merge branch 'feat/fN-slug' into develop"). Release: commit
   `requestAnimationFrame` — flyTo/easeTo congelam, transitions do Vue
   travam no meio (overlay de boot fica preso cobrindo cliques) e screenshot
   dá timeout. Nada disso é bug do app: validar interação via
-  `window.__paMap.jumpTo(...)`/JS no console ou num navegador visível.
+  `window.__paMap.jumpTo(...)`/JS no console ou num navegador visível. As
+  stores Pinia são alcançáveis no console via
+  `document.querySelector('#app').__vue_app__.config.globalProperties.$pinia._s`.
+- Dev server do Vite + checkouts de git: se um diretório novo de
+  `public/` for deletado e recriado por um checkout/merge com o server no
+  ar, o cache de arquivos públicos pode perder a subárvore (as URLs passam
+  a responder o fallback SPA com 200). Reescrever os arquivos não resolve;
+  tocar `apps/web/vite.config.ts` força o restart interno do Vite e
+  recadastra tudo (sem matar o processo).
 
 **Regra de conteúdo (inegociável)** — até o workflow de revisão (F6)
 existir, toda entidade de "poder oculto" é fictícia (padrão letra grega),

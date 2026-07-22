@@ -5,6 +5,7 @@ import {
   formatDensity,
   formatGdpThousands,
   formatInt,
+  formatPeopleCompact,
   NOT_AVAILABLE,
 } from '@/lib/format'
 
@@ -28,10 +29,17 @@ describe('format', () => {
     expect(brazil2023).toContain('10,9')
   })
 
+  it('formats compact population for the tooltip', () => {
+    const compact = plain(formatPeopleCompact(44_411_238))
+    expect(compact).toContain('44,4')
+    expect(compact).toContain('hab')
+  })
+
   it('falls back to N/D for suppressed values', () => {
     expect(formatInt(null)).toBe(NOT_AVAILABLE)
     expect(formatAreaKm2(null)).toBe(NOT_AVAILABLE)
     expect(formatDensity(null)).toBe(NOT_AVAILABLE)
     expect(formatGdpThousands(null)).toBe(NOT_AVAILABLE)
+    expect(formatPeopleCompact(null)).toBe(NOT_AVAILABLE)
   })
 })

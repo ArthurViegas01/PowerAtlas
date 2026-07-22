@@ -23,6 +23,7 @@ function model(overrides: Partial<MapLayerModel> = {}): MapLayerModel {
     ],
     municipios: null,
     selectedMunicipioCodigo: null,
+    hoveredMunicipioCodigo: null,
     heatmapPoints: [],
     heatmapVisible: false,
     ...overrides,
@@ -43,7 +44,12 @@ const munFc = {
 const noop = () => {}
 
 function build(m: MapLayerModel) {
-  return buildDeckLayers({ model: m, onHoverState: noop, onHoverWorld: noop })
+  return buildDeckLayers({
+    model: m,
+    onHoverState: noop,
+    onHoverMunicipio: noop,
+    onHoverWorld: noop,
+  })
 }
 
 describe('buildDeckLayers', () => {
@@ -66,5 +72,10 @@ describe('buildDeckLayers', () => {
     expect(build(model()).find((l) => l.id === 'municipios')).toBeUndefined()
     const withMun = build(model({ municipios: munFc, selectedMunicipioCodigo: '3550308' }))
     expect(withMun.find((l) => l.id === 'municipios')).toBeDefined()
+  })
+
+  it('makes the municipios layer pickable so hover/click reach the tooltip', () => {
+    const layer = build(model({ municipios: munFc })).find((l) => l.id === 'municipios')
+    expect((layer!.props as { pickable: boolean }).pickable).toBe(true)
   })
 })

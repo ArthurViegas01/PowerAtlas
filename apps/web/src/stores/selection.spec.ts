@@ -112,4 +112,26 @@ describe('selection store', () => {
     s.closePanels()
     expect(s.selectedMunicipio).toBeNull()
   })
+
+  it('tracks municipality hover and the tooltip anchor point', () => {
+    const s = useSelectionStore()
+    s.select('SP', 'São Paulo')
+    s.setHoveredMunicipio({ codigo: '3550308', name: 'São Paulo' })
+    s.setHoverPoint({ x: 10, y: 20 })
+    expect(s.hoveredMunicipio?.codigo).toBe('3550308')
+    expect(s.hoverPoint).toEqual({ x: 10, y: 20 })
+    s.setHoveredMunicipio(null)
+    expect(s.hoveredMunicipio).toBeNull()
+  })
+
+  it('drops the municipal hover when the state changes or panels close', () => {
+    const s = useSelectionStore()
+    s.select('SP', 'São Paulo')
+    s.setHoveredMunicipio({ codigo: '3550308', name: 'São Paulo' })
+    s.select('RJ', 'Rio de Janeiro')
+    expect(s.hoveredMunicipio).toBeNull()
+    s.setHoveredMunicipio({ codigo: '3304557', name: 'Rio de Janeiro' })
+    s.closePanels()
+    expect(s.hoveredMunicipio).toBeNull()
+  })
 })
