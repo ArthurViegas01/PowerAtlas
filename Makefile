@@ -1,7 +1,8 @@
 # PowerAtlas — common development commands.
 
 .PHONY: help web-install web-dev web-build web-preview web-typecheck geo-refresh \
-	api-install api-dev api-test api-lint db-up db-down db-migrate db-seed migrate
+	api-install api-dev api-test api-lint db-up db-down db-migrate db-seed migrate \
+	redis-up worker-dev
 
 help:
 	@echo "PowerAtlas — make targets"
@@ -19,6 +20,8 @@ help:
 	@echo "  make db-migrate     Apply SQL migrations (F4)"
 	@echo "  make db-seed        Seed the database from the mock JSON"
 	@echo "  make migrate        db-up + db-migrate + db-seed"
+	@echo "  make redis-up       Start Redis via docker compose (F5)"
+	@echo "  make worker-dev     Run the Celery worker on the host (pool=solo)"
 
 web-install:
 	pnpm install
@@ -63,3 +66,9 @@ db-seed:
 	cd apps/api && .venv/Scripts/python -m scripts.seed
 
 migrate: db-up db-migrate db-seed
+
+redis-up:
+	docker compose up -d redis
+
+worker-dev:
+	cd apps/api && .venv/Scripts/python -m celery -A src.worker.celery_app worker --loglevel=INFO --pool=solo
