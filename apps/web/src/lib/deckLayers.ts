@@ -167,25 +167,28 @@ export function buildDeckLayers({
     )
   }
 
-  layers.push(
-    new ArcLayer<ArcDatum>({
-      id: 'influence-arcs',
-      data: model.arcs,
-      getSourcePosition: (d) => d.source,
-      getTargetPosition: (d) => d.target,
-      getSourceColor: (d) => seriesColor(d.dimension, d.active ? 235 : 55),
-      getTargetColor: (d) => seriesColor(d.dimension, d.active ? 150 : 35),
-      getWidth: (d) => 1 + d.strength * (d.active ? 3.2 : 1.4),
-      widthUnits: 'pixels',
-      getHeight: 0.5,
-      greatCircle: false,
-      updateTriggers: {
-        getSourceColor: [model.selectedId],
-        getTargetColor: [model.selectedId],
-        getWidth: [model.selectedId],
-      },
-    }),
-  )
+  // Empty while INFLUENCE_ARCS_ENABLED is off (mock links carry no meaning).
+  if (model.arcs.length > 0) {
+    layers.push(
+      new ArcLayer<ArcDatum>({
+        id: 'influence-arcs',
+        data: model.arcs,
+        getSourcePosition: (d) => d.source,
+        getTargetPosition: (d) => d.target,
+        getSourceColor: (d) => seriesColor(d.dimension, d.active ? 235 : 55),
+        getTargetColor: (d) => seriesColor(d.dimension, d.active ? 150 : 35),
+        getWidth: (d) => 1 + d.strength * (d.active ? 3.2 : 1.4),
+        widthUnits: 'pixels',
+        getHeight: 0.5,
+        greatCircle: false,
+        updateTriggers: {
+          getSourceColor: [model.selectedId],
+          getTargetColor: [model.selectedId],
+          getWidth: [model.selectedId],
+        },
+      }),
+    )
+  }
 
   // State siglas at each capital. Drawn above the fills; the selected state's
   // label brightens. Billboarded so it stays readable through the map tilt.
@@ -217,22 +220,27 @@ export function buildDeckLayers({
     )
   }
 
-  for (const dimension of ['official', 'hidden'] as const) {
-    layers.push(
-      new ColumnLayer<ColumnDatum>({
-        id: `power-columns-${dimension}`,
-        data: model.columns.filter((column) => column.dimension === dimension),
-        diskResolution: 6,
-        radius: 17000,
-        extruded: true,
-        flatShading: true,
-        getPosition: (d) => d.coordinates,
-        getElevation: (d) => 30000 + d.score * 2600,
-        getFillColor: (d) =>
-          seriesColor(dimension, d.regionId === model.selectedId ? 245 : 175),
-        updateTriggers: { getFillColor: [model.selectedId] },
-      }),
-    )
+  // Score columns: slim cylinders (not the old chunky hexagons) so they read
+  // as markers, not landmasses. Hidden entirely during the municipal
+  // drill-down — that close, a 100 km column would bury the município.
+  if (!model.selectedMunicipioCodigo) {
+    for (const dimension of ['official', 'hidden'] as const) {
+      layers.push(
+        new ColumnLayer<ColumnDatum>({
+          id: `power-columns-${dimension}`,
+          data: model.columns.filter((column) => column.dimension === dimension),
+          diskResolution: 24,
+          radius: 7500,
+          extruded: true,
+          flatShading: true,
+          getPosition: (d) => d.coordinates,
+          getElevation: (d) => 15000 + d.score * 1600,
+          getFillColor: (d) =>
+            seriesColor(dimension, d.regionId === model.selectedId ? 245 : 175),
+          updateTriggers: { getFillColor: [model.selectedId] },
+        }),
+      )
+    }
   }
 
   return layers

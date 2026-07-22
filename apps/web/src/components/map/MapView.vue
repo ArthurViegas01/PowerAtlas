@@ -22,17 +22,19 @@ let map: maplibregl.Map | null = null
 let overlay: MapboxOverlay | null = null
 const mapReady = ref(false)
 
+// North-up on open (BRG 000) — the old cinematic tilt (-8) read as "the map
+// renders slightly rotated" rather than intentional.
 const NATIONAL_CAMERA = {
   center: [-53.2, -14.6] as [number, number],
   zoom: 3.7,
   pitch: 45,
-  bearing: -8,
+  bearing: 0,
 }
 
-/** Cinematic bearing presets per framing; a manual override beats them all. */
+/** Bearing presets per framing; a manual override beats them all. */
 const CONTEXT_BEARING = {
   national: NATIONAL_CAMERA.bearing,
-  region: -12,
+  region: 0,
   global: 0,
 } as const
 
