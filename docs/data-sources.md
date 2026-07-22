@@ -80,6 +80,37 @@ Antarctica is removed as visual clutter.
 `NAME_PT` Portuguese localization. Result: 175 countries, **155 KB**
 (budget 400 KB).
 
+## Factual indicators (`apps/web/public/data/indicators/*.json`)
+
+**Source:** IBGE, API de Agregados v3 (official, public).
+Docs: <https://servicodados.ibge.gov.br/api/docs/agregados?versao=3>
+
+**Endpoints used (downloaded 2026-07-21;** localidades **=
+`N1[all]|N3[all]` for Brasil + UFs and `N6[all]` for municipalities):**
+
+```
+censo: https://servicodados.ibge.gov.br/api/v3/agregados/4714/periodos/2022/variaveis/93|6318|614?localidades=...
+pib:   https://servicodados.ibge.gov.br/api/v3/agregados/5938/periodos/2023/variaveis/37?localidades=...
+```
+
+**Indicators:** população residente (Censo 2022, variável 93), área
+territorial em km² (6318), densidade demográfica (614), PIB a preços
+correntes em mil R$ (PIB dos Municípios, 2023, variável 37). Municipal GDP
+per capita is deliberately absent: the agregados API does not publish it at
+N6, and deriving it by mixing 2023 GDP with 2022 population would fabricate
+a number IBGE does not publish.
+
+**Processing** (`apps/web/scripts/fetch-indicators.mjs`, `pnpm indicators`):
+values parsed to numbers (IBGE suppression markers become `null`), keyed by
+UF sigla in `uf.json` (28 regions including BR, 3 KB) and by 7-digit IBGE
+code in `municipios/{UF}.json` (5,570 municipalities across 27 files,
+largest MG at 74 KB). The app loads `uf.json` at boot and the municipal
+files on demand per selected state.
+
+**Role:** factual context only (indicator blocks in the panels). The power
+rankings remain fictional until the F5/F6 pipeline and review gate exist
+(ARCHITECTURE.md §5).
+
 ## Rankings / entities (`apps/web/src/data/mock/*.json`)
 
 Hand-written **fictional placeholder data for UI development only** — every
