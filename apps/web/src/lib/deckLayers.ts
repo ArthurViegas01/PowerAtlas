@@ -3,7 +3,13 @@ import type { Color, Layer, PickingInfo } from '@deck.gl/core'
 import { PathStyleExtension, type PathStyleExtensionProps } from '@deck.gl/extensions'
 import { ArcLayer, ColumnLayer, GeoJsonLayer, TextLayer } from '@deck.gl/layers'
 
-import type { BoundaryFeature, WorldFeature, WorldProps } from '@/lib/geo'
+import type {
+  BoundaryFeature,
+  MunicipioFeature,
+  MunicipioProps,
+  WorldFeature,
+  WorldProps,
+} from '@/lib/geo'
 import { paColor, shade, type RGBA } from '@/lib/palette'
 import type { ArcDatum, ColumnDatum, LabelDatum, MapLayerModel } from '@/stores/mapLayers'
 import type { AmbientSignal, PowerDimension } from '@/types/power-entity'
@@ -11,6 +17,7 @@ import type { AmbientSignal, PowerDimension } from '@/types/power-entity'
 export interface BuildLayersOptions {
   model: MapLayerModel
   onHoverState: (info: PickingInfo<BoundaryFeature>) => void
+  onHoverMunicipio: (info: PickingInfo<MunicipioFeature>) => void
   onHoverWorld: (info: PickingInfo<WorldFeature>) => void
 }
 
@@ -36,6 +43,7 @@ function heatmapRamp(): Color[] {
 export function buildDeckLayers({
   model,
   onHoverState,
+  onHoverMunicipio,
   onHoverWorld,
 }: BuildLayersOptions): Layer[] {
   if (!model.ready || !model.states || !model.national) return []
@@ -127,6 +135,37 @@ export function buildDeckLayers({
       lineWidthMinPixels: 1.5,
     }),
   )
+
+  // Municipal drill-down (all 27 UFs). Only present once the selected state's
+  // mesh has loaded; the selected municipality brightens, the hovered one
+  // lights up under the tooltip.
+  if (model.municipios) {
+    layers.push(
+      new GeoJsonLayer<MunicipioProps>({
+        id: 'municipios',
+        data: model.municipios,
+        pickable: true,
+        stroked: true,
+        filled: true,
+        getFillColor: (feature) => {
+          const codigo = feature.properties.codigo
+          if (codigo === model.selectedMunicipioCodigo) return paColor.official(120)
+          if (codigo === model.hoveredMunicipioCodigo) return paColor.official(58)
+          return paColor.official(18)
+        },
+        getLineColor: paColor.official(130),
+        getLineWidth: (feature) =>
+          feature.properties.codigo === model.selectedMunicipioCodigo ? 2 : 0.6,
+        lineWidthUnits: 'pixels',
+        lineWidthMinPixels: 0.5,
+        onHover: (info) => onHoverMunicipio(info as PickingInfo<MunicipioFeature>),
+        updateTriggers: {
+          getFillColor: [model.selectedMunicipioCodigo, model.hoveredMunicipioCodigo],
+          getLineWidth: [model.selectedMunicipioCodigo],
+        },
+      }),
+    )
+  }
 
   layers.push(
     new ArcLayer<ArcDatum>({

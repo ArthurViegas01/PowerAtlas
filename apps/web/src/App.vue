@@ -8,8 +8,11 @@ import ScanlineOverlay from '@/components/hud/ScanlineOverlay.vue'
 import MapCompass from '@/components/map/MapCompass.vue'
 import MapLegend from '@/components/map/MapLegend.vue'
 import MapScanEffect from '@/components/map/MapScanEffect.vue'
+import MapTooltip from '@/components/map/MapTooltip.vue'
 import MapView from '@/components/map/MapView.vue'
 import RankingColumn from '@/components/rankings/RankingColumn.vue'
+import IndicatorGrid from '@/components/shared/IndicatorGrid.vue'
+import { useIndicatorsStore } from '@/stores/indicators'
 import { useMapLayersStore } from '@/stores/mapLayers'
 import { useRankingsStore } from '@/stores/rankings'
 import { useSelectionStore } from '@/stores/selection'
@@ -17,13 +20,19 @@ import { useSelectionStore } from '@/stores/selection'
 const selection = useSelectionStore()
 const rankings = useRankingsStore()
 const mapLayers = useMapLayersStore()
+const indicators = useIndicatorsStore()
 
 const region = computed(() => rankings.regionById(selection.selectedId))
+const regionIndicators = computed(() => indicators.forRegion(selection.selectedId))
+const municipioIndicators = computed(() =>
+  indicators.forMunicipio(selection.selectedId, selection.selectedMunicipio?.codigo ?? null),
+)
 const booting = computed(() => !rankings.ready || !mapLayers.layerModel.ready)
 const bootError = computed(() => rankings.error ?? mapLayers.error)
 
 const panelTitle = computed(() =>
   (
+    selection.selectedMunicipio?.name ??
     selection.selectedName ??
     selection.lockedWorld?.name ??
     selection.selectedId ??
@@ -32,6 +41,8 @@ const panelTitle = computed(() =>
 )
 
 const panelSubtitle = computed(() => {
+  if (selection.selectedMunicipio)
+    return `MUNICÍPIO · ${selection.selectedMunicipio.codigo} · ${selection.selectedId}`
   if (selection.lockedWorld) return 'REGIÃO NÃO MAPEADA · COBERTURA FUTURA'
   if (!region.value) return 'SEM COBERTURA NESTA FASE'
   const updated = new Date(region.value.updatedAt).toLocaleDateString('pt-BR')
@@ -47,7 +58,10 @@ function reload() {
 }
 
 function onKeydown(event: KeyboardEvent) {
-  if (event.key === 'Escape') selection.goHome()
+  if (event.key !== 'Escape') return
+  // Step out one level at a time: municipality -> state -> national.
+  if (selection.selectedMunicipio) selection.clearMunicipio()
+  else selection.goHome()
 }
 
 /** Deep link: /?region=SP preselects a region once data is ready. */
@@ -69,9 +83,19 @@ watch(booting, (isBooting) => {
   if (!isBooting) applyDeepLink()
 })
 
+// Municipal indicators ride along with the state's municipal mesh: prefetch
+// on state selection so the drill-down panel opens already populated.
+watch(
+  () => selection.selectedId,
+  (regionId) => {
+    if (regionId) void indicators.loadMunicipios(regionId)
+  },
+)
+
 onMounted(() => {
   void rankings.load()
   void mapLayers.loadGeo()
+  void indicators.loadUf()
   window.addEventListener('keydown', onKeydown)
 })
 
@@ -81,6 +105,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 <template>
   <div class="app-shell">
     <MapView />
+    <MapTooltip />
     <MapScanEffect />
     <ScanlineOverlay />
     <HudFrame />
@@ -118,9 +143,36 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
             </button>
           </template>
 
-          <div v-if="region" class="columns">
-            <RankingColumn variant="official" :entities="region.official" />
-            <RankingColumn variant="hidden" :entities="region.hidden" />
+          <div v-if="selection.selectedMunicipio" class="no-data" data-reveal>
+            <p class="no-data-title pa-data">◫ MUNICÍPIO</p>
+            <IndicatorGrid
+              v-if="municipioIndicators"
+              :indicators="municipioIndicators"
+              :source-label="indicators.sourceLabel"
+            />
+            <p class="no-data-sub">
+              Ranking de poder municipal ainda não disponível: os índices por
+              município chegam com o pipeline de dados das próximas fases.
+            </p>
+            <button
+              class="back-home pa-data"
+              type="button"
+              @click="selection.clearMunicipio()"
+            >
+              ◄ VOLTAR AO ESTADO
+            </button>
+          </div>
+
+          <div v-else-if="region" class="region-body">
+            <IndicatorGrid
+              v-if="regionIndicators"
+              :indicators="regionIndicators"
+              :source-label="indicators.sourceLabel"
+            />
+            <div class="columns">
+              <RankingColumn variant="official" :entities="region.official" />
+              <RankingColumn variant="hidden" :entities="region.hidden" />
+            </div>
           </div>
 
           <div v-else-if="selection.lockedWorld" class="no-data" data-reveal>

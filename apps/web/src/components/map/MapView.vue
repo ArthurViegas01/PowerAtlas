@@ -6,7 +6,7 @@ import { onBeforeUnmount, onMounted, ref, watch, watchEffect } from 'vue'
 
 import { useReducedMotion } from '@/composables/useReducedMotion'
 import { buildDeckLayers } from '@/lib/deckLayers'
-import type { Bounds, BoundaryFeature, WorldFeature } from '@/lib/geo'
+import type { Bounds, BoundaryFeature, MunicipioFeature, WorldFeature } from '@/lib/geo'
 import { baseMapStyle } from '@/lib/mapStyle'
 import { useMapLayersStore } from '@/stores/mapLayers'
 import { useSelectionStore } from '@/stores/selection'
@@ -54,8 +54,22 @@ function handleStateHover(info: PickingInfo<BoundaryFeature>) {
   const feature = info.object
   if (feature) {
     selection.setHovered(feature.properties.UF, feature.properties.name)
+    selection.setHoverPoint({ x: info.x, y: info.y })
   } else {
     selection.setHovered(null)
+  }
+}
+
+function handleMunicipioHover(info: PickingInfo<MunicipioFeature>) {
+  const feature = info.object
+  if (feature) {
+    selection.setHoveredMunicipio({
+      codigo: feature.properties.codigo,
+      name: feature.properties.name,
+    })
+    selection.setHoverPoint({ x: info.x, y: info.y })
+  } else {
+    selection.setHoveredMunicipio(null)
   }
 }
 
@@ -64,6 +78,7 @@ function handleWorldHover(info: PickingInfo<WorldFeature>) {
   selection.setHoveredWorld(
     feature ? { iso: feature.properties.iso, name: feature.properties.name } : null,
   )
+  if (feature) selection.setHoverPoint({ x: info.x, y: info.y })
 }
 
 function handleClick(event: maplibregl.MapMouseEvent) {
@@ -72,9 +87,12 @@ function handleClick(event: maplibregl.MapMouseEvent) {
   const info = overlay.pickObject({
     ...point,
     radius: 4,
-    layerIds: ['states-choropleth', 'world-countries'],
+    layerIds: ['municipios', 'states-choropleth', 'world-countries'],
   })
-  if (info?.layer?.id === 'states-choropleth') {
+  if (info?.layer?.id === 'municipios') {
+    const { codigo, name } = (info as PickingInfo<MunicipioFeature>).object!.properties
+    selection.selectMunicipio(codigo, name, point)
+  } else if (info?.layer?.id === 'states-choropleth') {
     const { UF, name } = (info as PickingInfo<BoundaryFeature>).object!.properties
     selection.select(UF, name, point)
     emit('region-selected', UF)
@@ -122,6 +140,28 @@ function flyToRegion(regionId: string | null) {
     center: camera.center,
     zoom: camera.zoom,
     pitch: 52,
+    bearing: cameraBearing('region'),
+    duration,
+  })
+}
+
+function flyToMunicipio(uf: string, codigo: string) {
+  if (!map) return
+  const bounds = mapLayers.municipioBoundsFor(uf, codigo)
+  if (!bounds) return
+  const duration = reduced.value ? 0 : 1200
+  const padding = {
+    top: 80,
+    bottom: 90,
+    left: 80,
+    right: Math.min(map.getContainer().clientWidth * 0.45, 580),
+  }
+  const camera = map.cameraForBounds(bounds, { padding, maxZoom: 9 })
+  if (!camera) return
+  map.flyTo({
+    center: camera.center,
+    zoom: camera.zoom,
+    pitch: 50,
     bearing: cameraBearing('region'),
     duration,
   })
@@ -182,22 +222,38 @@ watchEffect(() => {
     layers: buildDeckLayers({
       model: mapLayers.layerModel,
       onHoverState: handleStateHover,
+      onHoverMunicipio: handleMunicipioHover,
       onHoverWorld: handleWorldHover,
     }),
   })
 })
 
-// One place decides the cursor — avoids the two hover handlers fighting.
+// One place decides the cursor: avoids the hover handlers fighting.
 watchEffect(() => {
   if (!mapReady.value || !map) return
   map.getCanvas().style.cursor =
-    selection.hoveredId || selection.hoveredWorld ? 'pointer' : ''
+    selection.hoveredId || selection.hoveredMunicipio || selection.hoveredWorld
+      ? 'pointer'
+      : ''
 })
 
 watch(
   () => selection.selectedId,
   (regionId) => {
-    if (regionId) flyToRegion(regionId)
+    if (regionId) {
+      void mapLayers.loadMunicipios(regionId)
+      flyToRegion(regionId)
+    }
+  },
+)
+
+// Drill into / out of a municipality within the selected state.
+watch(
+  () => selection.selectedMunicipio?.codigo ?? null,
+  (codigo) => {
+    if (!selection.selectedId) return
+    if (codigo) flyToMunicipio(selection.selectedId, codigo)
+    else flyToRegion(selection.selectedId)
   },
 )
 

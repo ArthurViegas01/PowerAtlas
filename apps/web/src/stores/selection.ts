@@ -20,10 +20,16 @@ export type RotateKind = 'by' | 'north' | 'auto'
 export const useSelectionStore = defineStore('selection', () => {
   const selectedId = ref<string | null>(null)
   const selectedName = ref<string | null>(null)
+  /** Municipality drilled into within the selected state (pilot: SP). */
+  const selectedMunicipio = ref<{ codigo: string; name: string } | null>(null)
   const hoveredId = ref<string | null>(null)
   const hoveredName = ref<string | null>(null)
+  /** Municipality hover on the drill-down layer (belongs to selectedId). */
+  const hoveredMunicipio = ref<{ codigo: string; name: string } | null>(null)
   /** World-country hover on the backdrop layer. */
   const hoveredWorld = ref<WorldRegionRef | null>(null)
+  /** Screen position of the last hover pick — anchors the map tooltip. */
+  const hoverPoint = ref<ScreenPoint | null>(null)
   /** World country clicked — opens the "região não mapeada" panel. */
   const lockedWorld = ref<WorldRegionRef | null>(null)
   /** Screen position of the last selection click — anchors the scan ping. */
@@ -56,10 +62,25 @@ export const useSelectionStore = defineStore('selection', () => {
   function select(id: string, name: string, point?: ScreenPoint) {
     if (selectedId.value === id) return
     lockedWorld.value = null
+    selectedMunicipio.value = null
+    hoveredMunicipio.value = null // the old state's municipal layer is gone
     selectedId.value = id
     selectedName.value = name
     lastPing.value = point ?? null
     pingSeq.value += 1
+  }
+
+  /** Drill into a municipality of the current state (keeps the state selected). */
+  function selectMunicipio(codigo: string, name: string, point?: ScreenPoint) {
+    if (selectedMunicipio.value?.codigo === codigo) return
+    selectedMunicipio.value = { codigo, name }
+    lastPing.value = point ?? null
+    pingSeq.value += 1
+  }
+
+  /** Leave the municipality view, back to the state's ranking. */
+  function clearMunicipio() {
+    selectedMunicipio.value = null
   }
 
   /** Click on a not-yet-mapped country: swap any open panel for the lock panel. */
@@ -76,6 +97,8 @@ export const useSelectionStore = defineStore('selection', () => {
   function closePanels() {
     selectedId.value = null
     selectedName.value = null
+    selectedMunicipio.value = null
+    hoveredMunicipio.value = null
     lockedWorld.value = null
   }
 
@@ -116,16 +139,27 @@ export const useSelectionStore = defineStore('selection', () => {
     hoveredName.value = name
   }
 
+  function setHoveredMunicipio(municipio: { codigo: string; name: string } | null) {
+    hoveredMunicipio.value = municipio
+  }
+
   function setHoveredWorld(region: WorldRegionRef | null) {
     hoveredWorld.value = region
+  }
+
+  function setHoverPoint(point: ScreenPoint | null) {
+    hoverPoint.value = point
   }
 
   return {
     selectedId,
     selectedName,
+    selectedMunicipio,
     hoveredId,
     hoveredName,
+    hoveredMunicipio,
     hoveredWorld,
+    hoverPoint,
     lockedWorld,
     lastPing,
     pingSeq,
@@ -136,6 +170,8 @@ export const useSelectionStore = defineStore('selection', () => {
     hasSelection,
     hasPanel,
     select,
+    selectMunicipio,
+    clearMunicipio,
     lockWorld,
     closePanels,
     goHome,
@@ -146,6 +182,8 @@ export const useSelectionStore = defineStore('selection', () => {
     setMapBearing,
     setBearingOverride,
     setHovered,
+    setHoveredMunicipio,
     setHoveredWorld,
+    setHoverPoint,
   }
 })

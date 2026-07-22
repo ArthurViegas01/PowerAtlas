@@ -73,4 +73,65 @@ describe('selection store', () => {
     s.setMapBearing(90)
     expect(s.mapBearing).toBe(90)
   })
+
+  it('drills into a municipality while keeping the state selected', () => {
+    const s = useSelectionStore()
+    s.select('SP', 'São Paulo')
+    const pingAfterState = s.pingSeq
+    s.selectMunicipio('3550308', 'São Paulo', { x: 5, y: 6 })
+    expect(s.selectedId).toBe('SP')
+    expect(s.selectedMunicipio).toEqual({ codigo: '3550308', name: 'São Paulo' })
+    expect(s.pingSeq).toBe(pingAfterState + 1)
+  })
+
+  it('re-selecting the same municipality is a no-op', () => {
+    const s = useSelectionStore()
+    s.select('SP', 'São Paulo')
+    s.selectMunicipio('3550308', 'São Paulo')
+    const ping = s.pingSeq
+    s.selectMunicipio('3550308', 'São Paulo')
+    expect(s.pingSeq).toBe(ping)
+  })
+
+  it('clearMunicipio leaves the state selected', () => {
+    const s = useSelectionStore()
+    s.select('SP', 'São Paulo')
+    s.selectMunicipio('3550308', 'São Paulo')
+    s.clearMunicipio()
+    expect(s.selectedMunicipio).toBeNull()
+    expect(s.selectedId).toBe('SP')
+  })
+
+  it('selecting another state or closing panels drops the municipality', () => {
+    const s = useSelectionStore()
+    s.select('SP', 'São Paulo')
+    s.selectMunicipio('3550308', 'São Paulo')
+    s.select('RJ', 'Rio de Janeiro')
+    expect(s.selectedMunicipio).toBeNull()
+    s.selectMunicipio('3304557', 'Rio de Janeiro')
+    s.closePanels()
+    expect(s.selectedMunicipio).toBeNull()
+  })
+
+  it('tracks municipality hover and the tooltip anchor point', () => {
+    const s = useSelectionStore()
+    s.select('SP', 'São Paulo')
+    s.setHoveredMunicipio({ codigo: '3550308', name: 'São Paulo' })
+    s.setHoverPoint({ x: 10, y: 20 })
+    expect(s.hoveredMunicipio?.codigo).toBe('3550308')
+    expect(s.hoverPoint).toEqual({ x: 10, y: 20 })
+    s.setHoveredMunicipio(null)
+    expect(s.hoveredMunicipio).toBeNull()
+  })
+
+  it('drops the municipal hover when the state changes or panels close', () => {
+    const s = useSelectionStore()
+    s.select('SP', 'São Paulo')
+    s.setHoveredMunicipio({ codigo: '3550308', name: 'São Paulo' })
+    s.select('RJ', 'Rio de Janeiro')
+    expect(s.hoveredMunicipio).toBeNull()
+    s.setHoveredMunicipio({ codigo: '3304557', name: 'Rio de Janeiro' })
+    s.closePanels()
+    expect(s.hoveredMunicipio).toBeNull()
+  })
 })

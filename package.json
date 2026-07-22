@@ -1,7 +1,7 @@
 {
   "name": "poweratlas",
   "private": true,
-  "version": "0.7.0",
+  "version": "0.8.0",
   "packageManager": "pnpm@10.34.5",
   "scripts": {
     "dev": "pnpm --filter @poweratlas/web dev",
@@ -9,6 +9,7 @@
     "preview": "pnpm --filter @poweratlas/web preview",
     "typecheck": "pnpm --filter @poweratlas/web typecheck",
     "geo": "pnpm --filter @poweratlas/web geo",
+    "indicators": "pnpm --filter @poweratlas/web indicators",
     "api-install": "cd apps/api && py -m venv .venv && .venv\\Scripts\\python.exe -m pip install -e \".[dev]\"",
     "api-dev": "cd apps/api && .venv\\Scripts\\python.exe -m uvicorn src.main:app --reload --port 8000",
     "api-test": "cd apps/api && .venv\\Scripts\\python.exe -m pytest -q",

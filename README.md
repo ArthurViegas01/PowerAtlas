@@ -50,6 +50,24 @@ corrected empty-region copy, plus an audit confirming the mobile layout and
 the `prefers-reduced-motion` gating (global CSS kill-switch + JS composables)
 were already solid.
 
+**Municipal drill-down + first real data: v0.8.0.** Selecting a state
+lazily loads its IBGE municipal
+mesh and renders the municipality layer; clicking a municipality closes the
+camera on it and opens a light panel (ranking still pending the data
+pipeline), Esc walks back up one level. Shipped as an SP pilot, then extended
+to all 27 UFs (meshes generated per state, largest 569 KB, loaded on
+demand).
+
+**Factual IBGE indicators.** First real data in the product: população, área
+and densidade (Censo 2022) plus PIB a preços correntes (PIB dos Municípios
+2023) for BR, the 27 UFs and all 5,570 municipalities, fetched from the IBGE
+Agregados API by `pnpm indicators` into static JSON
+(`public/data/indicators/`). Region and municipality panels render the block
+labeled "IBGE · CENSO 2022 · PIB 2023", and a cursor tooltip surfaces the
+same numbers on map hover (municipality > state > world "em breve").
+Context data only: the power rankings stay fictional until the review
+pipeline exists (ARCHITECTURE.md §5).
+
 Deviations from the original plans: [ARCHITECTURE.md](ARCHITECTURE.md) §3
 and [docs/data-sources.md](docs/data-sources.md). Next phases (scoring
 pipeline, review workflow): ARCHITECTURE.md §6.
@@ -79,6 +97,7 @@ pnpm build      # vue-tsc type-check + production build
 pnpm preview    # serve the production build on http://localhost:4173
 pnpm test       # vitest (stores + composables)
 pnpm geo        # re-fetch + simplify IBGE boundaries (needs network)
+pnpm indicators # re-fetch IBGE factual indicators (needs network)
 ```
 
 Equivalent `make web-*` targets exist in the Makefile for machines with GNU

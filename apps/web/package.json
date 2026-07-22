@@ -1,7 +1,7 @@
 {
   "name": "@poweratlas/web",
   "private": true,
-  "version": "0.7.0",
+  "version": "0.8.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,7 +10,8 @@
     "typecheck": "vue-tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "geo": "node scripts/fetch-geo.mjs"
+    "geo": "node scripts/fetch-geo.mjs",
+    "indicators": "node scripts/fetch-indicators.mjs"
   },
   "dependencies": {
     "@deck.gl/aggregation-layers": "^9.1.0",

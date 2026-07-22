@@ -2,7 +2,12 @@ import { defineStore } from 'pinia'
 import { computed, ref, shallowRef } from 'vue'
 
 import { collectionBounds, featureBounds } from '@/lib/geo'
-import type { BoundaryCollection, Bounds, WorldCollection } from '@/lib/geo'
+import type {
+  BoundaryCollection,
+  Bounds,
+  MunicipioCollection,
+  WorldCollection,
+} from '@/lib/geo'
 import type { AmbientSignal, PowerDimension } from '@/types/power-entity'
 
 import { useRankingsStore } from './rankings'
@@ -46,6 +51,10 @@ export interface MapLayerModel {
   columns: ColumnDatum[]
   arcs: ArcDatum[]
   labels: LabelDatum[]
+  /** Municipal mesh of the selected state (all 27 UFs), or null. */
+  municipios: MunicipioCollection | null
+  selectedMunicipioCodigo: string | null
+  hoveredMunicipioCodigo: string | null
   heatmapPoints: AmbientSignal[]
   heatmapVisible: boolean
 }
@@ -60,6 +69,9 @@ export const useMapLayersStore = defineStore('mapLayers', () => {
   const states = shallowRef<BoundaryCollection | null>(null)
   const national = shallowRef<BoundaryCollection | null>(null)
   const world = shallowRef<WorldCollection | null>(null)
+  const municipiosByUf = shallowRef<Map<string, MunicipioCollection>>(new Map())
+  // Non-reactive: UFs already fetched (successes and 404s) so we never retry.
+  const municipioAttempts = new Set<string>()
   const loading = ref(false)
   const error = ref<string | null>(null)
 
@@ -142,6 +154,11 @@ export const useMapLayersStore = defineStore('mapLayers', () => {
     columns: columns.value,
     arcs: arcs.value,
     labels: labels.value,
+    municipios: selection.selectedId
+      ? (municipiosByUf.value.get(selection.selectedId) ?? null)
+      : null,
+    selectedMunicipioCodigo: selection.selectedMunicipio?.codigo ?? null,
+    hoveredMunicipioCodigo: selection.hoveredMunicipio?.codigo ?? null,
     heatmapPoints: rankings.ambientSignals,
     heatmapVisible: !selection.hasSelection,
   }))
@@ -176,5 +193,50 @@ export const useMapLayersStore = defineStore('mapLayers', () => {
     return boundsByRegion.value.get(regionId) ?? null
   }
 
-  return { states, national, world, loading, error, layerModel, loadGeo, boundsFor }
+  /**
+   * Lazily fetch a state's municipal mesh (pilot: only SP has a file). A
+   * missing file is a silent no-op: under SPA hosting (dev preview, Netlify) a
+   * missing path falls back to index.html with a 200, so we also reject any
+   * response that is not a FeatureCollection. Only genuine network errors are
+   * left retryable; "no mesh for this UF" is remembered so we never re-fetch.
+   */
+  async function loadMunicipios(uf: string) {
+    if (uf === 'BR' || municipioAttempts.has(uf)) return
+    municipioAttempts.add(uf)
+    try {
+      const response = await fetch(`${import.meta.env.BASE_URL}geo/municipios/${uf}.geojson`)
+      if (!response.ok) return
+      const text = await response.text()
+      let data: unknown
+      try {
+        data = JSON.parse(text)
+      } catch {
+        return // SPA fallback (HTML), not a mesh — keep as attempted, no retry
+      }
+      if ((data as MunicipioCollection)?.type !== 'FeatureCollection') return
+      const next = new Map(municipiosByUf.value)
+      next.set(uf, data as MunicipioCollection)
+      municipiosByUf.value = next
+    } catch {
+      municipioAttempts.delete(uf) // network error: allow a later retry
+    }
+  }
+
+  function municipioBoundsFor(uf: string, codigo: string): Bounds | null {
+    const feature = municipiosByUf.value.get(uf)?.features.find((f) => f.properties.codigo === codigo)
+    return feature ? featureBounds(feature) : null
+  }
+
+  return {
+    states,
+    national,
+    world,
+    loading,
+    error,
+    layerModel,
+    loadGeo,
+    boundsFor,
+    loadMunicipios,
+    municipioBoundsFor,
+  }
 })
