@@ -45,7 +45,7 @@ const readout = computed(() => {
   <header class="hud-header" role="banner">
     <div class="brand">
       <p class="brand-name pa-data">POWERATLAS</p>
-      <p class="pa-label">MATRIZ DE PODER // BRASIL</p>
+      <p class="pa-label">MATRIZ DE INFLUÊNCIA // BRASIL</p>
     </div>
 
     <p class="readout pa-data" aria-live="polite">{{ readout }}</p>
