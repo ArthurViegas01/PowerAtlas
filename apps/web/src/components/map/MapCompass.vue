@@ -44,7 +44,6 @@ const hasOverride = computed(
       aria-label="Alinhar o mapa ao norte"
       @click="selection.requestNorth()"
     >
-      <span class="tick" aria-hidden="true"></span>
       <svg viewBox="0 0 20 20" aria-hidden="true" class="needle" :style="needleStyle">
         <path class="needle-n" d="M10 2.2 12.4 10 7.6 10Z" />
         <path class="needle-s" d="M7.6 10 12.4 10 10 17.8Z" />
@@ -145,16 +144,6 @@ const hasOverride = computed(
 
 .needle-s {
   fill: rgba(61, 225, 255, 0.22);
-}
-
-.tick {
-  position: absolute;
-  top: 2px;
-  left: 50%;
-  width: 1px;
-  height: 4px;
-  background: var(--pa-text-dim);
-  transform: translateX(-50%);
 }
 
 .readout {
