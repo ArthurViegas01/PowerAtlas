@@ -52,6 +52,12 @@ class Settings(BaseSettings):
     celery_broker_url: str = "redis://localhost:6379/1"
     celery_result_backend: str = "redis://localhost:6379/2"
 
+    # -- Ingest (F5b) ------------------------------------------------------
+    # Honest UA for the allowlisted institutional feeds + polite pacing.
+    ingest_user_agent: str = "PowerAtlas/0.1 (prototipo de pesquisa; ingest piloto)"
+    ingest_timeout_s: float = 30.0
+    ingest_delay_s: float = 1.0
+
     # -- Security ----------------------------------------------------------
     # Comma-separated allowlist of browser origins for CORS. Defaults cover the
     # Vite dev server (5173) and the production-build preview (4173), on both
