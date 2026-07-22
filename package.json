@@ -15,6 +15,8 @@
     "api-test": "cd apps/api && .venv\\Scripts\\python.exe -m pytest -q",
     "api-lint": "cd apps/api && .venv\\Scripts\\python.exe -m ruff check src tests scripts && .venv\\Scripts\\python.exe -m mypy src scripts",
     "db-up": "docker compose up -d postgres",
+    "redis-up": "docker compose up -d redis",
+    "worker-dev": "cd apps/api && .venv\\Scripts\\python.exe -m celery -A src.worker.celery_app worker --loglevel=INFO --pool=solo",
     "db-down": "docker compose down",
     "db-migrate": "cd apps/api && .venv\\Scripts\\python.exe -m scripts.migrate",
     "db-seed": "cd apps/api && .venv\\Scripts\\python.exe -m scripts.seed",

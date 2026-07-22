@@ -43,6 +43,15 @@ class Settings(BaseSettings):
     def use_database(self) -> bool:
         return bool(self.database_url)
 
+    # -- Worker / pipeline (F5) --------------------------------------------
+    # Redis backs the Celery broker and result backend (dbs 1 and 2, with 0
+    # reserved for direct use, mirroring Encaixe). Defaults target the
+    # dockerized redis from the host (`docker compose up -d redis`); inside
+    # the compose network the worker service overrides the hostname.
+    redis_url: str = "redis://localhost:6379/0"
+    celery_broker_url: str = "redis://localhost:6379/1"
+    celery_result_backend: str = "redis://localhost:6379/2"
+
     # -- Security ----------------------------------------------------------
     # Comma-separated allowlist of browser origins for CORS. Defaults cover the
     # Vite dev server (5173) and the production-build preview (4173), on both

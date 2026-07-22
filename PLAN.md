@@ -2,8 +2,8 @@
 
 > **Handoff para um chat novo.** Estado em 2026-07-22: F1–F4 + trilha
 > frontend released (`origin/main` = **v0.9.0**, tags `v0.2.0`..`v0.9.0`);
-> `develop` = `origin/develop`, sem trabalho em voo. Próxima fase: **F5**
-> (desenhada na seção 3, implementar em 3 etapas). Este arquivo é
+> `develop` = `origin/develop`. Fase atual: **F5** (desenho na seção 3;
+> etapa 1/3 — infra do worker — entregue em 2026-07-22). Este arquivo é
 > **versionado** no repo — atualize a seção de estado quando uma fase fechar
 > e enxugue o que já foi entregue.
 > Leia junto: `ARCHITECTURE.md` (decisões + seção 6 "deferred"),
@@ -113,6 +113,18 @@
   glow. Disclaimer novo sincronizado web+API ("RANKINGS E ENTIDADES SÃO
   FICTÍCIOS"), constantes e teste de contrato atualizados (payload segue
   byte-idêntico). Identificadores de código (power-entity etc.) intactos.
+- **F5a — infra do worker (2026-07-22, `feat/f5a-worker-infra`)**: Celery +
+  Redis espelhando o Encaixe (`src/worker/celery_app.py` + task de smoke;
+  json serializer, `acks_late`, prefetch 1), imagem própria do banco
+  (`db/Dockerfile`: PostGIS + pgvector 0.8.5), migration
+  `0002_pipeline.sql` (ingest_sources, raw_documents com dedup por hash,
+  doc_chunks `vector(1024)` + índice HNSW, scoring_runs, entity_candidates
+  com `CHECK (status = 'draft')` no banco, candidate_citations), compose
+  ganha `redis` e `worker` (profile full), config
+  `PA_REDIS_URL`/broker/backend, alvos `redis-up`/`worker-dev`. Verificado:
+  7 unit + 2 integration (paridade) verdes, ruff/mypy verdes, migrations
+  aplicadas em banco novo, round-trip real do smoke via Redis (SUCCESS no
+  result backend).
 - **Pendências conhecidas da trilha frontend**: ranking por município
   (depende da F5); reativar a dimensão oculta (flip do flag) quando F5/F6
   existirem. (Tooltip de hover validado com mouse real em 2026-07-22.)
@@ -239,10 +251,18 @@ só existe na F6, com revisão humana. O teste de paridade garante: payload de
 **Etapas de entrega (uma branch cada, mergeável sozinha)**
 1. `feat/f5a-worker-infra` — redis + worker no compose, `celery_app`,
    imagem de banco com pgvector, migration 0002, task de smoke.
+   **(ENTREGUE 2026-07-22; ver seção 1.)**
 2. `feat/f5b-ingestao-rss` — fetch RSS → `raw_documents` (dedup), seed das
    fontes, testes com respx.
 3. `feat/f5c-embeddings-scoring` — chunking + embeddings + scoring LLM →
    `entity_candidates` + citações.
+
+**Pendência registrada na F5a (pedido do Arthur, 2026-07-22):** documentar/
+unificar o fluxo de subida local. `pnpm dev` continua bastando para o web
+offline (mock); o backend F5 sobe por partes (`db-up`/`redis-up` +
+`worker-dev`/`api-dev-db` no host) ou inteiro via
+`docker compose --profile full up`. Avaliar um alvo único (`stack-up`) e
+registrar o fluxo canônico no README quando a F5 fechar.
 
 **Verificação F5**
 1. pytest/ruff/mypy verdes; unit com HTTP mockado (respx) e embeddings
