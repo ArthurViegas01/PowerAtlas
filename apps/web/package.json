@@ -10,7 +10,8 @@
     "typecheck": "vue-tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "geo": "node scripts/fetch-geo.mjs"
+    "geo": "node scripts/fetch-geo.mjs",
+    "indicators": "node scripts/fetch-indicators.mjs"
   },
   "dependencies": {
     "@deck.gl/aggregation-layers": "^9.1.0",
