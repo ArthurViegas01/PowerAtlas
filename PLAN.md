@@ -1,10 +1,10 @@
 # PowerAtlas — Plano de continuação (F3+)
 
-> **Handoff para um chat novo.** Estado em 2026-07-22: F1–F4 + trilha
-> frontend released (`origin/main` = **v0.9.0**, tags `v0.2.0`..`v0.9.0`);
-> `develop` = `origin/develop`. Fase atual: **F5** (desenho na seção 3;
-> etapas 1 e 2 de 3 entregues em 2026-07-22 — falta a F5c,
-> embeddings + scoring). Este arquivo é
+> **Handoff para um chat novo.** Estado em 2026-07-22: **v0.10.0 released**
+> (`main`, tags `v0.2.0`..`v0.10.0`) — compose full-stack, F5a/F5b,
+> monitoramento, visão demográfica e controles de visão. Fase atual: **F5**
+> (desenho na seção 3; etapas 1 e 2 de 3 entregues — a F5c,
+> embeddings + scoring, está PAUSADA sem custos de IA). Este arquivo é
 > **versionado** no repo — atualize a seção de estado quando uma fase fechar
 > e enxugue o que já foi entregue.
 > Leia junto: `ARCHITECTURE.md` (decisões + seção 6 "deferred"),

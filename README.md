@@ -78,6 +78,21 @@ web+API disclaimer became "RANKINGS E ENTIDADES SÃO FICTÍCIOS" (payload
 parity kept). Code identifiers (the `power-entity` contract) are untouched;
 flip the flag to bring the dimension back once the F5/F6 pipeline exists.
 
+**Full-stack compose + F5 pipeline (a/b) + UI batch: v0.10.0.** One
+`docker compose up` now boots the entire stack: PostGIS+pgvector, Redis,
+one-shot migrate/seed, the read API, the Celery worker and the web HUD on
+:5173. Backend: F5a worker infra (Celery + Redis, custom pgvector database
+image, staging schema locked to `draft` at the DB level) and F5b RSS
+ingestion — allowlisted institutional feeds (Agência Brasil, Agência Câmara,
+Agência Senado) deduped into `raw_documents`, exposed by a monitoring
+endpoint. Web: the collapsible MONITORAMENTO panel (real ingested
+headlines), the "visão demográfica" (per-município population/GDP columns
+with a metric menu, municipal outlines and per-state crop), HUD polish
+(cylindrical capital columns, influence arcs behind a flag, trimmed legend,
+north-up camera) and a tilt control on the compass (up to 85°). F5c
+(embeddings + LLM scoring) is deliberately paused to avoid AI API costs for
+now — free local alternatives are noted in the PLAN.
+
 Deviations from the original plans: [ARCHITECTURE.md](ARCHITECTURE.md) §3
 and [docs/data-sources.md](docs/data-sources.md). Next phases (scoring
 pipeline, review workflow): ARCHITECTURE.md §6.
