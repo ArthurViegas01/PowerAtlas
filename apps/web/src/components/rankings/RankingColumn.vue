@@ -11,7 +11,7 @@ defineProps<{ variant: PowerDimension; entities: PowerEntity[] }>()
     <header class="head">
       <span class="mark"></span>
       <h3 class="title pa-data">
-        {{ variant === 'official' ? 'PODER OFICIAL' : 'PODER OCULTO' }}
+        {{ variant === 'official' ? 'INFLUÊNCIA OFICIAL' : 'INFLUÊNCIA OCULTA' }}
       </h3>
       <span class="count pa-data">{{ entities.length.toString().padStart(2, '0') }}</span>
     </header>

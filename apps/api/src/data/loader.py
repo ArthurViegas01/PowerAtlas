@@ -27,7 +27,7 @@ _MOCK_DIR = Path(__file__).parent / "mock"
 _NETWORK_FILE = "influence-network.json"
 
 # Kept byte-identical to the web MOCK_DISCLAIMER so the payload matches.
-DISCLAIMER = 'PROTÓTIPO · DADOS SIMULADOS · ENTIDADES DE "PODER OCULTO" SÃO FICTÍCIAS'
+DISCLAIMER = "PROTÓTIPO · DADOS SIMULADOS · RANKINGS E ENTIDADES SÃO FICTÍCIOS"
 
 
 def _read_json(path: Path) -> Any:

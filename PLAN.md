@@ -101,9 +101,19 @@
   none e flip perto das bordas. Hover real de mouse exige navegador visível;
   validado via stores no browser pane (MG: 20,5 mi hab / R$ 972 bi;
   município de São Paulo: 11,5 mi hab / R$ 1,1 tri; Argentina: EM BREVE).
+- **Rebrand "influência" + oculta em breve (2026-07-22)**: "poder" virou
+  "influência" em todas as menções visíveis (título da aba, header, legenda,
+  colunas do painel, boot, copy municipal). A dimensão de influência oculta
+  ficou bloqueada como "em breve" atrás de `HIDDEN_INFLUENCE_ENABLED`
+  (`lib/features.ts`): a segunda coluna do painel vira módulo bloqueado
+  (borda tracejada âmbar), colunas âmbar e arcos `hidden` saem do mapa (a
+  coluna oficial centraliza na capital), legenda com swatch tracejado sem
+  glow. Disclaimer novo sincronizado web+API ("RANKINGS E ENTIDADES SÃO
+  FICTÍCIOS"), constantes e teste de contrato atualizados (payload segue
+  byte-idêntico). Identificadores de código (power-entity etc.) intactos.
 - **Pendências conhecidas da trilha frontend**: ranking por município
   (depende da F5); validar o hover do tooltip com mouse real num navegador
-  visível.
+  visível; reativar a dimensão oculta (flip do flag) quando F5/F6 existirem.
 
 ## 2. Convenções obrigatórias (não pular)
 

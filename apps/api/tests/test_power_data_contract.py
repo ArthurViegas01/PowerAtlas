@@ -19,7 +19,7 @@ from fastapi.testclient import TestClient
 MOCK_DIR = Path(__file__).resolve().parents[1] / "src" / "data" / "mock"
 NETWORK_FILE = "influence-network.json"
 
-EXPECTED_DISCLAIMER = 'PROTÓTIPO · DADOS SIMULADOS · ENTIDADES DE "PODER OCULTO" SÃO FICTÍCIAS'
+EXPECTED_DISCLAIMER = "PROTÓTIPO · DADOS SIMULADOS · RANKINGS E ENTIDADES SÃO FICTÍCIOS"
 ENVELOPE_KEYS = {
     "schemaVersion",
     "generatedAt",

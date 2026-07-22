@@ -4,11 +4,11 @@
     <ul class="m-0 flex list-none flex-col gap-1.5 p-0">
       <li class="flex items-center gap-2">
         <span class="swatch swatch--official"></span>
-        <span class="row-label pa-data">PODER OFICIAL</span>
+        <span class="row-label pa-data">INFLUÊNCIA OFICIAL</span>
       </li>
       <li class="flex items-center gap-2">
         <span class="swatch swatch--hidden"></span>
-        <span class="row-label pa-data">PODER OCULTO · FICTÍCIO</span>
+        <span class="row-label pa-data">INFLUÊNCIA OCULTA · EM BREVE</span>
       </li>
       <li class="flex items-center gap-2">
         <span class="swatch swatch--nodata"></span>
@@ -65,9 +65,10 @@
   box-shadow: var(--pa-glow-cyan);
 }
 
+/* Locked dimension: dashed, no glow, like the international "em breve" row. */
 .swatch--hidden {
-  background: var(--pa-series-hidden);
-  box-shadow: var(--pa-glow-amber);
+  background: color-mix(in srgb, var(--pa-series-hidden) 14%, transparent);
+  border: 1px dashed color-mix(in srgb, var(--pa-series-hidden) 55%, transparent);
 }
 
 .swatch--nodata {
@@ -89,7 +90,8 @@
   align-items: center;
   justify-content: center;
   height: auto;
-  color: var(--pa-series-hidden);
+  /* Only official (cyan) arcs render while the hidden dimension is locked. */
+  color: var(--pa-series-official);
   font-size: 12px;
   line-height: 1;
 }

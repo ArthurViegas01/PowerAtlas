@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref, shallowRef } from 'vue'
 
+import { HIDDEN_INFLUENCE_ENABLED } from '@/lib/features'
 import { collectionBounds, featureBounds } from '@/lib/geo'
 import type {
   BoundaryCollection,
@@ -94,14 +95,18 @@ export const useMapLayersStore = defineStore('mapLayers', () => {
         regionId: region.id,
         dimension: 'official',
         score: top(region.official),
-        coordinates: [lon - COLUMN_LON_OFFSET, lat],
+        // Solo column sits on the capital; twins straddle it once the
+        // hidden dimension unlocks.
+        coordinates: [HIDDEN_INFLUENCE_ENABLED ? lon - COLUMN_LON_OFFSET : lon, lat],
       })
-      out.push({
-        regionId: region.id,
-        dimension: 'hidden',
-        score: top(region.hidden),
-        coordinates: [lon + COLUMN_LON_OFFSET, lat],
-      })
+      if (HIDDEN_INFLUENCE_ENABLED) {
+        out.push({
+          regionId: region.id,
+          dimension: 'hidden',
+          score: top(region.hidden),
+          coordinates: [lon + COLUMN_LON_OFFSET, lat],
+        })
+      }
     }
     return out
   })
@@ -112,6 +117,7 @@ export const useMapLayersStore = defineStore('mapLayers', () => {
       capitals.set(region.id, region.capital.coordinates)
     }
     return rankings.links.flatMap((link) => {
+      if (!HIDDEN_INFLUENCE_ENABLED && link.dimension === 'hidden') return []
       const source = capitals.get(link.from)
       const target = capitals.get(link.to)
       if (!source || !target) return []

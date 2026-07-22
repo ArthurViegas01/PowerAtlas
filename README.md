@@ -68,6 +68,16 @@ same numbers on map hover (municipality > state > world "em breve").
 Context data only: the power rankings stay fictional until the review
 pipeline exists (ARCHITECTURE.md §5).
 
+**"Influência" rebrand + hidden dimension locked: v0.9.0.** All visible copy
+says "influência" instead of "poder" (tab title, header, legend, ranking
+columns). The hidden-influence dimension is now an "em breve" locked module,
+gated by `HIDDEN_INFLUENCE_ENABLED` in `apps/web/src/lib/features.ts`: the
+panel shows a locked block instead of the second column, the amber map
+columns/arcs are off (the official column centers on the capital), and the
+web+API disclaimer became "RANKINGS E ENTIDADES SÃO FICTÍCIOS" (payload
+parity kept). Code identifiers (the `power-entity` contract) are untouched;
+flip the flag to bring the dimension back once the F5/F6 pipeline exists.
+
 Deviations from the original plans: [ARCHITECTURE.md](ARCHITECTURE.md) §3
 and [docs/data-sources.md](docs/data-sources.md). Next phases (scoring
 pipeline, review workflow): ARCHITECTURE.md §6.
