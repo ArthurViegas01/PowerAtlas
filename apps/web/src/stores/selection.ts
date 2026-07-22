@@ -16,6 +16,16 @@ export type CameraTarget = 'national' | 'global'
 
 export type RotateKind = 'by' | 'north' | 'auto'
 
+export type DemografiaMetric = 'population' | 'gdp'
+
+/** Município under the cursor in the demographic view (feeds the tooltip). */
+export interface DemografiaHover {
+  codigo: string
+  name: string
+  population: number
+  gdpBrlThousands: number
+}
+
 /** Which region the operator is inspecting, plus hover/ping/camera UI state. */
 export const useSelectionStore = defineStore('selection', () => {
   const selectedId = ref<string | null>(null)
@@ -55,6 +65,19 @@ export const useSelectionStore = defineStore('selection', () => {
     delta: 0,
     seq: 0,
   })
+  /** Live map pitch in degrees — mirrored from MapLibre for the compass. */
+  const mapPitch = ref(45)
+  /** Manual tilt; camera flights keep it until AUTO clears (like bearing). */
+  const pitchOverride = ref<number | null>(null)
+  /** Imperative tilt bus — MapView watches `seq` and tilts by `delta`. */
+  const pitchRequest = ref<{ delta: number; seq: number }>({ delta: 0, seq: 0 })
+
+  /** Demographic view: per-município columns instead of the influence HUD. */
+  const demographicView = ref(false)
+  const demographicMetric = ref<DemografiaMetric>('population')
+  const hoveredDemografia = ref<DemografiaHover | null>(null)
+  /** State focused inside the demographic view (camera crop; Esc clears). */
+  const demographicUf = ref<string | null>(null)
 
   const hasSelection = computed(() => selectedId.value !== null)
   const hasPanel = computed(() => selectedId.value !== null || lockedWorld.value !== null)
@@ -112,6 +135,37 @@ export const useSelectionStore = defineStore('selection', () => {
     cameraRequest.value = { target, seq: cameraRequest.value.seq + 1 }
   }
 
+  /** Open the demographic view: closes panels, reframes on the country. */
+  function enterDemographicView() {
+    if (demographicView.value) return
+    closePanels()
+    hoveredDemografia.value = null
+    demographicView.value = true
+    requestCamera('national')
+  }
+
+  /** Back to the influence HUD (Esc or the other view buttons). */
+  function exitDemographicView() {
+    if (!demographicView.value) return
+    demographicView.value = false
+    hoveredDemografia.value = null
+    demographicUf.value = null
+  }
+
+  /** Focus a state inside the demographic view (`null` = back to Brazil). */
+  function selectDemographicUf(uf: string | null) {
+    if (!demographicView.value || demographicUf.value === uf) return
+    demographicUf.value = uf
+  }
+
+  function setDemographicMetric(metric: DemografiaMetric) {
+    demographicMetric.value = metric
+  }
+
+  function setHoveredDemografia(hover: DemografiaHover | null) {
+    hoveredDemografia.value = hover
+  }
+
   /** Rotate the camera by `delta` degrees (positive = counterclockwise). */
   function requestRotate(delta: number) {
     rotateRequest.value = { kind: 'by', delta, seq: rotateRequest.value.seq + 1 }
@@ -132,6 +186,19 @@ export const useSelectionStore = defineStore('selection', () => {
 
   function setBearingOverride(bearing: number | null) {
     bearingOverride.value = bearing
+  }
+
+  /** Tilt the camera by `delta` degrees (positive = more tilted). */
+  function requestPitch(delta: number) {
+    pitchRequest.value = { delta, seq: pitchRequest.value.seq + 1 }
+  }
+
+  function setMapPitch(pitch: number) {
+    mapPitch.value = pitch
+  }
+
+  function setPitchOverride(pitch: number | null) {
+    pitchOverride.value = pitch
   }
 
   function setHovered(id: string | null, name: string | null = null) {
@@ -167,6 +234,13 @@ export const useSelectionStore = defineStore('selection', () => {
     mapBearing,
     bearingOverride,
     rotateRequest,
+    demographicView,
+    demographicMetric,
+    hoveredDemografia,
+    demographicUf,
+    mapPitch,
+    pitchOverride,
+    pitchRequest,
     hasSelection,
     hasPanel,
     select,
@@ -176,6 +250,14 @@ export const useSelectionStore = defineStore('selection', () => {
     closePanels,
     goHome,
     requestCamera,
+    enterDemographicView,
+    exitDemographicView,
+    selectDemographicUf,
+    setDemographicMetric,
+    setHoveredDemografia,
+    requestPitch,
+    setMapPitch,
+    setPitchOverride,
     requestRotate,
     requestNorth,
     requestAutoBearing,

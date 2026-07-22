@@ -26,6 +26,14 @@ function model(overrides: Partial<MapLayerModel> = {}): MapLayerModel {
     hoveredMunicipioCodigo: null,
     heatmapPoints: [],
     heatmapVisible: false,
+    demographic: {
+      active: false,
+      metric: 'population',
+      munis: [],
+      hoveredCodigo: null,
+      borders: null,
+      uf: null,
+    },
     ...overrides,
   }
 }
@@ -49,6 +57,7 @@ function build(m: MapLayerModel) {
     onHoverState: noop,
     onHoverMunicipio: noop,
     onHoverWorld: noop,
+    onHoverDemografia: noop,
   })
 }
 
@@ -76,6 +85,104 @@ describe('buildDeckLayers', () => {
 
   it('makes the municipios layer pickable so hover/click reach the tooltip', () => {
     const layer = build(model({ municipios: munFc })).find((l) => l.id === 'municipios')
+    expect((layer!.props as { pickable: boolean }).pickable).toBe(true)
+  })
+
+  it('hides the score columns during the municipal drill-down', () => {
+    const column = {
+      regionId: 'SP',
+      dimension: 'official' as const,
+      score: 72,
+      coordinates: [-46.6, -23.5] as [number, number],
+    }
+    const national = build(model({ columns: [column] }))
+    expect(national.find((l) => l.id === 'power-columns-official')).toBeDefined()
+    const drilled = build(
+      model({ columns: [column], municipios: munFc, selectedMunicipioCodigo: '3550308' }),
+    )
+    expect(drilled.find((l) => l.id === 'power-columns-official')).toBeUndefined()
+  })
+
+  it('omits the arcs layer while the arcs flag keeps the model empty', () => {
+    expect(build(model()).find((l) => l.id === 'influence-arcs')).toBeUndefined()
+  })
+
+  it('swaps score columns for demografia columns in the demographic view', () => {
+    const column = {
+      regionId: 'SP',
+      dimension: 'official' as const,
+      score: 72,
+      coordinates: [-46.6, -23.5] as [number, number],
+    }
+    const muni = {
+      codigo: '3550308',
+      name: 'São Paulo',
+      coordinates: [-46.6, -23.5] as [number, number],
+      population: 11_451_999,
+      gdpBrlThousands: 1_100_000_000,
+    }
+    const layers = build(
+      model({
+        columns: [column],
+        demographic: {
+          active: true,
+          metric: 'population',
+          munis: [muni],
+          hoveredCodigo: null,
+          borders: null,
+          uf: null,
+        },
+      }),
+    )
+    expect(layers.find((l) => l.id === 'demografia-columns')).toBeDefined()
+    expect(layers.find((l) => l.id === 'power-columns-official')).toBeUndefined()
+    // States stay pickable: clicking one crops the demographic camera on it.
+    const states = layers.find((l) => l.id === 'states-choropleth')
+    expect((states!.props as { pickable: boolean }).pickable).toBe(true)
+  })
+
+  it('draws municipal outlines in the demographic view once meshes load', () => {
+    const demographic = {
+      active: true,
+      metric: 'population' as const,
+      munis: [],
+      hoveredCodigo: null,
+      borders: munFc,
+      uf: null,
+    }
+    const layers = build(model({ demographic }))
+    const borders = layers.find((l) => l.id === 'demografia-borders')
+    expect(borders).toBeDefined()
+    expect((borders!.props as { pickable: boolean }).pickable).toBe(false)
+    // Not loaded yet -> no layer, no crash.
+    expect(
+      build(model({ demographic: { ...demographic, borders: null } })).find(
+        (l) => l.id === 'demografia-borders',
+      ),
+    ).toBeUndefined()
+  })
+
+  it('keeps the demografia layer pickable so hover reaches the tooltip', () => {
+    const layer = build(
+      model({
+        demographic: {
+          active: true,
+          metric: 'gdp',
+          munis: [
+            {
+              codigo: '3550308',
+              name: 'São Paulo',
+              coordinates: [-46.6, -23.5] as [number, number],
+              population: 1,
+              gdpBrlThousands: 1,
+            },
+          ],
+          hoveredCodigo: null,
+          borders: null,
+          uf: null,
+        },
+      }),
+    ).find((l) => l.id === 'demografia-columns')
     expect((layer!.props as { pickable: boolean }).pickable).toBe(true)
   })
 })

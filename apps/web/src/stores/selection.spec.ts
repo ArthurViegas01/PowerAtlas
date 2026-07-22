@@ -134,4 +134,61 @@ describe('selection store', () => {
     s.closePanels()
     expect(s.hoveredMunicipio).toBeNull()
   })
+
+  it('entering the demographic view closes panels and reframes nationally', () => {
+    const s = useSelectionStore()
+    s.select('SP', 'São Paulo')
+    const camerasBefore = s.cameraRequest.seq
+    s.enterDemographicView()
+    expect(s.demographicView).toBe(true)
+    expect(s.hasPanel).toBe(false)
+    expect(s.cameraRequest.seq).toBe(camerasBefore + 1)
+    expect(s.cameraRequest.target).toBe('national')
+    // Re-entering is a no-op (no extra camera flight).
+    s.enterDemographicView()
+    expect(s.cameraRequest.seq).toBe(camerasBefore + 1)
+  })
+
+  it('crops on a state inside the demographic view and clears on exit', () => {
+    const s = useSelectionStore()
+    s.selectDemographicUf('SP') // ignored: not in the demographic view
+    expect(s.demographicUf).toBeNull()
+    s.enterDemographicView()
+    s.selectDemographicUf('SP')
+    expect(s.demographicUf).toBe('SP')
+    s.selectDemographicUf(null)
+    expect(s.demographicUf).toBeNull()
+    s.selectDemographicUf('RJ')
+    s.exitDemographicView()
+    expect(s.demographicUf).toBeNull()
+  })
+
+  it('queues tilt requests and tracks the manual pitch override', () => {
+    const s = useSelectionStore()
+    expect(s.pitchRequest.seq).toBe(0)
+    s.requestPitch(10)
+    s.requestPitch(-10)
+    expect(s.pitchRequest.seq).toBe(2)
+    expect(s.pitchRequest.delta).toBe(-10)
+    s.setPitchOverride(65)
+    expect(s.pitchOverride).toBe(65)
+    s.setPitchOverride(null)
+    expect(s.pitchOverride).toBeNull()
+  })
+
+  it('exiting the demographic view clears its hover state', () => {
+    const s = useSelectionStore()
+    s.enterDemographicView()
+    s.setHoveredDemografia({
+      codigo: '3550308',
+      name: 'São Paulo',
+      population: 11_451_999,
+      gdpBrlThousands: 1_100_000_000,
+    })
+    s.setDemographicMetric('gdp')
+    s.exitDemographicView()
+    expect(s.demographicView).toBe(false)
+    expect(s.hoveredDemografia).toBeNull()
+    expect(s.demographicMetric).toBe('gdp') // metric choice survives the exit
+  })
 })

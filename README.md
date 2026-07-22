@@ -78,6 +78,21 @@ web+API disclaimer became "RANKINGS E ENTIDADES SÃO FICTÍCIOS" (payload
 parity kept). Code identifiers (the `power-entity` contract) are untouched;
 flip the flag to bring the dimension back once the F5/F6 pipeline exists.
 
+**Full-stack compose + F5 pipeline (a/b) + UI batch: v0.10.0.** One
+`docker compose up` now boots the entire stack: PostGIS+pgvector, Redis,
+one-shot migrate/seed, the read API, the Celery worker and the web HUD on
+:5173. Backend: F5a worker infra (Celery + Redis, custom pgvector database
+image, staging schema locked to `draft` at the DB level) and F5b RSS
+ingestion — allowlisted institutional feeds (Agência Brasil, Agência Câmara,
+Agência Senado) deduped into `raw_documents`, exposed by a monitoring
+endpoint. Web: the collapsible MONITORAMENTO panel (real ingested
+headlines), the "visão demográfica" (per-município population/GDP columns
+with a metric menu, municipal outlines and per-state crop), HUD polish
+(cylindrical capital columns, influence arcs behind a flag, trimmed legend,
+north-up camera) and a tilt control on the compass (up to 85°). F5c
+(embeddings + LLM scoring) is deliberately paused to avoid AI API costs for
+now — free local alternatives are noted in the PLAN.
+
 Deviations from the original plans: [ARCHITECTURE.md](ARCHITECTURE.md) §3
 and [docs/data-sources.md](docs/data-sources.md). Next phases (scoring
 pipeline, review workflow): ARCHITECTURE.md §6.
@@ -108,15 +123,32 @@ pnpm preview    # serve the production build on http://localhost:4173
 pnpm test       # vitest (stores + composables)
 pnpm geo        # re-fetch + simplify IBGE boundaries (needs network)
 pnpm indicators # re-fetch IBGE factual indicators (needs network)
+pnpm demografia # rebuild the demographic-view dataset (offline join)
 ```
 
 Equivalent `make web-*` targets exist in the Makefile for machines with GNU
 make installed.
 
-### API (F3/F4)
+### Full stack (F3/F4/F5)
 
-Requires Python >= 3.11 (and Docker for the F4 database). From the repository
-root:
+The canonical way to bring everything up is Docker:
+
+```sh
+docker compose up   # PostGIS+pgvector, Redis, migrate+seed, API :8000, worker, web :5173
+```
+
+Open the HUD at http://localhost:5173 (not the `0.0.0.0` address the server
+logs print — that is a bind address, not a browsable one). The web
+container's first boot installs its dependencies into named volumes and takes
+a few minutes; later boots reuse them.
+
+Migrations and the fictional seed run automatically on boot (the seed only
+fills an *empty* database, so pipeline data survives restarts). If host port
+8000 is taken by another project, override it with `PA_API_PORT=8010` (in a
+root `.env` or the shell) — the web's `VITE_API_URL` follows it.
+
+For host development of the API/worker (faster reload; needs Python >= 3.11),
+the granular targets remain:
 
 ```sh
 pnpm api-install    # create apps/api/.venv and install deps
@@ -124,11 +156,13 @@ pnpm api-dev        # uvicorn --reload on http://localhost:8000 (mock mode)
 pnpm api-test       # pytest (DB tests are opt-in: -m integration)
 pnpm api-lint       # ruff + mypy
 
-# F4 database (PostGIS via Docker):
-pnpm db-up          # start postgres
+# Dockerized infra + host processes:
+pnpm db-up          # start postgres only
+pnpm redis-up       # start redis only
 pnpm db-migrate     # apply SQL migrations
-pnpm db-seed        # seed from the fictional dataset
+pnpm db-seed        # full reseed from the fictional dataset (truncates!)
 pnpm api-dev-db     # uvicorn against the database
+pnpm worker-dev     # celery worker on the host (pool=solo)
 ```
 
 Point the web at it with `VITE_API_URL=http://localhost:8000`

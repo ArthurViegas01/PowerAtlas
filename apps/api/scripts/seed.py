@@ -4,12 +4,18 @@ Truncates and reloads every table so it is repeatable. Array order becomes the
 `ord` columns, so the DB payload matches the mock loader's ordering. Point
 geometries are built with ST_MakePoint(lon, lat) in EPSG:4326.
 Run: `python -m scripts.seed` (or `pnpm db-seed`).
+
+`--if-empty` seeds only when `regions` is empty: the compose `migrate` service
+uses it so every `docker compose up` is boot-safe — the TRUNCATE ... CASCADE
+of a full reseed would also wipe the F5 staging tables (entity_candidates
+references regions), which must survive restarts.
 """
 
 from __future__ import annotations
 
 import asyncio
 import json
+import sys
 from datetime import datetime
 from pathlib import Path
 
@@ -22,6 +28,30 @@ NETWORK_FILE = "influence-network.json"
 
 # Local docker-compose default, overridden by PA_DATABASE_URL when set.
 DEFAULT_DSN = "postgresql://poweratlas:poweratlas_local_dev@localhost:5432/poweratlas"
+
+# F5b ingestion allowlist: public institutional RSS only (PLAN, decisões da
+# F5). URLs verified live on 2026-07-22. Upserted on every seed run (even with
+# --if-empty) so the allowlist stays current without touching pipeline data.
+INGEST_SOURCES = [
+    {
+        "id": "agencia-brasil",
+        "name": "Agência Brasil (EBC)",
+        "kind": "rss",
+        "url": "https://agenciabrasil.ebc.com.br/rss/ultimasnoticias/feed.xml",
+    },
+    {
+        "id": "agencia-camara",
+        "name": "Agência Câmara de Notícias",
+        "kind": "rss",
+        "url": "https://www.camara.leg.br/noticias/rss/ultimas-noticias",
+    },
+    {
+        "id": "agencia-senado",
+        "name": "Agência Senado",
+        "kind": "rss",
+        "url": "https://www12.senado.leg.br/noticias/rss",
+    },
+]
 
 
 async def main() -> None:
@@ -39,6 +69,19 @@ async def main() -> None:
 
     conn = await asyncpg.connect(dsn=dsn)
     try:
+        for feed in INGEST_SOURCES:
+            await conn.execute(
+                "INSERT INTO ingest_sources(id, name, kind, url) "
+                "VALUES($1, $2, $3, $4) "
+                "ON CONFLICT (id) DO UPDATE SET "
+                "name = EXCLUDED.name, kind = EXCLUDED.kind, url = EXCLUDED.url",
+                feed["id"], feed["name"], feed["kind"], feed["url"],
+            )
+        if "--if-empty" in sys.argv:
+            existing = await conn.fetchval("SELECT count(*) FROM regions")
+            if existing:
+                print(f"seed skipped (--if-empty): {existing} regions already present")
+                return
         async with conn.transaction():
             await conn.execute(
                 "TRUNCATE regions, entities, sources, entity_sources, "
@@ -97,7 +140,8 @@ async def main() -> None:
             "(SELECT count(*) FROM entities) AS entities, "
             "(SELECT count(*) FROM sources) AS sources, "
             "(SELECT count(*) FROM influence_links) AS links, "
-            "(SELECT count(*) FROM ambient_signals) AS signals"
+            "(SELECT count(*) FROM ambient_signals) AS signals, "
+            "(SELECT count(*) FROM ingest_sources) AS feeds"
         )
         print(f"seeded: {dict(counts)}")
     finally:

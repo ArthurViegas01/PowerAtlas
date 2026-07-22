@@ -15,6 +15,7 @@ __pycache__/
 *.log
 .cache/
 apps/web/scripts/.cache/
+.pnpm-store/
 
 # env
 .env

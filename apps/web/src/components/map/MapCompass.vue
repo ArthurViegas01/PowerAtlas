@@ -4,6 +4,7 @@ import { computed } from 'vue'
 import { useSelectionStore } from '@/stores/selection'
 
 const ROTATE_STEP_DEG = 15
+const PITCH_STEP_DEG = 10
 
 const selection = useSelectionStore()
 
@@ -15,6 +16,14 @@ const bearingLabel = computed(() => {
   const normalized = ((Math.round(selection.mapBearing) % 360) + 360) % 360
   return `${String(normalized).padStart(3, '0')}°`
 })
+
+const pitchLabel = computed(
+  () => `${String(Math.round(selection.mapPitch)).padStart(2, '0')}°`,
+)
+
+const hasOverride = computed(
+  () => selection.bearingOverride !== null || selection.pitchOverride !== null,
+)
 </script>
 
 <template>
@@ -51,11 +60,32 @@ const bearingLabel = computed(() => {
       ►
     </button>
     <p class="readout pa-data">BRG {{ bearingLabel }}</p>
+
     <button
-      v-if="selection.bearingOverride !== null"
+      class="ctrl pa-data"
+      type="button"
+      title="Menos inclinação (visão de cima)"
+      aria-label="Inclinar o mapa 10 graus para a visão de cima"
+      @click="selection.requestPitch(-PITCH_STEP_DEG)"
+    >
+      ▲
+    </button>
+    <button
+      class="ctrl pa-data"
+      type="button"
+      title="Mais inclinação (visão rasante)"
+      aria-label="Inclinar o mapa 10 graus para a visão rasante"
+      @click="selection.requestPitch(PITCH_STEP_DEG)"
+    >
+      ▼
+    </button>
+    <p class="readout pa-data">PIT {{ pitchLabel }}</p>
+
+    <button
+      v-if="hasOverride"
       class="auto pa-data"
       type="button"
-      title="Voltar ao enquadramento automático"
+      title="Voltar ao enquadramento automático (rotação e inclinação)"
       @click="selection.requestAutoBearing()"
     >
       AUTO

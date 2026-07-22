@@ -1,6 +1,6 @@
 """FastAPI application factory (F3 read API, F4 database).
 
-Mirrors the ZapAgent house shape: a ``create_app`` factory plus a module-level
+Mirrors the Encaixe house shape: a ``create_app`` factory plus a module-level
 ``app`` for uvicorn. When a database is configured the app opens an asyncpg pool
 on startup and the endpoint reads from PostGIS; otherwise it falls back to the
 bundled mock JSON, so offline dev and unit tests need no Postgres.
@@ -53,14 +53,27 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_headers=["*"],
     )
 
+    @app.get("/", tags=["meta"])
+    async def root() -> dict[str, str]:
+        """Landing for whoever opens the API port in a browser: where things live."""
+        return {
+            "service": "poweratlas-api",
+            "health": "/health",
+            "data": "/api/v1/power-data",
+            "docs": "/docs",
+            "hud": "http://localhost:5173",
+        }
+
     @app.get("/health", tags=["meta"])
     async def health() -> dict[str, object]:
         """Liveness probe: process is up, reports whether a database is wired."""
         return {"status": "ok", "version": app.version, "database": settings.use_database}
 
+    from .api.v1.routers.monitoring import router as monitoring_router
     from .api.v1.routers.power_data import router as power_data_router
 
     app.include_router(power_data_router, prefix="/api")
+    app.include_router(monitoring_router, prefix="/api")
 
     return app
 

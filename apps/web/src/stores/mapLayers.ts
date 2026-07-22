@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref, shallowRef } from 'vue'
 
-import { HIDDEN_INFLUENCE_ENABLED } from '@/lib/features'
+import { HIDDEN_INFLUENCE_ENABLED, INFLUENCE_ARCS_ENABLED } from '@/lib/features'
 import { collectionBounds, featureBounds } from '@/lib/geo'
 import type {
   BoundaryCollection,
@@ -9,8 +9,10 @@ import type {
   MunicipioCollection,
   WorldCollection,
 } from '@/lib/geo'
+import type { DemografiaMetric, DemografiaMunicipio } from '@/types/demografia'
 import type { AmbientSignal, PowerDimension } from '@/types/power-entity'
 
+import { useDemografiaStore } from './demografia'
 import { useRankingsStore } from './rankings'
 import { useSelectionStore } from './selection'
 
@@ -58,6 +60,17 @@ export interface MapLayerModel {
   hoveredMunicipioCodigo: string | null
   heatmapPoints: AmbientSignal[]
   heatmapVisible: boolean
+  /** Demographic view: per-município columns replace the influence layers. */
+  demographic: {
+    active: boolean
+    metric: DemografiaMetric
+    munis: DemografiaMunicipio[]
+    hoveredCodigo: string | null
+    /** Merged municipal outlines of every loaded UF mesh (context lines). */
+    borders: MunicipioCollection | null
+    /** State the camera is cropped on (click selects; Esc clears). */
+    uf: string | null
+  }
 }
 
 /** Twin columns straddle the capital: official west, hidden east. */
@@ -66,6 +79,7 @@ const COLUMN_LON_OFFSET = 0.32
 export const useMapLayersStore = defineStore('mapLayers', () => {
   const selection = useSelectionStore()
   const rankings = useRankingsStore()
+  const demografia = useDemografiaStore()
 
   const states = shallowRef<BoundaryCollection | null>(null)
   const national = shallowRef<BoundaryCollection | null>(null)
@@ -112,6 +126,7 @@ export const useMapLayersStore = defineStore('mapLayers', () => {
   })
 
   const arcs = computed<ArcDatum[]>(() => {
+    if (!INFLUENCE_ARCS_ENABLED) return []
     const capitals = new Map<string, [number, number]>()
     for (const region of rankings.data?.regions ?? []) {
       capitals.set(region.id, region.capital.coordinates)
@@ -148,6 +163,21 @@ export const useMapLayersStore = defineStore('mapLayers', () => {
       })),
   )
 
+  /**
+   * All loaded municipal meshes merged into one collection for the
+   * demographic view's context outlines. Fills in progressively while
+   * loadAllMunicipios streams the 27 UF meshes in.
+   */
+  const demografiaBorders = computed<MunicipioCollection | null>(() => {
+    if (!selection.demographicView) return null
+    const collections = [...municipiosByUf.value.values()]
+    if (collections.length === 0) return null
+    return {
+      type: 'FeatureCollection',
+      features: collections.flatMap((collection) => collection.features),
+    } as MunicipioCollection
+  })
+
   const layerModel = computed<MapLayerModel>(() => ({
     ready: states.value !== null && national.value !== null,
     states: states.value,
@@ -166,7 +196,15 @@ export const useMapLayersStore = defineStore('mapLayers', () => {
     selectedMunicipioCodigo: selection.selectedMunicipio?.codigo ?? null,
     hoveredMunicipioCodigo: selection.hoveredMunicipio?.codigo ?? null,
     heatmapPoints: rankings.ambientSignals,
-    heatmapVisible: !selection.hasSelection,
+    heatmapVisible: !selection.hasSelection && !selection.demographicView,
+    demographic: {
+      active: selection.demographicView,
+      metric: selection.demographicMetric,
+      munis: selection.demographicView ? demografia.municipios : [],
+      hoveredCodigo: selection.hoveredDemografia?.codigo ?? null,
+      borders: demografiaBorders.value,
+      uf: selection.demographicUf,
+    },
   }))
 
   async function fetchGeoFile<T>(file: string): Promise<T> {
@@ -228,6 +266,16 @@ export const useMapLayersStore = defineStore('mapLayers', () => {
     }
   }
 
+  /**
+   * Fetch every UF's municipal mesh (demographic-view outlines). Meshes load
+   * one by one and appear as they land; already-loaded UFs are no-ops thanks
+   * to loadMunicipios' attempt cache.
+   */
+  async function loadAllMunicipios() {
+    const ufs = states.value?.features.map((feature) => feature.properties.UF) ?? []
+    await Promise.allSettled(ufs.map((uf) => loadMunicipios(uf)))
+  }
+
   function municipioBoundsFor(uf: string, codigo: string): Bounds | null {
     const feature = municipiosByUf.value.get(uf)?.features.find((f) => f.properties.codigo === codigo)
     return feature ? featureBounds(feature) : null
@@ -243,6 +291,7 @@ export const useMapLayersStore = defineStore('mapLayers', () => {
     loadGeo,
     boundsFor,
     loadMunicipios,
+    loadAllMunicipios,
     municipioBoundsFor,
   }
 })

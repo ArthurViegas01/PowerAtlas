@@ -1,12 +1,12 @@
-# PowerAtlas F4 - local infra: PostGIS plus the read API.
-#
-# Primary dev flow runs the API on the host (`pnpm api-dev`) against the
-# dockerized database; the `api` service here mirrors the production shape and
-# lets `docker compose up` bring the whole backend up on its own.
+# PowerAtlas local stack: `docker compose up` brings up EVERYTHING —
+# PostGIS+pgvector, Redis, one-shot migrate+seed, the read API (:8000, or
+# PA_API_PORT), the Celery worker and the web HUD (Vite dev, :5173).
+# Granular host-dev targets (`pnpm dev`, `pnpm db-up`, `redis-up`, `api-dev`,
+# `worker-dev`) keep working for running pieces outside Docker (fastest HMR).
 
 services:
   postgres:
-    image: postgis/postgis:16-3.4
+    build: ./db   # postgis/postgis + pgvector (db/Dockerfile)
     environment:
       POSTGRES_USER: poweratlas
       POSTGRES_PASSWORD: poweratlas_local_dev
@@ -21,17 +21,89 @@ services:
       timeout: 3s
       retries: 20
 
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  # One-shot: applies db/migrations then seeds the fictional dataset, but only
+  # into an empty database (--if-empty) so pipeline staging data survives
+  # restarts. api/worker wait for it to finish successfully.
+  migrate:
+    build: ./apps/api
+    command: sh -c "python -m scripts.migrate && python -m scripts.seed --if-empty"
+    environment:
+      PA_DATABASE_URL: postgresql://poweratlas:poweratlas_local_dev@postgres:5432/poweratlas
+      PA_MIGRATIONS_DIR: /db/migrations
+    volumes:
+      - ./db/migrations:/db/migrations:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
   api:
     build: ./apps/api
     environment:
       PA_DATABASE_URL: postgresql://poweratlas:poweratlas_local_dev@postgres:5432/poweratlas
       PA_CORS_ALLOWED_ORIGINS: "http://localhost:5173,http://localhost:4173,http://127.0.0.1:5173,http://127.0.0.1:4173"
     ports:
-      - "8000:8000"
+      # Host port override for collisions (e.g. another project on :8000):
+      # PA_API_PORT=8010 docker compose up
+      - "${PA_API_PORT:-8000}:8000"
     depends_on:
       postgres:
         condition: service_healthy
-    profiles: ["full"]   # `docker compose --profile full up` to include the API
+      migrate:
+        condition: service_completed_successfully
+
+  worker:
+    build: ./apps/api
+    command: celery -A src.worker.celery_app worker --loglevel=INFO --concurrency=2
+    environment:
+      PA_DATABASE_URL: postgresql://poweratlas:poweratlas_local_dev@postgres:5432/poweratlas
+      PA_REDIS_URL: redis://redis:6379/0
+      PA_CELERY_BROKER_URL: redis://redis:6379/1
+      PA_CELERY_RESULT_BACKEND: redis://redis:6379/2
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+  # Web HUD (Vite dev server on :5173). First boot installs dependencies into
+  # the named volumes (a few minutes); later boots reuse them. Polling watch
+  # is required for HMR to see host file edits through the Windows bind mount.
+  web:
+    image: node:22-alpine
+    working_dir: /workspace
+    command: sh -c "corepack enable && pnpm install --frozen-lockfile && pnpm dev"
+    environment:
+      COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
+      CHOKIDAR_USEPOLLING: "true"
+      # Browser-side URL, so it must be host-reachable and match PA_API_PORT.
+      VITE_API_URL: http://localhost:${PA_API_PORT:-8000}
+    ports:
+      - "5173:5173"
+    volumes:
+      - .:/workspace
+      - web_node_modules:/workspace/node_modules
+      - web_app_node_modules:/workspace/apps/web/node_modules
+    depends_on:
+      api:
+        condition: service_started
 
 volumes:
   pgdata:
+  redisdata:
+  web_node_modules:
+  web_app_node_modules:

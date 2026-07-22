@@ -1,9 +1,12 @@
 # PowerAtlas — Plano de continuação (F3+)
 
-> **Handoff para um chat novo.** Estado em 2026-07-19: F1, F2, compasso e F3
-> released (`main` = **v0.4.0**, tags `v0.2.0`..`v0.4.0`); `develop` à frente
-> com a F4 (Postgres + PostGIS). Este arquivo agora é **versionado** no repo — atualize
-> a seção de estado quando uma fase fechar e enxugue o que já foi entregue.
+> **Handoff para um chat novo.** Estado em 2026-07-22: **v0.10.0 released**
+> (`main`, tags `v0.2.0`..`v0.10.0`) — compose full-stack, F5a/F5b,
+> monitoramento, visão demográfica e controles de visão. Fase atual: **F5**
+> (desenho na seção 3; etapas 1 e 2 de 3 entregues — a F5c,
+> embeddings + scoring, está PAUSADA sem custos de IA). Este arquivo é
+> **versionado** no repo — atualize a seção de estado quando uma fase fechar
+> e enxugue o que já foi entregue.
 > Leia junto: `ARCHITECTURE.md` (decisões + seção 6 "deferred"),
 > `docs/data-sources.md`, `README.md` (status + QA checklist).
 
@@ -43,7 +46,7 @@
   `ord` preservam a ordem dos arrays). Migrations SQL puras (sem ORM/Alembic),
   tracked em `schema_migrations`. Runner e seed em `apps/api/scripts/`
   (`migrate.py`, `seed.py`). **Camada de acesso: asyncpg puro** (espelha o
-  runtime do ZapAgent). `strength`/`weight` são `double precision` (não `real`,
+  runtime do Encaixe). `strength`/`weight` são `double precision` (não `real`,
   que distorceria). A API lê do banco quando `PA_DATABASE_URL` está setado, ou
   do mock caso contrário; payload byte-idêntico. `docker-compose.yml`
   (postgres + api). Teste de paridade DB->fonte marcado `-m integration`.
@@ -111,9 +114,65 @@
   glow. Disclaimer novo sincronizado web+API ("RANKINGS E ENTIDADES SÃO
   FICTÍCIOS"), constantes e teste de contrato atualizados (payload segue
   byte-idêntico). Identificadores de código (power-entity etc.) intactos.
+- **F5a — infra do worker (2026-07-22, `feat/f5a-worker-infra`)**: Celery +
+  Redis espelhando o Encaixe (`src/worker/celery_app.py` + task de smoke;
+  json serializer, `acks_late`, prefetch 1), imagem própria do banco
+  (`db/Dockerfile`: PostGIS + pgvector 0.8.5), migration
+  `0002_pipeline.sql` (ingest_sources, raw_documents com dedup por hash,
+  doc_chunks `vector(1024)` + índice HNSW, scoring_runs, entity_candidates
+  com `CHECK (status = 'draft')` no banco, candidate_citations), compose
+  ganha `redis` e `worker` (profile full), config
+  `PA_REDIS_URL`/broker/backend, alvos `redis-up`/`worker-dev`. Verificado:
+  7 unit + 2 integration (paridade) verdes, ruff/mypy verdes, migrations
+  aplicadas em banco novo, round-trip real do smoke via Redis (SUCCESS no
+  result backend).
+- **F5b — ingestão RSS (2026-07-22, `feat/f5b-ingestao-rss`)**: módulo
+  `src/ingest/` (feedparser + httpx; `FeedItem`, strip de HTML, hash
+  sha256 url+título+conteúdo), `ingest_source`/`ingest_all` com UA honesto,
+  timeout, delay entre fontes e isolamento de erro por feed; task Celery
+  `pipeline_ingest` + CLI `pnpm pipeline-ingest` (roda direto, sem broker).
+  Allowlist seedada (upsert antes do `--if-empty`): Agência Brasil, Agência
+  Câmara e Agência Senado (URLs verificadas ao vivo em 2026-07-22 — a da
+  Câmara é `noticias/rss/ultimas-noticias`, a do Senado `noticias/rss`).
+  Config `PA_INGEST_*`. Verificado: 12 unit + 3 integration verdes (dedup
+  em re-runs com respx), ruff/mypy verdes, E2E real com 45 docs dos 3 feeds
+  no banco e dedup confirmado na segunda rodada (0 inserts; timeout
+  transitório do Senado não derrubou a rodada — isolamento funcionou).
+- **Melhorias de UI (2026-07-22, três branches)**: (a) **polish do HUD** —
+  colunas das capitais viraram cilindros menores (diskResolution 24, raio
+  7,5 km, ocultas no drill-down municipal), arcos de influência desligados
+  atrás de `INFLUENCE_ARCS_ENABLED` (mock sem propósito até a F5 gerar links
+  reais), legenda só com camadas realmente visíveis, câmera abre ao norte
+  (BRG 000 nos presets nacional/estadual). (b) **painel MONITORAMENTO** —
+  `GET /api/v1/monitoring/documents` (manchetes de `raw_documents` com fonte
+  e data; lista vazia sem banco) + módulo no HUD à esquerda com as últimas
+  manchetes reais das agências, oculto no mock offline. Provenance factual,
+  sem análise — regra de conteúdo intacta. (c) **VISÃO DEMOGRÁFICA [BR]** —
+  botão novo no header; `pnpm demografia` (`build-demografia.mjs`, offline)
+  junta malhas + indicadores em `public/data/demografia/municipios.json`
+  (5.570 municípios, centroide + pop + PIB, 312 KB, carregado sob demanda);
+  colunas por município com altura ∝ √métrica (POP ciano, PIB âmbar), menu
+  lateral de métrica, tooltip com POP/PIB, legenda própria, Esc sai; o modo
+  é read-only (clicks de seleção desabilitados). "Renda média" anotada como
+  métrica futura (exige buscar novo agregado IBGE). Verificado: 42 testes
+  web + build verdes, API 15 unit + 4 integration, E2E no browser (5.570
+  colunas no modelo, troca de métrica, saída por Esc, manchetes reais no
+  painel).
+- **Controles de visão (2026-07-22, `feat/web-controles-de-visao`)**:
+  compasso ganhou controle de inclinação (▲▼ em passos de 10°, `maxPitch`
+  85, readout PIT; override manual espelha o do bearing e o AUTO reseta os
+  dois). Visão demográfica ganhou **bordas municipais de contexto** (as 27
+  malhas carregam em background ao entrar na visão — cache do `mapLayers` —
+  e mesclam num layer de linhas fracas) e **recorte por estado** (clique no
+  estado → câmera fecha nele "através" das colunas via picking só do
+  choropleth; chip RECORTE: UF no menu; Esc em cascata: recorte → visão →
+  município → estado → nacional). Painel MONITORAMENTO colapsável
+  ([–]/[+]). Verificado no browser: pitch aceito até 80°, AUTO limpando
+  override, 5.570 bordas após a carga completa, Esc em cascata e collapse
+  8→0→8 manchetes; 45 testes + build verdes.
 - **Pendências conhecidas da trilha frontend**: ranking por município
-  (depende da F5); validar o hover do tooltip com mouse real num navegador
-  visível; reativar a dimensão oculta (flip do flag) quando F5/F6 existirem.
+  (depende da F5); reativar a dimensão oculta (flip do flag) quando F5/F6
+  existirem. (Tooltip de hover validado com mouse real em 2026-07-22.)
 
 ## 2. Convenções obrigatórias (não pular)
 
@@ -128,7 +187,7 @@ com `--no-ff` ("Merge branch 'feat/fN-slug' into develop"). Release: commit
 `docs: release vX.Y.0 — ...` na develop, depois na main
 `git merge --no-ff develop -m "Release vX.Y.0 — <resumo> (merge develop)"`
 + tag anotada `vX.Y.0`. Fases numeradas pela ordem real de entrega
-(F1 = HUD, F2 = mundo; próxima = F3).
+(F1 = HUD, F2 = mundo, F3 = API, F4 = banco; próxima = F5).
 
 **Gotchas do ambiente (Windows)**
 - O Write tool trunca arquivos >~60 linhas neste mount (null bytes). Usar
@@ -167,61 +226,120 @@ simulados permanece na UI. Detalhe: ARCHITECTURE.md §5.
 
 ### F3 — API FastAPI de leitura (ENTREGUE 2026-07-19; ver seção 1)
 
-> Entregue em `feat/f3-api-fastapi` -> `develop`. Verificação abaixo passou
-> (pytest/ruff/mypy verdes, build do web verde, HUD carregando da API via
-> `VITE_API_URL`). A próxima fase recomendada é a **F4** (Postgres + PostGIS).
-> As "decisões travadas" abaixo ficam como registro do que foi construído.
-
-**Objetivo:** servir o contrato de `power-entity.ts` pela rede e trocar o
-loader do web por um client HTTP — sem mudar nada de UI.
-
-**Decisões travadas**
-- Python + FastAPI (objetivo de aprendizado do Arthur; ecossistema NLP
-  serve a F5). Espelhar convenções do ZapAgent: `apps/api` com layout
-  `src/`, `pyproject.toml` com ruff + mypy + pytest. Antes de escrever,
-  olhar `../ZapAgent/apps/api` para copiar o esqueleto exato
-  (nomes de pastas, config das tools).
-- A API é dona da sua cópia dos dados: os JSONs mock são copiados para
-  dentro de `apps/api` (ex.: `src/<pacote>/data/`). Sync manual com os do
-  web é aceitável — a F4 substitui isso por banco.
-- Um endpoint agregado espelhando o loader atual (menor atrito):
-  `GET /api/v1/power-data` → `RegionPowerData` completo
-  (schemaVersion, generatedAt, disclaimer, regions, links, ambientSignals).
-  Extra: `GET /health`.
-- Modelos Pydantic espelhando os tipos TS campo a campo (mesmos nomes,
-  camelCase via alias) — o payload deve ser byte-compatível com o que o
-  mockDataLoader monta hoje.
-- CORS para http://localhost:5173 e :4173.
-- No web: `services/apiClient.ts` com a mesma assinatura
-  (`loadRegionPowerData(): Promise<RegionPowerData>`); seleção por
-  `VITE_API_URL` (setada → API; ausente → mock). `.env.example` documenta.
-- Scripts: raiz ganha `pnpm api-dev` (uvicorn --reload) etc. no
-  package.json + alvos `api-*` no Makefile.
-
-**Verificação F3**
-1. `pytest` + `ruff check` + `mypy` verdes na api.
-2. Teste de contrato: payload do endpoint validado contra um golden gerado
-   dos mesmos JSONs (garante paridade com o mockDataLoader).
-3. `uvicorn` + `pnpm dev` com `VITE_API_URL` → HUD idêntico ao mock
-   (clicar SP, MG sem dados, BR), rede mostrando o fetch na API.
-4. Sem `VITE_API_URL` → segue 100% offline no mock.
-
-**Fora de escopo da F3:** Docker, banco, auth, escrita.
+> Entregue em `feat/f3-api-fastapi` -> `develop` (v0.4.0). Decisões que
+> ficaram: layout `src/` espelhando o Encaixe, modelos Pydantic camelCase
+> via alias byte-compatíveis com o mock, endpoint agregado único
+> `GET /api/v1/power-data`, CORS p/ 5173/4173, seleção no web por
+> `VITE_API_URL` (ausente → mock offline). Verificação passou (pytest/ruff/
+> mypy, teste de contrato contra os JSONs de origem, HUD idêntico com e sem
+> API).
 
 ### F4 — Postgres + PostGIS + persistência (ENTREGUE 2026-07-19; ver seção 1)
 
 > Entregue em `feat/f4-postgres-postgis` -> `develop`. Decisão travada:
-> **asyncpg puro** (sem ORM), espelhando o runtime do ZapAgent. Migrations SQL
+> **asyncpg puro** (sem ORM), espelhando o runtime do Encaixe. Migrations SQL
 > em `db/migrations/` (0001: regions, entities, sources, entity_sources,
 > influence_links, ambient_signals), seed dos JSONs, API lendo do banco,
 > `docker-compose.yml` (api + postgres/postgis), `make migrate`. Verificação:
 > unit sem banco + `-m integration` com banco (paridade byte a byte),
 > ruff/mypy verdes, smoke HTTP lendo do PostGIS. Próxima recomendada: **F5**.
 
-### F5 — Pipeline de ingestão e scoring (intenção, não desenhar ainda)
+### F5 — Pipeline de ingestão e scoring (DESENHADA 2026-07-22; implementar em 3 etapas)
 
-Celery + Redis; scraping de fontes de notícia BR; embeddings pgvector;
-scoring via LLM com citação de fonte obrigatória; tudo entra como `draft`.
+**Objetivo:** primeiro pipeline de dados reais de influência — ingerir
+notícias de fontes públicas BR, indexar com embeddings (pgvector) e gerar
+rankings **candidatos** via LLM com citação de fonte obrigatória. Tudo cai
+em tabelas de staging como `draft`; o payload público continua 100%
+fictício até a F6.
+
+**Princípio de segurança (deriva da regra de conteúdo, §2):** a F5 **não
+escreve** nas tabelas servidas (`entities` etc.). Ela escreve em
+`entity_candidates` + `candidate_citations`. Promoção candidata → `entities`
+só existe na F6, com revisão humana. O teste de paridade garante: payload de
+`GET /api/v1/power-data` byte-idêntico antes/depois de rodar o pipeline.
+
+**Decisões travadas**
+- Infra espelhando o Encaixe: Celery + Redis com `src/worker/celery_app.py`
+  + `tasks.py` (json serializer, `task_acks_late=True`,
+  `worker_prefetch_multiplier=1`); `docker-compose.yml` ganha serviços
+  `redis` e `worker`. Gotcha: Celery 5 não suporta Windows — o worker roda
+  no compose; se precisar rodar no host, `--pool=solo`.
+- Banco: PostGIS + pgvector juntos exigem imagem própria — `db/Dockerfile`
+  a partir de `postgis/postgis:16-3.4` instalando `postgresql-16-pgvector`
+  (o compose troca `image:` por `build:`; volume `pgdata` preservado).
+  Migration `0002_pipeline.sql`: `ingest_sources` (allowlist de feeds),
+  `raw_documents` (dedup por `content_hash` UNIQUE), `doc_chunks`
+  (`embedding vector(N)`; N e modelo registrados em comentário na
+  migration), `scoring_runs` (modelo, versão do prompt, stats),
+  `entity_candidates` (shape espelha `entities` + `rationale` + `run_id`,
+  `status` sempre `draft`), `candidate_citations` (candidata → documento +
+  trecho citado).
+- Ingestão: **só RSS/Atom de fontes públicas institucionais** no piloto
+  (Agência Brasil, Agência Câmara, Agência Senado) — allowlist vem do seed
+  de `ingest_sources`, nunca hardcoded; User-Agent honesto + rate-limit;
+  sem scraping de HTML nem paywall na F5.
+- Embeddings: Voyage AI (mesmo provedor do Encaixe), modelo gravado por
+  chunk; servem para recuperar contexto por região na hora do scoring
+  (busca vetorial top-k nos `doc_chunks`).
+- Scoring: Anthropic API, saída estruturada validada por Pydantic; prompt
+  versionado em `src/scoring/`; **candidata sem >=1 citação (documento +
+  trecho) é descartada no código** — coberto por teste. Score 0–100,
+  `confidence` derivada da quantidade/concordância de evidência. Piloto:
+  BR + 1–2 UFs (não as 27).
+- Orquestração: tasks Celery encadeadas, disparo manual por CLI
+  (`pnpm pipeline-ingest`, `pnpm pipeline-score`); Celery beat
+  (agendamento) fica para depois.
+- Config nova em pydantic-settings: `PA_REDIS_URL`, `PA_ANTHROPIC_API_KEY`,
+  `PA_VOYAGE_API_KEY` (documentadas no `.env.example`); sem as chaves o
+  pipeline fica indisponível e a API de leitura segue normal.
+
+**Etapas de entrega (uma branch cada, mergeável sozinha)**
+1. `feat/f5a-worker-infra` — redis + worker no compose, `celery_app`,
+   imagem de banco com pgvector, migration 0002, task de smoke.
+   **(ENTREGUE 2026-07-22; ver seção 1.)**
+2. `feat/f5b-ingestao-rss` — fetch RSS → `raw_documents` (dedup), seed das
+   fontes, testes com respx. **(ENTREGUE 2026-07-22; ver seção 1.)**
+3. `feat/f5c-embeddings-scoring` — chunking + embeddings + scoring LLM →
+   `entity_candidates` + citações. **(PAUSADA 2026-07-22 — ver nota
+   abaixo.)**
+
+**F5c pausada (2026-07-22, decisão do Arthur):** sem custos de IA por
+enquanto. Alternativas gratuitas avaliadas para a retomada (ou caso a pausa
+se estenda): embeddings locais via fastembed/ONNX ou sentence-transformers
+multilíngue (CPU, sem chave) no lugar do Voyage; "scoring v0" heurístico sem
+LLM (frequência de menções por região sobre os `raw_documents`, citações =
+os próprios docs) mantendo o shape candidata+citação da migration 0002.
+Nada disso foi implementado — decidir na retomada. Enquanto isso, a trilha
+ativa é a de **melhorias de UI** (trilha frontend).
+
+**Fluxo de subida local (RESOLVIDO 2026-07-22, pedido do Arthur):**
+`docker compose up` sobe o stack inteiro — postgres (PostGIS+pgvector),
+redis, serviço one-shot `migrate` (migrations + seed `--if-empty`; o seed
+completo truncaria as tabelas de staging via CASCADE, então só roda em banco
+vazio), api :8000, worker e **web (Vite dev, :5173)** — o HUD abre em
+http://localhost:5173 com `VITE_API_URL` casado com a porta da API. Primeira
+subida do web instala deps em volumes nomeados (minutos); as seguintes são
+rápidas. `PA_API_PORT` sobrescreve a porta do host em colisão (na máquina
+do Arthur um `.env` local fixa 8010 — a 8000 vive ocupada pelo dataglass).
+Alvos granulares (`pnpm dev`/`db-up`/`redis-up`/`api-dev-db`/`worker-dev`)
+continuam valendo p/ dev no host (HMR mais rápido). Nunca abrir
+`0.0.0.0:porta` no browser (log de bind do uvicorn/vite) — usar
+`localhost`. Documentado no README.
+
+**Verificação F5**
+1. pytest/ruff/mypy verdes; unit com HTTP mockado (respx) e embeddings
+   fake — nada de rede em unit.
+2. `-m integration` (docker: postgres + redis): ingest de fixture RSS →
+   dedup OK; embedding gravado e consultável por similaridade; scoring com
+   LLM mockado → candidatas com citação; candidata sem citação → rejeitada.
+3. Paridade: payload byte-idêntico antes/depois do pipeline rodar.
+4. E2E manual com chaves reais: `docker compose --profile full up`
+   (+ redis/worker), ingest das fontes seed, scoring de 1 UF → drafts em
+   `entity_candidates` com citações plausíveis (conferir via psql).
+
+**Fora de escopo da F5:** promoção para `entities` e revisão (F6), qualquer
+mudança de UI ou de payload, auth/escrita pública, admin UI, agendamento
+automático, scraping HTML, cobertura das 27 UFs no scoring.
 
 ### F6 — Workflow de revisão (gate de conteúdo real)
 
@@ -234,8 +352,10 @@ reais nomeadas podem aparecer no produto. Os campos
 - [x] Mock dos 27 estados (entidades fictícias novas no mesmo padrão).
 - [x] Code-splitting do bundle: manualChunks p/ maplibre e deck.gl.
 - [x] Testes: vitest nos stores/composables (selection, rankings, counter).
-- [ ] Tooltips mais ricos, labels de estados, refinamento mobile.
-- [ ] Exercitar `prefers-reduced-motion` de ponta a ponta (item 5 do QA).
+- [x] Tooltips (hover com indicadores IBGE, validado 2026-07-22), labels de
+      estados (v0.7.0), mobile auditado (bottom-sheet no breakpoint 900px).
+- [x] `prefers-reduced-motion` auditado ponta a ponta (kill-switch CSS
+      global + gating JS; v0.7.0).
 
 ## 4. Verificação padrão de toda fase
 
@@ -247,6 +367,7 @@ conjunto coeso.
 ## 5. Como retomar num chat novo
 
 Prompt sugerido: *"Leia o PLAN.md na raiz do PowerAtlas e o
-ARCHITECTURE.md. Vamos implementar a F3 (API FastAPI) conforme o plano —
-comece pelo esqueleto espelhando o ZapAgent."* O dev server sobe com
+ARCHITECTURE.md. Vamos implementar a etapa F5a (worker + infra) conforme o
+desenho da F5 — comece pelo compose (redis + worker) e pela imagem de banco
+com pgvector, espelhando o worker do Encaixe."* O dev server sobe com
 `pnpm dev`; QA rápido via `/?region=SP`.

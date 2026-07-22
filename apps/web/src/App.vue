@@ -4,7 +4,9 @@ import { computed, onBeforeUnmount, onMounted, watch } from 'vue'
 import HudFrame from '@/components/hud/HudFrame.vue'
 import HudHeader from '@/components/hud/HudHeader.vue'
 import HudPanel from '@/components/hud/HudPanel.vue'
+import MonitoringPanel from '@/components/hud/MonitoringPanel.vue'
 import ScanlineOverlay from '@/components/hud/ScanlineOverlay.vue'
+import DemografiaMenu from '@/components/map/DemografiaMenu.vue'
 import MapCompass from '@/components/map/MapCompass.vue'
 import MapLegend from '@/components/map/MapLegend.vue'
 import MapScanEffect from '@/components/map/MapScanEffect.vue'
@@ -13,6 +15,7 @@ import MapView from '@/components/map/MapView.vue'
 import RankingColumn from '@/components/rankings/RankingColumn.vue'
 import IndicatorGrid from '@/components/shared/IndicatorGrid.vue'
 import { HIDDEN_INFLUENCE_ENABLED } from '@/lib/features'
+import { useDemografiaStore } from '@/stores/demografia'
 import { useIndicatorsStore } from '@/stores/indicators'
 import { useMapLayersStore } from '@/stores/mapLayers'
 import { useRankingsStore } from '@/stores/rankings'
@@ -22,6 +25,7 @@ const selection = useSelectionStore()
 const rankings = useRankingsStore()
 const mapLayers = useMapLayersStore()
 const indicators = useIndicatorsStore()
+const demografia = useDemografiaStore()
 
 const region = computed(() => rankings.regionById(selection.selectedId))
 const regionIndicators = computed(() => indicators.forRegion(selection.selectedId))
@@ -51,7 +55,20 @@ const panelSubtitle = computed(() => {
 })
 
 function selectNational() {
+  selection.exitDemographicView()
   selection.select('BR', 'Brasil')
+}
+
+function viewGlobal() {
+  selection.exitDemographicView()
+  selection.requestCamera('global')
+}
+
+function viewDemographic() {
+  void demografia.load()
+  // Municipal outlines for the demographic backdrop (27 meshes, cached).
+  void mapLayers.loadAllMunicipios()
+  selection.enterDemographicView()
 }
 
 function reload() {
@@ -60,9 +77,17 @@ function reload() {
 
 function onKeydown(event: KeyboardEvent) {
   if (event.key !== 'Escape') return
-  // Step out one level at a time: municipality -> state -> national.
-  if (selection.selectedMunicipio) selection.clearMunicipio()
-  else selection.goHome()
+  // Step out one level at a time: demographic UF crop -> demographic view ->
+  // municipality -> state -> national.
+  if (selection.demographicView && selection.demographicUf) {
+    selection.selectDemographicUf(null)
+  } else if (selection.demographicView) {
+    selection.exitDemographicView()
+  } else if (selection.selectedMunicipio) {
+    selection.clearMunicipio()
+  } else {
+    selection.goHome()
+  }
 }
 
 /** Deep link: /?region=SP preselects a region once data is ready. */
@@ -112,11 +137,15 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
     <HudFrame />
     <HudHeader
       @select-national="selectNational"
-      @view-global="selection.requestCamera('global')"
+      @view-global="viewGlobal"
+      @view-demographic="viewDemographic"
     />
 
     <transition name="pa-fade">
-      <div v-if="!selection.hasPanel && !booting" class="idle-hint">
+      <div
+        v-if="!selection.hasPanel && !booting && !selection.demographicView"
+        class="idle-hint"
+      >
         <p class="pa-data idle-line">
           ▸ SELECIONE UM ESTADO NO MAPA<span class="pa-blink">_</span>
         </p>
@@ -217,6 +246,8 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 
     <MapLegend />
     <MapCompass />
+    <MonitoringPanel v-if="!selection.demographicView" />
+    <DemografiaMenu />
 
     <footer class="disclaimer pa-data" role="note">
       ⚠ {{ rankings.disclaimer || 'PROTÓTIPO · DADOS SIMULADOS · ENTIDADES FICTÍCIAS' }}

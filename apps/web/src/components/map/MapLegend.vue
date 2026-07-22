@@ -1,7 +1,29 @@
+<script setup lang="ts">
+import { useSelectionStore } from '@/stores/selection'
+
+const selection = useSelectionStore()
+</script>
+
 <template>
   <div class="legend">
     <p class="pa-label legend-title">LEGENDA // CAMADAS</p>
-    <ul class="m-0 flex list-none flex-col gap-1.5 p-0">
+
+    <ul v-if="selection.demographicView" class="m-0 flex list-none flex-col gap-1.5 p-0">
+      <li class="flex items-center gap-2">
+        <span class="swatch swatch--heat"></span>
+        <span class="row-label pa-data">COLUNA POR MUNICÍPIO · ALTURA ∝ √MÉTRICA</span>
+      </li>
+      <li class="flex items-center gap-2">
+        <span class="swatch swatch--official"></span>
+        <span class="row-label pa-data">POPULAÇÃO (CENSO 2022)</span>
+      </li>
+      <li class="flex items-center gap-2">
+        <span class="swatch swatch--gdp"></span>
+        <span class="row-label pa-data">PIB (2023, PREÇOS CORRENTES)</span>
+      </li>
+    </ul>
+
+    <ul v-else class="m-0 flex list-none flex-col gap-1.5 p-0">
       <li class="flex items-center gap-2">
         <span class="swatch swatch--official"></span>
         <span class="row-label pa-data">INFLUÊNCIA OFICIAL</span>
@@ -11,23 +33,18 @@
         <span class="row-label pa-data">INFLUÊNCIA OCULTA · EM BREVE</span>
       </li>
       <li class="flex items-center gap-2">
-        <span class="swatch swatch--nodata"></span>
-        <span class="row-label pa-data">SEM DADOS (FASE 1)</span>
-      </li>
-      <li class="flex items-center gap-2">
         <span class="swatch swatch--intl"></span>
         <span class="row-label pa-data">INTERNACIONAL · EM BREVE</span>
       </li>
       <li class="flex items-center gap-2">
         <span class="swatch swatch--heat"></span>
-        <span class="row-label pa-data">ATIVIDADE AMBIENTE</span>
-      </li>
-      <li class="flex items-center gap-2">
-        <span class="swatch swatch--arc">◜</span>
-        <span class="row-label pa-data">ARCOS DE INFLUÊNCIA</span>
+        <span class="row-label pa-data">ATIVIDADE AMBIENTE · SIMULADA</span>
       </li>
     </ul>
-    <p class="credit pa-label">MALHAS: IBGE · SIMPLIFICADAS</p>
+
+    <p class="credit pa-label">
+      {{ selection.demographicView ? 'DADOS: IBGE · MALHAS SIMPLIFICADAS' : 'MALHAS: IBGE · SIMPLIFICADAS' }}
+    </p>
   </div>
 </template>
 
@@ -71,11 +88,6 @@
   border: 1px dashed color-mix(in srgb, var(--pa-series-hidden) 55%, transparent);
 }
 
-.swatch--nodata {
-  background: rgba(61, 88, 101, 0.25);
-  border: 1px solid var(--pa-border-faint);
-}
-
 .swatch--intl {
   background: rgba(61, 88, 101, 0.12);
   border: 1px dashed var(--pa-text-faint);
@@ -85,15 +97,9 @@
   background: linear-gradient(to right, rgba(61, 225, 255, 0.1), rgba(61, 225, 255, 0.85));
 }
 
-.swatch--arc {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: auto;
-  /* Only official (cyan) arcs render while the hidden dimension is locked. */
-  color: var(--pa-series-official);
-  font-size: 12px;
-  line-height: 1;
+.swatch--gdp {
+  background: var(--pa-series-hidden);
+  opacity: 0.85;
 }
 
 .credit {

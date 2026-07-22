@@ -1,6 +1,6 @@
 """Centralized typed settings loaded from environment variables.
 
-Mirrors the ZapAgent house convention: every value the service consumes goes
+Mirrors the Encaixe house convention: every value the service consumes goes
 through this module (no scattered os.getenv). Prefix is ``PA_`` so the vars do
 not collide with the web app or the shell.
 """
@@ -42,6 +42,21 @@ class Settings(BaseSettings):
     @property
     def use_database(self) -> bool:
         return bool(self.database_url)
+
+    # -- Worker / pipeline (F5) --------------------------------------------
+    # Redis backs the Celery broker and result backend (dbs 1 and 2, with 0
+    # reserved for direct use, mirroring Encaixe). Defaults target the
+    # dockerized redis from the host (`docker compose up -d redis`); inside
+    # the compose network the worker service overrides the hostname.
+    redis_url: str = "redis://localhost:6379/0"
+    celery_broker_url: str = "redis://localhost:6379/1"
+    celery_result_backend: str = "redis://localhost:6379/2"
+
+    # -- Ingest (F5b) ------------------------------------------------------
+    # Honest UA for the allowlisted institutional feeds + polite pacing.
+    ingest_user_agent: str = "PowerAtlas/0.1 (prototipo de pesquisa; ingest piloto)"
+    ingest_timeout_s: float = 30.0
+    ingest_delay_s: float = 1.0
 
     # -- Security ----------------------------------------------------------
     # Comma-separated allowlist of browser origins for CORS. Defaults cover the
