@@ -10,7 +10,7 @@ import type {
   WorldFeature,
   WorldProps,
 } from '@/lib/geo'
-import { paColor, shade, type RGBA } from '@/lib/palette'
+import { over, overVoid, paColor, shade, type RGBA } from '@/lib/palette'
 import type { ArcDatum, ColumnDatum, LabelDatum, MapLayerModel } from '@/stores/mapLayers'
 import type { DemografiaMunicipio } from '@/types/demografia'
 import type { AmbientSignal, PowerDimension } from '@/types/power-entity'
@@ -55,6 +55,27 @@ export function buildDeckLayers({
   const demo = model.demographic
   const layers: Layer[] = []
 
+  // Area fills are precomposited over the void so the pixels are OPAQUE:
+  // visually identical (they always sat on the flat void), but this is what
+  // hides the scan band running behind the transparent map canvases.
+  const fills = {
+    world: overVoid(paColor.faint(36)),
+    worldHover: overVoid(paColor.faint(72)),
+    stateNoData: overVoid(paColor.faint(26)),
+    stateSelected: overVoid(paColor.official(110)),
+    stateHovered: overVoid(paColor.official(72)),
+    state: overVoid(paColor.official(42)),
+    stateDemo: overVoid(paColor.faint(22)),
+    stateDemoCropped: overVoid(paColor.official(30)),
+  }
+  // Municípios draw on top of the SELECTED state, so their translucent fills
+  // composite over that state color instead of the raw void.
+  const municipioFills = {
+    selected: over(paColor.official(120), fills.stateSelected),
+    hovered: over(paColor.official(58), fills.stateSelected),
+    base: over(paColor.official(18), fills.stateSelected),
+  }
+
   // "Em breve" backdrop: dim fill + dashed borders, like an unfinished
   // game region. Sits under everything Brazil-related.
   if (model.world) {
@@ -67,8 +88,8 @@ export function buildDeckLayers({
         filled: true,
         getFillColor: (feature) =>
           feature.properties.iso === model.hoveredWorldIso
-            ? paColor.faint(72)
-            : paColor.faint(36),
+            ? fills.worldHover
+            : fills.world,
         getLineColor: paColor.faint(160),
         getLineWidth: 0.9,
         lineWidthUnits: 'pixels',
@@ -107,11 +128,11 @@ export function buildDeckLayers({
         const uf = feature.properties.UF
         // Demographic view: faint base under the columns; the cropped state
         // gets a touch more presence.
-        if (demo.active) return uf === demo.uf ? paColor.official(30) : paColor.faint(22)
-        if (!dataRegions.has(uf)) return paColor.faint(26)
-        if (uf === model.selectedId) return paColor.official(110)
-        if (uf === model.hoveredId) return paColor.official(72)
-        return paColor.official(42)
+        if (demo.active) return uf === demo.uf ? fills.stateDemoCropped : fills.stateDemo
+        if (!dataRegions.has(uf)) return fills.stateNoData
+        if (uf === model.selectedId) return fills.stateSelected
+        if (uf === model.hoveredId) return fills.stateHovered
+        return fills.state
       },
       getLineColor: (feature) => {
         const uf = feature.properties.UF
@@ -167,9 +188,9 @@ export function buildDeckLayers({
         filled: true,
         getFillColor: (feature) => {
           const codigo = feature.properties.codigo
-          if (codigo === model.selectedMunicipioCodigo) return paColor.official(120)
-          if (codigo === model.hoveredMunicipioCodigo) return paColor.official(58)
-          return paColor.official(18)
+          if (codigo === model.selectedMunicipioCodigo) return municipioFills.selected
+          if (codigo === model.hoveredMunicipioCodigo) return municipioFills.hovered
+          return municipioFills.base
         },
         getLineColor: paColor.official(130),
         getLineWidth: (feature) =>

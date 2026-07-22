@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed } from 'vue'
 
 import { useSelectionStore } from '@/stores/selection'
 
@@ -10,20 +10,6 @@ const emit = defineEmits<{
 }>()
 
 const selection = useSelectionStore()
-
-const clock = ref('--:--:--Z')
-let timer: number | undefined
-
-function tick() {
-  clock.value = `${new Date().toISOString().slice(11, 19)}Z`
-}
-
-onMounted(() => {
-  tick()
-  timer = window.setInterval(tick, 1000)
-})
-
-onBeforeUnmount(() => window.clearInterval(timer))
 
 const readout = computed(() => {
   if (selection.selectedId) {
@@ -71,10 +57,6 @@ const readout = computed(() => {
       >
         VISÃO DEMOGRÁFICA [BR]
       </button>
-      <div class="text-right">
-        <p class="clock pa-data">{{ clock }}</p>
-        <p class="pa-label">SIMULAÇÃO · v0.2</p>
-      </div>
     </div>
   </header>
 </template>
@@ -138,12 +120,6 @@ const readout = computed(() => {
   color: var(--pa-text-faint);
   border-color: var(--pa-border-faint);
   cursor: default;
-}
-
-.clock {
-  margin: 0;
-  font-size: var(--pa-text-sm);
-  color: var(--pa-text-primary);
 }
 
 @media (max-width: 900px) {

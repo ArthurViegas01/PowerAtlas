@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, watch } from 'vue'
 
+import HudClock from '@/components/hud/HudClock.vue'
 import HudFrame from '@/components/hud/HudFrame.vue'
 import HudHeader from '@/components/hud/HudHeader.vue'
 import HudPanel from '@/components/hud/HudPanel.vue'
@@ -12,6 +13,7 @@ import MapLegend from '@/components/map/MapLegend.vue'
 import MapScanEffect from '@/components/map/MapScanEffect.vue'
 import MapTooltip from '@/components/map/MapTooltip.vue'
 import MapView from '@/components/map/MapView.vue'
+import ScanBand from '@/components/hud/ScanBand.vue'
 import RankingColumn from '@/components/rankings/RankingColumn.vue'
 import IndicatorGrid from '@/components/shared/IndicatorGrid.vue'
 import { HIDDEN_INFLUENCE_ENABLED } from '@/lib/features'
@@ -130,6 +132,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 
 <template>
   <div class="app-shell">
+    <ScanBand />
     <MapView />
     <MapTooltip />
     <MapScanEffect />
@@ -248,6 +251,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
     <MapCompass />
     <MonitoringPanel v-if="!selection.demographicView" />
     <DemografiaMenu />
+    <HudClock />
 
     <footer class="disclaimer pa-data" role="note">
       ⚠ {{ rankings.disclaimer || 'PROTÓTIPO · DADOS SIMULADOS · ENTIDADES FICTÍCIAS' }}
