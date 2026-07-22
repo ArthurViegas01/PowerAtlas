@@ -11,20 +11,12 @@
         <span class="row-label pa-data">INFLUÊNCIA OCULTA · EM BREVE</span>
       </li>
       <li class="flex items-center gap-2">
-        <span class="swatch swatch--nodata"></span>
-        <span class="row-label pa-data">SEM DADOS (FASE 1)</span>
-      </li>
-      <li class="flex items-center gap-2">
         <span class="swatch swatch--intl"></span>
         <span class="row-label pa-data">INTERNACIONAL · EM BREVE</span>
       </li>
       <li class="flex items-center gap-2">
         <span class="swatch swatch--heat"></span>
-        <span class="row-label pa-data">ATIVIDADE AMBIENTE</span>
-      </li>
-      <li class="flex items-center gap-2">
-        <span class="swatch swatch--arc">◜</span>
-        <span class="row-label pa-data">ARCOS DE INFLUÊNCIA</span>
+        <span class="row-label pa-data">ATIVIDADE AMBIENTE · SIMULADA</span>
       </li>
     </ul>
     <p class="credit pa-label">MALHAS: IBGE · SIMPLIFICADAS</p>
@@ -71,11 +63,6 @@
   border: 1px dashed color-mix(in srgb, var(--pa-series-hidden) 55%, transparent);
 }
 
-.swatch--nodata {
-  background: rgba(61, 88, 101, 0.25);
-  border: 1px solid var(--pa-border-faint);
-}
-
 .swatch--intl {
   background: rgba(61, 88, 101, 0.12);
   border: 1px dashed var(--pa-text-faint);
@@ -83,17 +70,6 @@
 
 .swatch--heat {
   background: linear-gradient(to right, rgba(61, 225, 255, 0.1), rgba(61, 225, 255, 0.85));
-}
-
-.swatch--arc {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: auto;
-  /* Only official (cyan) arcs render while the hidden dimension is locked. */
-  color: var(--pa-series-official);
-  font-size: 12px;
-  line-height: 1;
 }
 
 .credit {
