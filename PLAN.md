@@ -1,8 +1,9 @@
 # PowerAtlas — Plano de continuação (F3+)
 
-> **Handoff para um chat novo.** Estado em 2026-07-22: **v0.10.0 released**
-> (`main`, tags `v0.2.0`..`v0.10.0`) — compose full-stack, F5a/F5b,
-> monitoramento, visão demográfica e controles de visão. Fase atual: **F5**
+> **Handoff para um chat novo.** Estado em 2026-07-22: **v0.11.0 released**
+> (`main`, tags `v0.2.0`..`v0.11.0`) — compose full-stack, F5a/F5b,
+> monitoramento, visão demográfica (com paleta própria pop/PIB), controles
+> de visão e refinos de layout do HUD. Fase atual: **F5**
 > (desenho na seção 3; etapas 1 e 2 de 3 entregues — a F5c,
 > embeddings + scoring, está PAUSADA sem custos de IA). Este arquivo é
 > **versionado** no repo — atualize a seção de estado quando uma fase fechar
@@ -183,6 +184,18 @@
   ocluem a banda; a textura CRT e a vinheta continuam na frente. Verificado
   no browser (relógio a 24/44px do canto, toggle 8→0→8, banda no z-0 atrás
   dos canvases); 47 testes + build verdes.
+- **Ajustes de layout + cores demográficas (2026-07-22, direto na
+  develop)**: sem o (i) de atribuição (crédito IBGE segue na legenda);
+  relógio e legenda alinhados ao footer (16px); readout centralizado
+  absoluto no header; compasso virou régua horizontal centralizada acima do
+  footer (sem o tick do norte); o botão do topo é o toggle da visão
+  demográfica (saiu o SAIR do card, ficou hint + Esc); painel de
+  monitoramento com 290px. **Cores da visão demográfica**: tokens
+  `--pa-demo-pop` (#3b82f6, azul mais escuro) e `--pa-demo-gdp` (#228b22,
+  verde floresta) aplicados em colunas, bordas municipais, linhas de
+  estados, borda externa do BR, realce do recorte, legenda e menu (rampa
+  com piso 0.45 p/ municípios pequenos não sumirem). Verificado no browser;
+  47 testes + typecheck verdes.
 - **Pendências conhecidas da trilha frontend**: ranking por município
   (depende da F5); reativar a dimensão oculta (flip do flag) quando F5/F6
   existirem. (Tooltip de hover validado com mouse real em 2026-07-22.)

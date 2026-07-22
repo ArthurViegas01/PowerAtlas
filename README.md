@@ -93,6 +93,16 @@ north-up camera) and a tilt control on the compass (up to 85°). F5c
 (embeddings + LLM scoring) is deliberately paused to avoid AI API costs for
 now — free local alternatives are noted in the PLAN.
 
+**HUD layout + demographic palette: v0.11.0.** The scan band now sweeps
+*behind* the countries (transparent base map + precomposited opaque fills),
+the clock/version moved to the bottom-right at footer height (reading the
+real package version), the compass became a centered horizontal strip above
+the footer with the new tilt controls, the readout is dead-centered, the
+monitoring panel collapses from its whole title bar, and the top-bar button
+now toggles the demographic view. That view gained its own palette — darker
+blue for population, forest green for GDP (`--pa-demo-*` tokens) — applied
+to columns, municipal outlines, state lines and the national border.
+
 Deviations from the original plans: [ARCHITECTURE.md](ARCHITECTURE.md) §3
 and [docs/data-sources.md](docs/data-sources.md). Next phases (scoring
 pipeline, review workflow): ARCHITECTURE.md §6.
