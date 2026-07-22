@@ -78,4 +78,23 @@ describe('buildDeckLayers', () => {
     const layer = build(model({ municipios: munFc })).find((l) => l.id === 'municipios')
     expect((layer!.props as { pickable: boolean }).pickable).toBe(true)
   })
+
+  it('hides the score columns during the municipal drill-down', () => {
+    const column = {
+      regionId: 'SP',
+      dimension: 'official' as const,
+      score: 72,
+      coordinates: [-46.6, -23.5] as [number, number],
+    }
+    const national = build(model({ columns: [column] }))
+    expect(national.find((l) => l.id === 'power-columns-official')).toBeDefined()
+    const drilled = build(
+      model({ columns: [column], municipios: munFc, selectedMunicipioCodigo: '3550308' }),
+    )
+    expect(drilled.find((l) => l.id === 'power-columns-official')).toBeUndefined()
+  })
+
+  it('omits the arcs layer while the arcs flag keeps the model empty', () => {
+    expect(build(model()).find((l) => l.id === 'influence-arcs')).toBeUndefined()
+  })
 })

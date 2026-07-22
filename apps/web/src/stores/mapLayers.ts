@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref, shallowRef } from 'vue'
 
-import { HIDDEN_INFLUENCE_ENABLED } from '@/lib/features'
+import { HIDDEN_INFLUENCE_ENABLED, INFLUENCE_ARCS_ENABLED } from '@/lib/features'
 import { collectionBounds, featureBounds } from '@/lib/geo'
 import type {
   BoundaryCollection,
@@ -112,6 +112,7 @@ export const useMapLayersStore = defineStore('mapLayers', () => {
   })
 
   const arcs = computed<ArcDatum[]>(() => {
+    if (!INFLUENCE_ARCS_ENABLED) return []
     const capitals = new Map<string, [number, number]>()
     for (const region of rankings.data?.regions ?? []) {
       capitals.set(region.id, region.capital.coordinates)
