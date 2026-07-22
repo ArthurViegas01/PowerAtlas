@@ -10,6 +10,8 @@ import MapLegend from '@/components/map/MapLegend.vue'
 import MapScanEffect from '@/components/map/MapScanEffect.vue'
 import MapView from '@/components/map/MapView.vue'
 import RankingColumn from '@/components/rankings/RankingColumn.vue'
+import IndicatorGrid from '@/components/shared/IndicatorGrid.vue'
+import { useIndicatorsStore } from '@/stores/indicators'
 import { useMapLayersStore } from '@/stores/mapLayers'
 import { useRankingsStore } from '@/stores/rankings'
 import { useSelectionStore } from '@/stores/selection'
@@ -17,8 +19,13 @@ import { useSelectionStore } from '@/stores/selection'
 const selection = useSelectionStore()
 const rankings = useRankingsStore()
 const mapLayers = useMapLayersStore()
+const indicators = useIndicatorsStore()
 
 const region = computed(() => rankings.regionById(selection.selectedId))
+const regionIndicators = computed(() => indicators.forRegion(selection.selectedId))
+const municipioIndicators = computed(() =>
+  indicators.forMunicipio(selection.selectedId, selection.selectedMunicipio?.codigo ?? null),
+)
 const booting = computed(() => !rankings.ready || !mapLayers.layerModel.ready)
 const bootError = computed(() => rankings.error ?? mapLayers.error)
 
@@ -75,9 +82,19 @@ watch(booting, (isBooting) => {
   if (!isBooting) applyDeepLink()
 })
 
+// Municipal indicators ride along with the state's municipal mesh: prefetch
+// on state selection so the drill-down panel opens already populated.
+watch(
+  () => selection.selectedId,
+  (regionId) => {
+    if (regionId) void indicators.loadMunicipios(regionId)
+  },
+)
+
 onMounted(() => {
   void rankings.load()
   void mapLayers.loadGeo()
+  void indicators.loadUf()
   window.addEventListener('keydown', onKeydown)
 })
 
@@ -125,10 +142,14 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
           </template>
 
           <div v-if="selection.selectedMunicipio" class="no-data" data-reveal>
-            <p class="no-data-title pa-data">◫ MUNICÍPIO · PILOTO</p>
+            <p class="no-data-title pa-data">◫ MUNICÍPIO</p>
+            <IndicatorGrid
+              v-if="municipioIndicators"
+              :indicators="municipioIndicators"
+              :source-label="indicators.sourceLabel"
+            />
             <p class="no-data-sub">
-              Ranking municipal ainda não disponível. O piloto cobre a malha de
-              {{ selection.selectedId }} (drill-down por município); os índices por
+              Ranking de poder municipal ainda não disponível: os índices por
               município chegam com o pipeline de dados das próximas fases.
             </p>
             <button
@@ -140,9 +161,16 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
             </button>
           </div>
 
-          <div v-else-if="region" class="columns">
-            <RankingColumn variant="official" :entities="region.official" />
-            <RankingColumn variant="hidden" :entities="region.hidden" />
+          <div v-else-if="region" class="region-body">
+            <IndicatorGrid
+              v-if="regionIndicators"
+              :indicators="regionIndicators"
+              :source-label="indicators.sourceLabel"
+            />
+            <div class="columns">
+              <RankingColumn variant="official" :entities="region.official" />
+              <RankingColumn variant="hidden" :entities="region.hidden" />
+            </div>
           </div>
 
           <div v-else-if="selection.lockedWorld" class="no-data" data-reveal>
