@@ -268,16 +268,31 @@ só existe na F6, com revisão humana. O teste de paridade garante: payload de
 2. `feat/f5b-ingestao-rss` — fetch RSS → `raw_documents` (dedup), seed das
    fontes, testes com respx. **(ENTREGUE 2026-07-22; ver seção 1.)**
 3. `feat/f5c-embeddings-scoring` — chunking + embeddings + scoring LLM →
-   `entity_candidates` + citações.
+   `entity_candidates` + citações. **(PAUSADA 2026-07-22 — ver nota
+   abaixo.)**
+
+**F5c pausada (2026-07-22, decisão do Arthur):** sem custos de IA por
+enquanto. Alternativas gratuitas avaliadas para a retomada (ou caso a pausa
+se estenda): embeddings locais via fastembed/ONNX ou sentence-transformers
+multilíngue (CPU, sem chave) no lugar do Voyage; "scoring v0" heurístico sem
+LLM (frequência de menções por região sobre os `raw_documents`, citações =
+os próprios docs) mantendo o shape candidata+citação da migration 0002.
+Nada disso foi implementado — decidir na retomada. Enquanto isso, a trilha
+ativa é a de **melhorias de UI** (trilha frontend).
 
 **Fluxo de subida local (RESOLVIDO 2026-07-22, pedido do Arthur):**
-`docker compose up` sobe o backend inteiro — postgres (PostGIS+pgvector),
+`docker compose up` sobe o stack inteiro — postgres (PostGIS+pgvector),
 redis, serviço one-shot `migrate` (migrations + seed `--if-empty`; o seed
 completo truncaria as tabelas de staging via CASCADE, então só roda em banco
-vazio), api :8000 e worker. O web fica fora do compose: `pnpm dev` (mock)
-ou `VITE_API_URL=http://localhost:8000`. `PA_API_PORT` sobrescreve a porta
-do host em colisão. Alvos granulares (`db-up`/`redis-up`/`api-dev-db`/
-`worker-dev`) continuam valendo p/ dev no host. Documentado no README.
+vazio), api :8000, worker e **web (Vite dev, :5173)** — o HUD abre em
+http://localhost:5173 com `VITE_API_URL` casado com a porta da API. Primeira
+subida do web instala deps em volumes nomeados (minutos); as seguintes são
+rápidas. `PA_API_PORT` sobrescreve a porta do host em colisão (na máquina
+do Arthur um `.env` local fixa 8010 — a 8000 vive ocupada pelo dataglass).
+Alvos granulares (`pnpm dev`/`db-up`/`redis-up`/`api-dev-db`/`worker-dev`)
+continuam valendo p/ dev no host (HMR mais rápido). Nunca abrir
+`0.0.0.0:porta` no browser (log de bind do uvicorn/vite) — usar
+`localhost`. Documentado no README.
 
 **Verificação F5**
 1. pytest/ruff/mypy verdes; unit com HTTP mockado (respx) e embeddings

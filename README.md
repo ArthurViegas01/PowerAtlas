@@ -113,19 +113,23 @@ pnpm indicators # re-fetch IBGE factual indicators (needs network)
 Equivalent `make web-*` targets exist in the Makefile for machines with GNU
 make installed.
 
-### Backend (F3/F4/F5)
+### Full stack (F3/F4/F5)
 
-The canonical way to bring the whole backend up is Docker:
+The canonical way to bring everything up is Docker:
 
 ```sh
-docker compose up   # PostGIS+pgvector, Redis, migrate+seed, API :8000, worker
+docker compose up   # PostGIS+pgvector, Redis, migrate+seed, API :8000, worker, web :5173
 ```
+
+Open the HUD at http://localhost:5173 (not the `0.0.0.0` address the server
+logs print — that is a bind address, not a browsable one). The web
+container's first boot installs its dependencies into named volumes and takes
+a few minutes; later boots reuse them.
 
 Migrations and the fictional seed run automatically on boot (the seed only
 fills an *empty* database, so pipeline data survives restarts). If host port
-8000 is taken by another project, override it:
-`PA_API_PORT=8010 docker compose up`. The web HUD is deliberately **not**
-in compose — run it with `pnpm dev` as usual.
+8000 is taken by another project, override it with `PA_API_PORT=8010` (in a
+root `.env` or the shell) — the web's `VITE_API_URL` follows it.
 
 For host development of the API/worker (faster reload; needs Python >= 3.11),
 the granular targets remain:
