@@ -4,6 +4,7 @@ import { computed, onBeforeUnmount, onMounted, watch } from 'vue'
 import HudFrame from '@/components/hud/HudFrame.vue'
 import HudHeader from '@/components/hud/HudHeader.vue'
 import HudPanel from '@/components/hud/HudPanel.vue'
+import MonitoringPanel from '@/components/hud/MonitoringPanel.vue'
 import ScanlineOverlay from '@/components/hud/ScanlineOverlay.vue'
 import MapCompass from '@/components/map/MapCompass.vue'
 import MapLegend from '@/components/map/MapLegend.vue'
@@ -217,6 +218,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 
     <MapLegend />
     <MapCompass />
+    <MonitoringPanel />
 
     <footer class="disclaimer pa-data" role="note">
       ⚠ {{ rankings.disclaimer || 'PROTÓTIPO · DADOS SIMULADOS · ENTIDADES FICTÍCIAS' }}
