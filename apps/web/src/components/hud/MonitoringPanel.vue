@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 
 import { useMonitoringStore } from '@/stores/monitoring'
 
@@ -10,6 +10,9 @@ import { useMonitoringStore } from '@/stores/monitoring'
  * (offline mock mode or empty database).
  */
 const monitoring = useMonitoringStore()
+
+/** Collapsed = title bar only; the operator brings it back with [+]. */
+const collapsed = ref(false)
 
 onMounted(() => void monitoring.load())
 
@@ -31,19 +34,32 @@ const rows = computed(() =>
 
 <template>
   <aside v-if="rows.length" class="monitoring" aria-label="Monitoramento de fontes">
-    <p class="pa-label monitoring-title">MONITORAMENTO // FONTES OFICIAIS</p>
-    <ul class="m-0 flex list-none flex-col gap-2 p-0">
-      <li v-for="row in rows" :key="row.id" class="doc">
-        <p class="pa-label doc-meta">
-          <span class="doc-source">{{ row.source }}</span>
-          <span v-if="row.date"> · {{ row.date }}</span>
-        </p>
-        <a class="doc-title" :href="row.url" target="_blank" rel="noopener noreferrer">
-          {{ row.title }}
-        </a>
-      </li>
-    </ul>
-    <p class="credit pa-label">FEEDS RSS PÚBLICOS · SEM ANÁLISE NESTA FASE</p>
+    <header class="monitoring-head">
+      <p class="pa-label monitoring-title">MONITORAMENTO // FONTES OFICIAIS</p>
+      <button
+        class="collapse pa-data"
+        type="button"
+        :title="collapsed ? 'Expandir painel' : 'Recolher painel'"
+        :aria-expanded="!collapsed"
+        @click="collapsed = !collapsed"
+      >
+        {{ collapsed ? '[+]' : '[–]' }}
+      </button>
+    </header>
+    <template v-if="!collapsed">
+      <ul class="m-0 flex list-none flex-col gap-2 p-0">
+        <li v-for="row in rows" :key="row.id" class="doc">
+          <p class="pa-label doc-meta">
+            <span class="doc-source">{{ row.source }}</span>
+            <span v-if="row.date"> · {{ row.date }}</span>
+          </p>
+          <a class="doc-title" :href="row.url" target="_blank" rel="noopener noreferrer">
+            {{ row.title }}
+          </a>
+        </li>
+      </ul>
+      <p class="credit pa-label">FEEDS RSS PÚBLICOS · SEM ANÁLISE NESTA FASE</p>
+    </template>
   </aside>
 </template>
 
@@ -62,9 +78,32 @@ const rows = computed(() =>
   backdrop-filter: blur(6px);
 }
 
-.monitoring-title {
+.monitoring-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   margin: 0 0 10px;
+}
+
+.monitoring-title {
+  margin: 0;
   color: var(--pa-text-dim);
+}
+
+.collapse {
+  flex: none;
+  padding: 1px 5px;
+  font-size: var(--pa-text-2xs);
+  color: var(--pa-text-dim);
+  background: none;
+  border: 1px solid var(--pa-border-faint);
+  cursor: pointer;
+}
+
+.collapse:hover {
+  color: var(--pa-series-official);
+  border-color: var(--pa-border-cyan);
 }
 
 .doc-meta {
