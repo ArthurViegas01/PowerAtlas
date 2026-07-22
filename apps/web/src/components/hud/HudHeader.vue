@@ -51,8 +51,10 @@ const readout = computed(() => {
       </button>
       <button
         class="national-btn pa-data"
+        :class="{ 'national-btn--active': selection.demographicView }"
         type="button"
-        :disabled="selection.demographicView"
+        :aria-pressed="selection.demographicView"
+        title="Alternar a visão demográfica"
         @click="emit('view-demographic')"
       >
         VISÃO DEMOGRÁFICA [BR]
@@ -90,7 +92,13 @@ const readout = computed(() => {
   margin: 2px 0 0;
 }
 
+/* Dead-centered on the header (not flex-distributed), clipped politely
+   before it can reach the brand or the view buttons. */
 .readout {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 30vw;
   margin: 0;
   font-size: var(--pa-text-sm);
   letter-spacing: 0.12em;
@@ -120,6 +128,13 @@ const readout = computed(() => {
   color: var(--pa-text-faint);
   border-color: var(--pa-border-faint);
   cursor: default;
+}
+
+/* Toggled-on state (demographic view active): stays clickable to exit. */
+.national-btn--active {
+  color: var(--pa-bg-void);
+  background: var(--pa-series-official);
+  box-shadow: var(--pa-glow-cyan);
 }
 
 @media (max-width: 900px) {

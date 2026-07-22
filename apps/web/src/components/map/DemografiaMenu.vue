@@ -66,14 +66,7 @@ const sourceLabel = computed(() =>
     </p>
 
     <p class="pa-label demo-source">{{ sourceLabel }}</p>
-
-    <button
-      class="exit-btn pa-data"
-      type="button"
-      @click="selection.exitDemographicView()"
-    >
-      ◄ SAIR DA VISÃO [ESC]
-    </button>
+    <p class="pa-label demo-hint">SAIR: BOTÃO DO TOPO OU [ESC]</p>
   </aside>
 </template>
 
@@ -83,7 +76,7 @@ const sourceLabel = computed(() =>
   top: 96px;
   right: 24px;
   z-index: 20;
-  width: 250px;
+  width: 300px;
   padding: 14px 16px;
   background: rgba(3, 6, 8, 0.82);
   border: 1px solid var(--pa-border-cyan);
@@ -183,20 +176,9 @@ const sourceLabel = computed(() =>
   color: var(--pa-text-faint);
 }
 
-.exit-btn {
-  margin-top: 14px;
-  width: 100%;
-  padding: 7px 12px;
-  font-size: var(--pa-text-2xs);
-  letter-spacing: 0.12em;
-  color: var(--pa-series-official);
-  background: transparent;
-  border: 1px solid var(--pa-border-cyan);
-  cursor: pointer;
-}
-
-.exit-btn:hover {
-  box-shadow: var(--pa-glow-cyan);
+.demo-hint {
+  margin: 10px 0 0;
+  color: var(--pa-text-faint);
 }
 
 @media (max-width: 900px) {

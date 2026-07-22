@@ -66,7 +66,12 @@ function viewGlobal() {
   selection.requestCamera('global')
 }
 
+/** The header button is the toggle: click again (or Esc) to leave. */
 function viewDemographic() {
+  if (selection.demographicView) {
+    selection.exitDemographicView()
+    return
+  }
   void demografia.load()
   // Municipal outlines for the demographic backdrop (27 meshes, cached).
   void mapLayers.loadAllMunicipios()
@@ -310,7 +315,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 .idle-hint {
   position: absolute;
   left: 50%;
-  bottom: 100px;
+  bottom: 116px; /* clear of the compass strip sitting above the footer */
   z-index: 15;
   transform: translateX(-50%);
   text-align: center;

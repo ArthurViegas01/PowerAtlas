@@ -94,16 +94,21 @@ const hasOverride = computed(
 </template>
 
 <style scoped>
+/* Horizontal control strip, centered right above the disclaimer footer. */
 .compass {
   position: absolute;
-  left: 22px;
-  top: 50%;
+  left: 50%;
+  bottom: 52px;
   z-index: 18;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
   gap: 6px;
-  transform: translateY(-50%);
+  transform: translateX(-50%);
+  padding: 5px 10px;
+  background: rgba(3, 6, 8, 0.6);
+  border: 1px solid var(--pa-border-faint);
+  backdrop-filter: blur(6px);
 }
 
 .ctrl {
@@ -153,7 +158,7 @@ const hasOverride = computed(
 }
 
 .readout {
-  margin: 2px 0 0;
+  margin: 0 6px;
   font-size: var(--pa-text-2xs);
   letter-spacing: 0.1em;
   color: var(--pa-text-dim);
@@ -182,9 +187,7 @@ const hasOverride = computed(
 
 @media (max-width: 900px) {
   .compass {
-    top: 84px;
-    left: 12px;
-    transform: none;
+    bottom: 12px; /* the disclaimer footer is hidden on mobile */
   }
 }
 </style>
