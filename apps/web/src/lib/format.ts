@@ -5,6 +5,10 @@ export const NOT_AVAILABLE = 'N/D'
 
 const intFmt = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 0 })
 const oneDecimalFmt = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 })
+const compactFmt = new Intl.NumberFormat('pt-BR', {
+  notation: 'compact',
+  maximumFractionDigits: 1,
+})
 const gdpFmt = new Intl.NumberFormat('pt-BR', {
   style: 'currency',
   currency: 'BRL',
@@ -27,4 +31,9 @@ export function formatDensity(value: number | null): string {
 /** `value` arrives in thousands of BRL (IBGE publishes PIB in "mil reais"). */
 export function formatGdpThousands(value: number | null): string {
   return value == null ? NOT_AVAILABLE : gdpFmt.format(value * 1000)
+}
+
+/** Compact population readout for tight spots (tooltip): "44,4 mi hab". */
+export function formatPeopleCompact(value: number | null): string {
+  return value == null ? NOT_AVAILABLE : `${compactFmt.format(value)} hab`
 }

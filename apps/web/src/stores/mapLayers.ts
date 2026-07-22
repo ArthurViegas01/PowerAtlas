@@ -51,9 +51,10 @@ export interface MapLayerModel {
   columns: ColumnDatum[]
   arcs: ArcDatum[]
   labels: LabelDatum[]
-  /** Municipal mesh of the drilled-in state (pilot: SP), or null. */
+  /** Municipal mesh of the selected state (all 27 UFs), or null. */
   municipios: MunicipioCollection | null
   selectedMunicipioCodigo: string | null
+  hoveredMunicipioCodigo: string | null
   heatmapPoints: AmbientSignal[]
   heatmapVisible: boolean
 }
@@ -157,6 +158,7 @@ export const useMapLayersStore = defineStore('mapLayers', () => {
       ? (municipiosByUf.value.get(selection.selectedId) ?? null)
       : null,
     selectedMunicipioCodigo: selection.selectedMunicipio?.codigo ?? null,
+    hoveredMunicipioCodigo: selection.hoveredMunicipio?.codigo ?? null,
     heatmapPoints: rankings.ambientSignals,
     heatmapVisible: !selection.hasSelection,
   }))

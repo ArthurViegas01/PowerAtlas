@@ -54,8 +54,22 @@ function handleStateHover(info: PickingInfo<BoundaryFeature>) {
   const feature = info.object
   if (feature) {
     selection.setHovered(feature.properties.UF, feature.properties.name)
+    selection.setHoverPoint({ x: info.x, y: info.y })
   } else {
     selection.setHovered(null)
+  }
+}
+
+function handleMunicipioHover(info: PickingInfo<MunicipioFeature>) {
+  const feature = info.object
+  if (feature) {
+    selection.setHoveredMunicipio({
+      codigo: feature.properties.codigo,
+      name: feature.properties.name,
+    })
+    selection.setHoverPoint({ x: info.x, y: info.y })
+  } else {
+    selection.setHoveredMunicipio(null)
   }
 }
 
@@ -64,6 +78,7 @@ function handleWorldHover(info: PickingInfo<WorldFeature>) {
   selection.setHoveredWorld(
     feature ? { iso: feature.properties.iso, name: feature.properties.name } : null,
   )
+  if (feature) selection.setHoverPoint({ x: info.x, y: info.y })
 }
 
 function handleClick(event: maplibregl.MapMouseEvent) {
@@ -207,16 +222,19 @@ watchEffect(() => {
     layers: buildDeckLayers({
       model: mapLayers.layerModel,
       onHoverState: handleStateHover,
+      onHoverMunicipio: handleMunicipioHover,
       onHoverWorld: handleWorldHover,
     }),
   })
 })
 
-// One place decides the cursor — avoids the two hover handlers fighting.
+// One place decides the cursor: avoids the hover handlers fighting.
 watchEffect(() => {
   if (!mapReady.value || !map) return
   map.getCanvas().style.cursor =
-    selection.hoveredId || selection.hoveredWorld ? 'pointer' : ''
+    selection.hoveredId || selection.hoveredMunicipio || selection.hoveredWorld
+      ? 'pointer'
+      : ''
 })
 
 watch(
