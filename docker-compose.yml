@@ -1,12 +1,12 @@
-# PowerAtlas F4 - local infra: PostGIS plus the read API.
+# PowerAtlas local infra: PostGIS+pgvector, Redis and the read API + worker.
 #
 # Primary dev flow runs the API on the host (`pnpm api-dev`) against the
-# dockerized database; the `api` service here mirrors the production shape and
-# lets `docker compose up` bring the whole backend up on its own.
+# dockerized database; the `api`/`worker` services mirror the production shape
+# and `docker compose --profile full up` brings the whole backend up alone.
 
 services:
   postgres:
-    image: postgis/postgis:16-3.4
+    build: ./db   # postgis/postgis + pgvector (db/Dockerfile)
     environment:
       POSTGRES_USER: poweratlas
       POSTGRES_PASSWORD: poweratlas_local_dev
@@ -17,6 +17,18 @@ services:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U poweratlas -d poweratlas"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
       interval: 3s
       timeout: 3s
       retries: 20
@@ -33,5 +45,21 @@ services:
         condition: service_healthy
     profiles: ["full"]   # `docker compose --profile full up` to include the API
 
+  worker:
+    build: ./apps/api
+    command: celery -A src.worker.celery_app worker --loglevel=INFO --concurrency=2
+    environment:
+      PA_DATABASE_URL: postgresql://poweratlas:poweratlas_local_dev@postgres:5432/poweratlas
+      PA_REDIS_URL: redis://redis:6379/0
+      PA_CELERY_BROKER_URL: redis://redis:6379/1
+      PA_CELERY_RESULT_BACKEND: redis://redis:6379/2
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    profiles: ["full"]
+
 volumes:
   pgdata:
+  redisdata:
