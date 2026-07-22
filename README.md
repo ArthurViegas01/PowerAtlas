@@ -62,9 +62,10 @@ and densidade (Censo 2022) plus PIB a preços correntes (PIB dos Municípios
 2023) for BR, the 27 UFs and all 5,570 municipalities, fetched from the IBGE
 Agregados API by `pnpm indicators` into static JSON
 (`public/data/indicators/`). Region and municipality panels render the block
-labeled "IBGE · CENSO 2022 · PIB 2023". Context data only: the power
-rankings stay fictional until the review pipeline exists
-(ARCHITECTURE.md §5).
+labeled "IBGE · CENSO 2022 · PIB 2023", and a cursor tooltip surfaces the
+same numbers on map hover (municipality > state > world "em breve").
+Context data only: the power rankings stay fictional until the review
+pipeline exists (ARCHITECTURE.md §5).
 
 Deviations from the original plans: [ARCHITECTURE.md](ARCHITECTURE.md) §3
 and [docs/data-sources.md](docs/data-sources.md). Next phases (scoring
