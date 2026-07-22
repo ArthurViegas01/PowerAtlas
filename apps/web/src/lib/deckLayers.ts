@@ -76,6 +76,12 @@ export function buildDeckLayers({
     base: over(paColor.official(18), fills.stateSelected),
   }
 
+  // Demographic series color: darker blue for population, forest green for
+  // PIB (tokens --pa-demo-*). Columns, municipal outlines, state lines and
+  // the national border all follow it while the view is on.
+  const demoBase = demo.metric === 'population' ? paColor.demoPop(255) : paColor.demoGdp(255)
+  const demoCroppedFill = overVoid(shade(demoBase, 1, 34))
+
   // "Em breve" backdrop: dim fill + dashed borders, like an unfinished
   // game region. Sits under everything Brazil-related.
   if (model.world) {
@@ -127,8 +133,8 @@ export function buildDeckLayers({
       getFillColor: (feature) => {
         const uf = feature.properties.UF
         // Demographic view: faint base under the columns; the cropped state
-        // gets a touch more presence.
-        if (demo.active) return uf === demo.uf ? fills.stateDemoCropped : fills.stateDemo
+        // gets a touch more presence, tinted by the metric color.
+        if (demo.active) return uf === demo.uf ? demoCroppedFill : fills.stateDemo
         if (!dataRegions.has(uf)) return fills.stateNoData
         if (uf === model.selectedId) return fills.stateSelected
         if (uf === model.hoveredId) return fills.stateHovered
@@ -137,6 +143,7 @@ export function buildDeckLayers({
       getLineColor: (feature) => {
         const uf = feature.properties.UF
         const highlighted = demo.active ? uf === demo.uf : uf === model.selectedId
+        if (demo.active) return shade(demoBase, 1, highlighted ? 255 : 120)
         return highlighted ? paColor.official(255) : paColor.official(88)
       },
       getLineWidth: (feature) => {
@@ -154,8 +161,9 @@ export function buildDeckLayers({
           model.dataRegionIds.join(','),
           demo.active,
           demo.uf,
+          demo.metric,
         ],
-        getLineColor: [model.selectedId, demo.active, demo.uf],
+        getLineColor: [model.selectedId, demo.active, demo.uf, demo.metric],
         getLineWidth: [model.selectedId, demo.active, demo.uf],
       },
     }),
@@ -168,10 +176,12 @@ export function buildDeckLayers({
       pickable: false,
       stroked: true,
       filled: false,
-      getLineColor: paColor.official(210),
+      // The country border also wears the metric color in the demographic view.
+      getLineColor: demo.active ? shade(demoBase, 1, 210) : paColor.official(210),
       getLineWidth: 1.8,
       lineWidthUnits: 'pixels',
       lineWidthMinPixels: 1.5,
+      updateTriggers: { getLineColor: [demo.active, demo.metric] },
     }),
   )
 
@@ -258,10 +268,6 @@ export function buildDeckLayers({
       }),
     )
   }
-
-  // Demographic series color: darker blue for population, forest green for
-  // PIB (tokens --pa-demo-*). Columns AND municipal outlines follow it.
-  const demoBase = demo.metric === 'population' ? paColor.demoPop(255) : paColor.demoGdp(255)
 
   // Demographic view: municipal outlines as context under the columns —
   // faint on purpose, they only firm up as you tilt/zoom into a state.
