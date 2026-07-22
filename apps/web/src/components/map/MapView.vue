@@ -39,12 +39,26 @@ const CONTEXT_BEARING = {
   global: 0,
 } as const
 
+/** Pitch presets per framing; the tilt buttons override them until AUTO. */
+const CONTEXT_PITCH = {
+  national: NATIONAL_CAMERA.pitch,
+  region: 52,
+  global: 24,
+} as const
+
+/** Hard tilt range: MapLibre supports up to 85° (default caps at 60). */
+const MAX_PITCH = 85
+
 /** Last framing applied — tells the AUTO reset which preset to ease back to. */
 let cameraContext: keyof typeof CONTEXT_BEARING = 'national'
 
 function cameraBearing(context: keyof typeof CONTEXT_BEARING): number {
   cameraContext = context
   return selection.bearingOverride ?? CONTEXT_BEARING[context]
+}
+
+function cameraPitch(preset: number): number {
+  return selection.pitchOverride ?? preset
 }
 
 /** World minus Antarctica (filtered out of the backdrop file). */
@@ -101,8 +115,21 @@ function handleWorldHover(info: PickingInfo<WorldFeature>) {
 
 function handleClick(event: maplibregl.MapMouseEvent) {
   if (!overlay) return
-  // Demographic view is read-only: columns respond to hover, not clicks.
-  if (selection.demographicView) return
+  // Demographic view: a state click crops the camera to it (picking only the
+  // choropleth, so clicks land "through" the columns); anything else no-ops.
+  if (selection.demographicView) {
+    const info = overlay.pickObject({
+      x: event.point.x,
+      y: event.point.y,
+      radius: 4,
+      layerIds: ['states-choropleth'],
+    })
+    if (info?.layer?.id === 'states-choropleth') {
+      const { UF } = (info as PickingInfo<BoundaryFeature>).object!.properties
+      selection.selectDemographicUf(UF)
+    }
+    return
+  }
   const point = { x: event.point.x, y: event.point.y }
   const info = overlay.pickObject({
     ...point,
@@ -132,8 +159,35 @@ function flyToGlobal() {
   map.flyTo({
     center: camera.center,
     zoom: camera.zoom,
-    pitch: 24,
+    pitch: cameraPitch(CONTEXT_PITCH.global),
     bearing: cameraBearing('global'),
+    duration,
+  })
+}
+
+/** Crop the demographic view on one state (`null` = back to the country). */
+function flyToDemografiaUf(uf: string | null) {
+  if (!map) return
+  if (!uf) {
+    flyToRegion(null)
+    return
+  }
+  const bounds = mapLayers.boundsFor(uf)
+  if (!bounds) return
+  const duration = reduced.value ? 0 : 1400
+  const padding = {
+    top: 96,
+    bottom: 110,
+    left: 90,
+    right: 300, // keep the focused state clear of the metric menu
+  }
+  const camera = map.cameraForBounds(bounds, { padding, maxZoom: 7.5 })
+  if (!camera) return
+  map.flyTo({
+    center: camera.center,
+    zoom: camera.zoom,
+    pitch: cameraPitch(CONTEXT_PITCH.region),
+    bearing: cameraBearing('region'),
     duration,
   })
 }
@@ -142,7 +196,12 @@ function flyToRegion(regionId: string | null) {
   if (!map) return
   const duration = reduced.value ? 0 : 1400
   if (!regionId || regionId === 'BR') {
-    map.flyTo({ ...NATIONAL_CAMERA, bearing: cameraBearing('national'), duration })
+    map.flyTo({
+      ...NATIONAL_CAMERA,
+      bearing: cameraBearing('national'),
+      pitch: cameraPitch(CONTEXT_PITCH.national),
+      duration,
+    })
     return
   }
   const bounds = mapLayers.boundsFor(regionId)
@@ -159,7 +218,7 @@ function flyToRegion(regionId: string | null) {
   map.flyTo({
     center: camera.center,
     zoom: camera.zoom,
-    pitch: 52,
+    pitch: cameraPitch(CONTEXT_PITCH.region),
     bearing: cameraBearing('region'),
     duration,
   })
@@ -181,7 +240,7 @@ function flyToMunicipio(uf: string, codigo: string) {
   map.flyTo({
     center: camera.center,
     zoom: camera.zoom,
-    pitch: 50,
+    pitch: cameraPitch(50),
     bearing: cameraBearing('region'),
     duration,
   })
@@ -198,6 +257,7 @@ onMounted(() => {
     bearing: NATIONAL_CAMERA.bearing,
     minZoom: 1.5,
     maxZoom: 9,
+    maxPitch: MAX_PITCH,
     // deck.gl draws layers on world copy 0 only — don't render wrapped
     // copies of the base map that our layers would never cover.
     renderWorldCopies: false,
@@ -223,10 +283,17 @@ onMounted(() => {
   map.on('rotate', () => {
     if (map) selection.setMapBearing(map.getBearing())
   })
+  selection.setMapPitch(map.getPitch())
+  map.on('pitch', () => {
+    if (map) selection.setMapPitch(map.getPitch())
+  })
   // Only user gestures (drag/keyboard) carry originalEvent — programmatic
-  // flights must not be mistaken for a manual bearing choice.
+  // flights must not be mistaken for a manual bearing/tilt choice.
   map.on('rotateend', (event) => {
     if (map && event.originalEvent) selection.setBearingOverride(map.getBearing())
+  })
+  map.on('pitchend', (event) => {
+    if (map && event.originalEvent) selection.setPitchOverride(map.getPitch())
   })
 })
 
@@ -300,12 +367,37 @@ watch(
       selection.setBearingOverride(0)
       map.easeTo({ bearing: 0, duration })
     } else {
+      // AUTO: both manual bearing and manual tilt go back to the presets.
       selection.setBearingOverride(null)
+      selection.setPitchOverride(null)
       map.easeTo({
         bearing: CONTEXT_BEARING[cameraContext],
+        pitch: CONTEXT_PITCH[cameraContext],
         duration: reduced.value ? 0 : 600,
       })
     }
+  },
+)
+
+// Tilt buttons: relative steps, clamped to MapLibre's supported range.
+watch(
+  () => selection.pitchRequest.seq,
+  () => {
+    if (!map) return
+    const target = Math.min(
+      MAX_PITCH,
+      Math.max(0, map.getPitch() + selection.pitchRequest.delta),
+    )
+    selection.setPitchOverride(target)
+    map.easeTo({ pitch: target, duration: reduced.value ? 0 : 280 })
+  },
+)
+
+// Demographic view: crop the camera on the picked state (Esc clears -> BR).
+watch(
+  () => selection.demographicUf,
+  (uf) => {
+    if (selection.demographicView) flyToDemografiaUf(uf)
   },
 )
 </script>

@@ -158,6 +158,18 @@
   web + build verdes, API 15 unit + 4 integration, E2E no browser (5.570
   colunas no modelo, troca de métrica, saída por Esc, manchetes reais no
   painel).
+- **Controles de visão (2026-07-22, `feat/web-controles-de-visao`)**:
+  compasso ganhou controle de inclinação (▲▼ em passos de 10°, `maxPitch`
+  85, readout PIT; override manual espelha o do bearing e o AUTO reseta os
+  dois). Visão demográfica ganhou **bordas municipais de contexto** (as 27
+  malhas carregam em background ao entrar na visão — cache do `mapLayers` —
+  e mesclam num layer de linhas fracas) e **recorte por estado** (clique no
+  estado → câmera fecha nele "através" das colunas via picking só do
+  choropleth; chip RECORTE: UF no menu; Esc em cascata: recorte → visão →
+  município → estado → nacional). Painel MONITORAMENTO colapsável
+  ([–]/[+]). Verificado no browser: pitch aceito até 80°, AUTO limpando
+  override, 5.570 bordas após a carga completa, Esc em cascata e collapse
+  8→0→8 manchetes; 45 testes + build verdes.
 - **Pendências conhecidas da trilha frontend**: ranking por município
   (depende da F5); reativar a dimensão oculta (flip do flag) quando F5/F6
   existirem. (Tooltip de hover validado com mouse real em 2026-07-22.)
