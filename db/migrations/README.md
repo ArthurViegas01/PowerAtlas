@@ -2,7 +2,7 @@
 
 Plain-SQL migrations for PostgreSQL + PostGIS, applied in filename order and
 tracked in a `schema_migrations` table (no ORM, no Alembic). The runtime access
-layer is raw asyncpg, mirroring the ZapAgent house pattern.
+layer is raw asyncpg, mirroring the Encaixe house pattern.
 
 - `0001_init.sql` — regions, entities, sources, entity_sources, influence_links,
   ambient_signals; PostGIS point geometries (EPSG:4326) for capitals and ambient

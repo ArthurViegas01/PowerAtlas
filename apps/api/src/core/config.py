@@ -1,6 +1,6 @@
 """Centralized typed settings loaded from environment variables.
 
-Mirrors the ZapAgent house convention: every value the service consumes goes
+Mirrors the Encaixe house convention: every value the service consumes goes
 through this module (no scattered os.getenv). Prefix is ``PA_`` so the vars do
 not collide with the web app or the shell.
 """

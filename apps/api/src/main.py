@@ -1,6 +1,6 @@
 """FastAPI application factory (F3 read API, F4 database).
 
-Mirrors the ZapAgent house shape: a ``create_app`` factory plus a module-level
+Mirrors the Encaixe house shape: a ``create_app`` factory plus a module-level
 ``app`` for uvicorn. When a database is configured the app opens an asyncpg pool
 on startup and the endpoint reads from PostGIS; otherwise it falls back to the
 bundled mock JSON, so offline dev and unit tests need no Postgres.

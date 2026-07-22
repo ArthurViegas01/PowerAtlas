@@ -156,7 +156,7 @@ workflow exists.
 ## 6. Deferred to future phases (F5+) — noted, deliberately not designed here
 
 **Shipped in F3:** the **read-only FastAPI backend** (`apps/api`) serves the
-§4 contract over HTTP (`GET /api/v1/power-data`), mirroring ZapAgent's `src/`
+§4 contract over HTTP (`GET /api/v1/power-data`), mirroring Encaixe's `src/`
 + `pyproject.toml` (ruff/mypy/pytest) conventions. Python was chosen over Node
 to deepen FastAPI skills and for the NLP ecosystem the scoring pipeline will
 need. The web selects it via `VITE_API_URL` and falls back to the bundled mock
@@ -167,7 +167,7 @@ in `db/migrations` (tracked in `schema_migrations`, no ORM/Alembic), PostGIS
 point geometries (EPSG:4326) for capitals and ambient signals, a seed from the
 fictional dataset, and `docker-compose.yml` (postgres + api). The **data-access
 decision**, recorded at the start of the phase, is **raw asyncpg** (pool +
-`conn.fetch`), mirroring the ZapAgent runtime rather than an ORM; `real` columns
+`conn.fetch`), mirroring the Encaixe runtime rather than an ORM; `real` columns
 would drift, so weights/strengths are `double precision` to keep the payload
 byte-identical to the mock. The API reads from the DB when `PA_DATABASE_URL` is
 set and from the mock JSON otherwise, so unit tests and offline dev need no

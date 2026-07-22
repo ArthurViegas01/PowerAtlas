@@ -1,6 +1,6 @@
 """asyncpg connection pool (F4).
 
-The runtime access layer is raw asyncpg, mirroring the ZapAgent house pattern
+The runtime access layer is raw asyncpg, mirroring the Encaixe house pattern
 (pool.acquire() + conn.fetch), not an ORM. The pool is created on app startup
 when a database is configured and stored on ``app.state``.
 """

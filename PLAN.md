@@ -45,7 +45,7 @@
   `ord` preservam a ordem dos arrays). Migrations SQL puras (sem ORM/Alembic),
   tracked em `schema_migrations`. Runner e seed em `apps/api/scripts/`
   (`migrate.py`, `seed.py`). **Camada de acesso: asyncpg puro** (espelha o
-  runtime do ZapAgent). `strength`/`weight` são `double precision` (não `real`,
+  runtime do Encaixe). `strength`/`weight` são `double precision` (não `real`,
   que distorceria). A API lê do banco quando `PA_DATABASE_URL` está setado, ou
   do mock caso contrário; payload byte-idêntico. `docker-compose.yml`
   (postgres + api). Teste de paridade DB->fonte marcado `-m integration`.
@@ -170,7 +170,7 @@ simulados permanece na UI. Detalhe: ARCHITECTURE.md §5.
 ### F3 — API FastAPI de leitura (ENTREGUE 2026-07-19; ver seção 1)
 
 > Entregue em `feat/f3-api-fastapi` -> `develop` (v0.4.0). Decisões que
-> ficaram: layout `src/` espelhando o ZapAgent, modelos Pydantic camelCase
+> ficaram: layout `src/` espelhando o Encaixe, modelos Pydantic camelCase
 > via alias byte-compatíveis com o mock, endpoint agregado único
 > `GET /api/v1/power-data`, CORS p/ 5173/4173, seleção no web por
 > `VITE_API_URL` (ausente → mock offline). Verificação passou (pytest/ruff/
@@ -180,7 +180,7 @@ simulados permanece na UI. Detalhe: ARCHITECTURE.md §5.
 ### F4 — Postgres + PostGIS + persistência (ENTREGUE 2026-07-19; ver seção 1)
 
 > Entregue em `feat/f4-postgres-postgis` -> `develop`. Decisão travada:
-> **asyncpg puro** (sem ORM), espelhando o runtime do ZapAgent. Migrations SQL
+> **asyncpg puro** (sem ORM), espelhando o runtime do Encaixe. Migrations SQL
 > em `db/migrations/` (0001: regions, entities, sources, entity_sources,
 > influence_links, ambient_signals), seed dos JSONs, API lendo do banco,
 > `docker-compose.yml` (api + postgres/postgis), `make migrate`. Verificação:
@@ -202,7 +202,7 @@ só existe na F6, com revisão humana. O teste de paridade garante: payload de
 `GET /api/v1/power-data` byte-idêntico antes/depois de rodar o pipeline.
 
 **Decisões travadas**
-- Infra espelhando o ZapAgent: Celery + Redis com `src/worker/celery_app.py`
+- Infra espelhando o Encaixe: Celery + Redis com `src/worker/celery_app.py`
   + `tasks.py` (json serializer, `task_acks_late=True`,
   `worker_prefetch_multiplier=1`); `docker-compose.yml` ganha serviços
   `redis` e `worker`. Gotcha: Celery 5 não suporta Windows — o worker roda
@@ -221,7 +221,7 @@ só existe na F6, com revisão humana. O teste de paridade garante: payload de
   (Agência Brasil, Agência Câmara, Agência Senado) — allowlist vem do seed
   de `ingest_sources`, nunca hardcoded; User-Agent honesto + rate-limit;
   sem scraping de HTML nem paywall na F5.
-- Embeddings: Voyage AI (mesmo provedor do ZapAgent), modelo gravado por
+- Embeddings: Voyage AI (mesmo provedor do Encaixe), modelo gravado por
   chunk; servem para recuperar contexto por região na hora do scoring
   (busca vetorial top-k nos `doc_chunks`).
 - Scoring: Anthropic API, saída estruturada validada por Pydantic; prompt
@@ -287,5 +287,5 @@ conjunto coeso.
 Prompt sugerido: *"Leia o PLAN.md na raiz do PowerAtlas e o
 ARCHITECTURE.md. Vamos implementar a etapa F5a (worker + infra) conforme o
 desenho da F5 — comece pelo compose (redis + worker) e pela imagem de banco
-com pgvector, espelhando o worker do ZapAgent."* O dev server sobe com
+com pgvector, espelhando o worker do Encaixe."* O dev server sobe com
 `pnpm dev`; QA rápido via `/?region=SP`.
