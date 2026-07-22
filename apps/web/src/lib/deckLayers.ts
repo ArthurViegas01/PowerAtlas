@@ -12,6 +12,7 @@ import type {
 } from '@/lib/geo'
 import { paColor, shade, type RGBA } from '@/lib/palette'
 import type { ArcDatum, ColumnDatum, LabelDatum, MapLayerModel } from '@/stores/mapLayers'
+import type { DemografiaMunicipio } from '@/types/demografia'
 import type { AmbientSignal, PowerDimension } from '@/types/power-entity'
 
 export interface BuildLayersOptions {
@@ -19,6 +20,7 @@ export interface BuildLayersOptions {
   onHoverState: (info: PickingInfo<BoundaryFeature>) => void
   onHoverMunicipio: (info: PickingInfo<MunicipioFeature>) => void
   onHoverWorld: (info: PickingInfo<WorldFeature>) => void
+  onHoverDemografia: (info: PickingInfo<DemografiaMunicipio>) => void
 }
 
 function seriesColor(dimension: PowerDimension, alpha: number): RGBA {
@@ -45,10 +47,12 @@ export function buildDeckLayers({
   onHoverState,
   onHoverMunicipio,
   onHoverWorld,
+  onHoverDemografia,
 }: BuildLayersOptions): Layer[] {
   if (!model.ready || !model.states || !model.national) return []
 
   const dataRegions = new Set(model.dataRegionIds)
+  const demo = model.demographic
   const layers: Layer[] = []
 
   // "Em breve" backdrop: dim fill + dashed borders, like an unfinished
@@ -58,7 +62,7 @@ export function buildDeckLayers({
       new GeoJsonLayer<WorldProps, PathStyleExtensionProps<WorldFeature>>({
         id: 'world-countries',
         data: model.world,
-        pickable: true,
+        pickable: !demo.active,
         stroked: true,
         filled: true,
         getFillColor: (feature) =>
@@ -96,10 +100,12 @@ export function buildDeckLayers({
     new GeoJsonLayer<BoundaryFeature['properties']>({
       id: 'states-choropleth',
       data: model.states,
-      pickable: true,
+      pickable: !demo.active,
       stroked: true,
       filled: true,
       getFillColor: (feature) => {
+        // Demographic view: the mesh recedes to a faint base under the columns.
+        if (demo.active) return paColor.faint(22)
         const uf = feature.properties.UF
         if (!dataRegions.has(uf)) return paColor.faint(26)
         if (uf === model.selectedId) return paColor.official(110)
@@ -115,7 +121,12 @@ export function buildDeckLayers({
       lineWidthMinPixels: 1,
       onHover: (info) => onHoverState(info as PickingInfo<BoundaryFeature>),
       updateTriggers: {
-        getFillColor: [model.selectedId, model.hoveredId, model.dataRegionIds.join(',')],
+        getFillColor: [
+          model.selectedId,
+          model.hoveredId,
+          model.dataRegionIds.join(','),
+          demo.active,
+        ],
         getLineColor: [model.selectedId],
         getLineWidth: [model.selectedId],
       },
@@ -220,10 +231,45 @@ export function buildDeckLayers({
     )
   }
 
+  // Demographic view: one column per município, height ∝ √metric (linear
+  // would make everything but the SP/RJ metros invisible). Population reads
+  // in the official cyan, PIB in the amber series.
+  if (demo.active && demo.munis.length > 0) {
+    const metricValue = (d: DemografiaMunicipio) =>
+      demo.metric === 'population' ? d.population : d.gdpBrlThousands
+    let max = 0
+    for (const municipio of demo.munis) max = Math.max(max, metricValue(municipio))
+    const base = demo.metric === 'population' ? paColor.official(255) : paColor.hidden(255)
+    layers.push(
+      new ColumnLayer<DemografiaMunicipio>({
+        id: 'demografia-columns',
+        data: demo.munis,
+        pickable: true,
+        diskResolution: 10,
+        radius: 3200,
+        extruded: true,
+        flatShading: true,
+        getPosition: (d) => d.coordinates,
+        getElevation: (d) => (max ? 1500 + Math.sqrt(metricValue(d) / max) * 180000 : 0),
+        getFillColor: (d) => {
+          if (d.codigo === demo.hoveredCodigo) return shade(base, 1, 255)
+          const t = max ? Math.sqrt(metricValue(d) / max) : 0
+          return shade(base, 0.35 + 0.65 * t, 90 + Math.round(150 * t))
+        },
+        onHover: (info) => onHoverDemografia(info as PickingInfo<DemografiaMunicipio>),
+        updateTriggers: {
+          getElevation: [demo.metric],
+          getFillColor: [demo.metric, demo.hoveredCodigo],
+        },
+      }),
+    )
+  }
+
   // Score columns: slim cylinders (not the old chunky hexagons) so they read
   // as markers, not landmasses. Hidden entirely during the municipal
-  // drill-down — that close, a 100 km column would bury the município.
-  if (!model.selectedMunicipioCodigo) {
+  // drill-down — that close, a 100 km column would bury the município —
+  // and in the demographic view, which has its own columns.
+  if (!model.selectedMunicipioCodigo && !demo.active) {
     for (const dimension of ['official', 'hidden'] as const) {
       layers.push(
         new ColumnLayer<ColumnDatum>({

@@ -6,6 +6,7 @@ import { useSelectionStore } from '@/stores/selection'
 const emit = defineEmits<{
   (event: 'select-national'): void
   (event: 'view-global'): void
+  (event: 'view-demographic'): void
 }>()
 
 const selection = useSelectionStore()
@@ -57,10 +58,18 @@ const readout = computed(() => {
       <button
         class="national-btn pa-data"
         type="button"
-        :disabled="selection.selectedId === 'BR'"
+        :disabled="selection.selectedId === 'BR' && !selection.demographicView"
         @click="emit('select-national')"
       >
         VISÃO NACIONAL [BR]
+      </button>
+      <button
+        class="national-btn pa-data"
+        type="button"
+        :disabled="selection.demographicView"
+        @click="emit('view-demographic')"
+      >
+        VISÃO DEMOGRÁFICA [BR]
       </button>
       <div class="text-right">
         <p class="clock pa-data">{{ clock }}</p>

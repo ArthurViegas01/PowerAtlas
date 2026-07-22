@@ -10,6 +10,7 @@ import type { Bounds, BoundaryFeature, MunicipioFeature, WorldFeature } from '@/
 import { baseMapStyle } from '@/lib/mapStyle'
 import { useMapLayersStore } from '@/stores/mapLayers'
 import { useSelectionStore } from '@/stores/selection'
+import type { DemografiaMunicipio } from '@/types/demografia'
 
 const emit = defineEmits<{ (event: 'region-selected', regionId: string): void }>()
 
@@ -75,6 +76,21 @@ function handleMunicipioHover(info: PickingInfo<MunicipioFeature>) {
   }
 }
 
+function handleDemografiaHover(info: PickingInfo<DemografiaMunicipio>) {
+  const municipio = info.object
+  if (municipio) {
+    selection.setHoveredDemografia({
+      codigo: municipio.codigo,
+      name: municipio.name,
+      population: municipio.population,
+      gdpBrlThousands: municipio.gdpBrlThousands,
+    })
+    selection.setHoverPoint({ x: info.x, y: info.y })
+  } else {
+    selection.setHoveredDemografia(null)
+  }
+}
+
 function handleWorldHover(info: PickingInfo<WorldFeature>) {
   const feature = info.object
   selection.setHoveredWorld(
@@ -85,6 +101,8 @@ function handleWorldHover(info: PickingInfo<WorldFeature>) {
 
 function handleClick(event: maplibregl.MapMouseEvent) {
   if (!overlay) return
+  // Demographic view is read-only: columns respond to hover, not clicks.
+  if (selection.demographicView) return
   const point = { x: event.point.x, y: event.point.y }
   const info = overlay.pickObject({
     ...point,
@@ -226,6 +244,7 @@ watchEffect(() => {
       onHoverState: handleStateHover,
       onHoverMunicipio: handleMunicipioHover,
       onHoverWorld: handleWorldHover,
+      onHoverDemografia: handleDemografiaHover,
     }),
   })
 })

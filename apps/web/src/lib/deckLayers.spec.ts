@@ -26,6 +26,7 @@ function model(overrides: Partial<MapLayerModel> = {}): MapLayerModel {
     hoveredMunicipioCodigo: null,
     heatmapPoints: [],
     heatmapVisible: false,
+    demographic: { active: false, metric: 'population', munis: [], hoveredCodigo: null },
     ...overrides,
   }
 }
@@ -49,6 +50,7 @@ function build(m: MapLayerModel) {
     onHoverState: noop,
     onHoverMunicipio: noop,
     onHoverWorld: noop,
+    onHoverDemografia: noop,
   })
 }
 
@@ -96,5 +98,58 @@ describe('buildDeckLayers', () => {
 
   it('omits the arcs layer while the arcs flag keeps the model empty', () => {
     expect(build(model()).find((l) => l.id === 'influence-arcs')).toBeUndefined()
+  })
+
+  it('swaps score columns for demografia columns in the demographic view', () => {
+    const column = {
+      regionId: 'SP',
+      dimension: 'official' as const,
+      score: 72,
+      coordinates: [-46.6, -23.5] as [number, number],
+    }
+    const muni = {
+      codigo: '3550308',
+      name: 'São Paulo',
+      coordinates: [-46.6, -23.5] as [number, number],
+      population: 11_451_999,
+      gdpBrlThousands: 1_100_000_000,
+    }
+    const layers = build(
+      model({
+        columns: [column],
+        demographic: {
+          active: true,
+          metric: 'population',
+          munis: [muni],
+          hoveredCodigo: null,
+        },
+      }),
+    )
+    expect(layers.find((l) => l.id === 'demografia-columns')).toBeDefined()
+    expect(layers.find((l) => l.id === 'power-columns-official')).toBeUndefined()
+    const states = layers.find((l) => l.id === 'states-choropleth')
+    expect((states!.props as { pickable: boolean }).pickable).toBe(false)
+  })
+
+  it('keeps the demografia layer pickable so hover reaches the tooltip', () => {
+    const layer = build(
+      model({
+        demographic: {
+          active: true,
+          metric: 'gdp',
+          munis: [
+            {
+              codigo: '3550308',
+              name: 'São Paulo',
+              coordinates: [-46.6, -23.5] as [number, number],
+              population: 1,
+              gdpBrlThousands: 1,
+            },
+          ],
+          hoveredCodigo: null,
+        },
+      }),
+    ).find((l) => l.id === 'demografia-columns')
+    expect((layer!.props as { pickable: boolean }).pickable).toBe(true)
   })
 })

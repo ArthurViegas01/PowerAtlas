@@ -138,6 +138,26 @@
   em re-runs com respx), ruff/mypy verdes, E2E real com 45 docs dos 3 feeds
   no banco e dedup confirmado na segunda rodada (0 inserts; timeout
   transitório do Senado não derrubou a rodada — isolamento funcionou).
+- **Melhorias de UI (2026-07-22, três branches)**: (a) **polish do HUD** —
+  colunas das capitais viraram cilindros menores (diskResolution 24, raio
+  7,5 km, ocultas no drill-down municipal), arcos de influência desligados
+  atrás de `INFLUENCE_ARCS_ENABLED` (mock sem propósito até a F5 gerar links
+  reais), legenda só com camadas realmente visíveis, câmera abre ao norte
+  (BRG 000 nos presets nacional/estadual). (b) **painel MONITORAMENTO** —
+  `GET /api/v1/monitoring/documents` (manchetes de `raw_documents` com fonte
+  e data; lista vazia sem banco) + módulo no HUD à esquerda com as últimas
+  manchetes reais das agências, oculto no mock offline. Provenance factual,
+  sem análise — regra de conteúdo intacta. (c) **VISÃO DEMOGRÁFICA [BR]** —
+  botão novo no header; `pnpm demografia` (`build-demografia.mjs`, offline)
+  junta malhas + indicadores em `public/data/demografia/municipios.json`
+  (5.570 municípios, centroide + pop + PIB, 312 KB, carregado sob demanda);
+  colunas por município com altura ∝ √métrica (POP ciano, PIB âmbar), menu
+  lateral de métrica, tooltip com POP/PIB, legenda própria, Esc sai; o modo
+  é read-only (clicks de seleção desabilitados). "Renda média" anotada como
+  métrica futura (exige buscar novo agregado IBGE). Verificado: 42 testes
+  web + build verdes, API 15 unit + 4 integration, E2E no browser (5.570
+  colunas no modelo, troca de métrica, saída por Esc, manchetes reais no
+  painel).
 - **Pendências conhecidas da trilha frontend**: ranking por município
   (depende da F5); reativar a dimensão oculta (flip do flag) quando F5/F6
   existirem. (Tooltip de hover validado com mouse real em 2026-07-22.)
