@@ -11,7 +11,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "geo": "node scripts/fetch-geo.mjs",
-    "indicators": "node scripts/fetch-indicators.mjs"
+    "indicators": "node scripts/fetch-indicators.mjs",
+    "demografia": "node scripts/build-demografia.mjs"
   },
   "dependencies": {
     "@deck.gl/aggregation-layers": "^9.1.0",
