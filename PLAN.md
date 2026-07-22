@@ -170,6 +170,19 @@
   ([–]/[+]). Verificado no browser: pitch aceito até 80°, AUTO limpando
   override, 5.570 bordas após a carga completa, Esc em cascata e collapse
   8→0→8 manchetes; 45 testes + build verdes.
+- **Refinos do HUD (2026-07-22, `feat/web-hud-refinos`)**: relógio + versão
+  saíram do header para o canto inferior direito (`HudClock.vue`, versão
+  lida do package.json — o header dizia v0.2 hardcoded desde a F1);
+  cabeçalho do MONITORAMENTO inteiro virou botão de colapso com [+]/[–] em
+  ciano (o affordance anterior passava despercebido); e a banda da scanline
+  agora passa **por trás dos países** — `ScanBand.vue` renderizada antes do
+  MapView, canvas do MapLibre transparente (style sem layer de background,
+  void fica no `.app-shell`) e fills de área pré-compostos opacos sobre o
+  void (`over`/`overVoid` no palette; municípios compõem sobre a cor do
+  estado selecionado). Visual idêntico ao anterior, mas os pixels opacos
+  ocluem a banda; a textura CRT e a vinheta continuam na frente. Verificado
+  no browser (relógio a 24/44px do canto, toggle 8→0→8, banda no z-0 atrás
+  dos canvases); 47 testes + build verdes.
 - **Pendências conhecidas da trilha frontend**: ranking por município
   (depende da F5); reativar a dimensão oculta (flip do flag) quando F5/F6
   existirem. (Tooltip de hover validado com mouse real em 2026-07-22.)
