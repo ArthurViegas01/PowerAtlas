@@ -65,11 +65,19 @@ export const useSelectionStore = defineStore('selection', () => {
     delta: 0,
     seq: 0,
   })
+  /** Live map pitch in degrees — mirrored from MapLibre for the compass. */
+  const mapPitch = ref(45)
+  /** Manual tilt; camera flights keep it until AUTO clears (like bearing). */
+  const pitchOverride = ref<number | null>(null)
+  /** Imperative tilt bus — MapView watches `seq` and tilts by `delta`. */
+  const pitchRequest = ref<{ delta: number; seq: number }>({ delta: 0, seq: 0 })
 
   /** Demographic view: per-município columns instead of the influence HUD. */
   const demographicView = ref(false)
   const demographicMetric = ref<DemografiaMetric>('population')
   const hoveredDemografia = ref<DemografiaHover | null>(null)
+  /** State focused inside the demographic view (camera crop; Esc clears). */
+  const demographicUf = ref<string | null>(null)
 
   const hasSelection = computed(() => selectedId.value !== null)
   const hasPanel = computed(() => selectedId.value !== null || lockedWorld.value !== null)
@@ -141,6 +149,13 @@ export const useSelectionStore = defineStore('selection', () => {
     if (!demographicView.value) return
     demographicView.value = false
     hoveredDemografia.value = null
+    demographicUf.value = null
+  }
+
+  /** Focus a state inside the demographic view (`null` = back to Brazil). */
+  function selectDemographicUf(uf: string | null) {
+    if (!demographicView.value || demographicUf.value === uf) return
+    demographicUf.value = uf
   }
 
   function setDemographicMetric(metric: DemografiaMetric) {
@@ -171,6 +186,19 @@ export const useSelectionStore = defineStore('selection', () => {
 
   function setBearingOverride(bearing: number | null) {
     bearingOverride.value = bearing
+  }
+
+  /** Tilt the camera by `delta` degrees (positive = more tilted). */
+  function requestPitch(delta: number) {
+    pitchRequest.value = { delta, seq: pitchRequest.value.seq + 1 }
+  }
+
+  function setMapPitch(pitch: number) {
+    mapPitch.value = pitch
+  }
+
+  function setPitchOverride(pitch: number | null) {
+    pitchOverride.value = pitch
   }
 
   function setHovered(id: string | null, name: string | null = null) {
@@ -209,6 +237,10 @@ export const useSelectionStore = defineStore('selection', () => {
     demographicView,
     demographicMetric,
     hoveredDemografia,
+    demographicUf,
+    mapPitch,
+    pitchOverride,
+    pitchRequest,
     hasSelection,
     hasPanel,
     select,
@@ -220,8 +252,12 @@ export const useSelectionStore = defineStore('selection', () => {
     requestCamera,
     enterDemographicView,
     exitDemographicView,
+    selectDemographicUf,
     setDemographicMetric,
     setHoveredDemografia,
+    requestPitch,
+    setMapPitch,
+    setPitchOverride,
     requestRotate,
     requestNorth,
     requestAutoBearing,
