@@ -2,7 +2,7 @@
 
 .PHONY: help web-install web-dev web-build web-preview web-typecheck geo-refresh \
 	api-install api-dev api-test api-lint db-up db-down db-migrate db-seed migrate \
-	redis-up worker-dev
+	redis-up worker-dev pipeline-ingest
 
 help:
 	@echo "PowerAtlas — make targets"
@@ -72,3 +72,6 @@ redis-up:
 
 worker-dev:
 	cd apps/api && .venv/Scripts/python -m celery -A src.worker.celery_app worker --loglevel=INFO --pool=solo
+
+pipeline-ingest:
+	cd apps/api && .venv/Scripts/python -m scripts.ingest
