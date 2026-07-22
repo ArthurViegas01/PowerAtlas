@@ -77,6 +77,21 @@
   nível (município → estado → nacional). Sem ranking municipal (isso depende
   da F5). Verificado: malhas íntegras (MG 853 / DF 1 / AC 22 features),
   build/typecheck/22 testes verdes.
+- **Indicadores factuais IBGE (2026-07-21)**: primeiros dados reais do
+  produto. `fetch-indicators.mjs` (`pnpm indicators`) busca na API de
+  Agregados v3: população/área/densidade (Censo 2022, agregado 4714) e PIB
+  a preços correntes (PIB dos Municípios 2023, agregado 5938, mil R$) para
+  BR + 27 UFs (`public/data/indicators/uf.json`) e 5.570 municípios
+  (`municipios/{UF}.json`, por código IBGE de 7 dígitos). Store
+  `indicators` (uf.json no boot; arquivo municipal sob demanda junto com a
+  malha, mesmo padrão anti-retry do mapLayers), `IndicatorGrid.vue` nos
+  painéis de região e de município com label "IBGE · CENSO 2022 · PIB 2023",
+  formatadores pt-BR em `lib/format.ts` (suprimidos viram "N/D"). Sem PIB
+  per capita municipal: a API não publica em N6 e derivar (PIB 2023 / pop
+  2022) inventaria número que o IBGE não publica. Fora do contrato
+  power-entity (decisão em ARCHITECTURE.md §2.5); regra de conteúdo intacta.
+  Verificado no browser: painel SP (44.411.238 hab, R$ 3,4 tri) e município
+  de São Paulo (11.451.999 hab, R$ 1,1 tri), console limpo, 30 testes verdes.
 - **Pendências conhecidas da trilha frontend**: tooltip de hover mais rico no
   mapa (picking do deck.gl; exige navegador visível para validar); ranking
   por município (depende da F5).

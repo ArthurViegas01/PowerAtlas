@@ -25,6 +25,8 @@ import { mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+import { UF_BY_CODE } from './uf-codes.mjs'
+
 const HERE = dirname(fileURLToPath(import.meta.url))
 const CACHE = join(HERE, '.cache')
 const OUT = join(HERE, '..', 'public', 'geo')
@@ -55,38 +57,8 @@ const WORLD_URL =
 const SIMPLIFY = '30%'
 const BUDGET_KB = { national: 200, states: 500, world: 400, municipios: 900 }
 
-// IBGE 2-digit UF geocode -> [sigla, name]
-const UF_BY_CODE = {
-  11: ['RO', 'Rondônia'],
-  12: ['AC', 'Acre'],
-  13: ['AM', 'Amazonas'],
-  14: ['RR', 'Roraima'],
-  15: ['PA', 'Pará'],
-  16: ['AP', 'Amapá'],
-  17: ['TO', 'Tocantins'],
-  21: ['MA', 'Maranhão'],
-  22: ['PI', 'Piauí'],
-  23: ['CE', 'Ceará'],
-  24: ['RN', 'Rio Grande do Norte'],
-  25: ['PB', 'Paraíba'],
-  26: ['PE', 'Pernambuco'],
-  27: ['AL', 'Alagoas'],
-  28: ['SE', 'Sergipe'],
-  29: ['BA', 'Bahia'],
-  31: ['MG', 'Minas Gerais'],
-  32: ['ES', 'Espírito Santo'],
-  33: ['RJ', 'Rio de Janeiro'],
-  35: ['SP', 'São Paulo'],
-  41: ['PR', 'Paraná'],
-  42: ['SC', 'Santa Catarina'],
-  43: ['RS', 'Rio Grande do Sul'],
-  50: ['MS', 'Mato Grosso do Sul'],
-  51: ['MT', 'Mato Grosso'],
-  52: ['GO', 'Goiás'],
-  53: ['DF', 'Distrito Federal'],
-}
-
 // [sigla, code] for every UF: the municipal pipeline covers the whole country.
+// (UF_BY_CODE lives in uf-codes.mjs, shared with fetch-indicators.mjs.)
 const MUNICIPIOS = Object.entries(UF_BY_CODE).map(([code, [uf]]) => [uf, Number(code)])
 
 const kb = (file) => Math.round(statSync(file).size / 1024)
