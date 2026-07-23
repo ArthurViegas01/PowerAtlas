@@ -2,12 +2,13 @@
 import type { PickingInfo } from '@deck.gl/core'
 import { MapboxOverlay } from '@deck.gl/mapbox'
 import maplibregl from 'maplibre-gl'
-import { onBeforeUnmount, onMounted, ref, watch, watchEffect } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch, watchEffect } from 'vue'
 
 import { useReducedMotion } from '@/composables/useReducedMotion'
 import { buildDeckLayers } from '@/lib/deckLayers'
 import type { Bounds, BoundaryFeature, MunicipioFeature, WorldFeature } from '@/lib/geo'
 import { baseMapStyle } from '@/lib/mapStyle'
+import { useDemografiaStore } from '@/stores/demografia'
 import { useMapLayersStore } from '@/stores/mapLayers'
 import { useSelectionStore } from '@/stores/selection'
 import type { DemografiaMunicipio } from '@/types/demografia'
@@ -17,11 +18,32 @@ const emit = defineEmits<{ (event: 'region-selected', regionId: string): void }>
 const container = ref<HTMLDivElement | null>(null)
 const selection = useSelectionStore()
 const mapLayers = useMapLayersStore()
+const demografia = useDemografiaStore()
 const reduced = useReducedMotion()
 
 let map: maplibregl.Map | null = null
 let overlay: MapboxOverlay | null = null
 const mapReady = ref(false)
+
+// Slow sine (~4s period) driving the national crest glow, plus a sawtooth
+// (~2.2s period) carrying the fiscal flow packets along their route. Driven
+// by rAF throttled to ~30fps: smooth enough for the moving packets, cheap
+// enough to rebuild layers (deck.gl diffs, so only the packet layer reuploads).
+const pulse = ref(1)
+// Continuous time in "loop units" (1 per FLOW_LOOP_MS). deckLayers derives
+// each arc's stripe positions from it, scaled by that arc's flow speed.
+const flowTime = ref(0)
+const FLOW_LOOP_MS = 4200
+let rafId: number | undefined
+let lastTick = 0
+
+// Horizon fade: darkens the far edge of the map as the camera tilts, so the
+// distant clutter recedes instead of competing with the foreground. Purely
+// cosmetic, driven by pitch (flat view = invisible).
+const horizonFadeOpacity = computed(() => {
+  const t = Math.min(1, Math.max(0, (selection.mapPitch - 38) / 30))
+  return t * 0.8
+})
 
 // North-up on open (BRG 000) — the old cinematic tilt (-8) read as "the map
 // renders slightly rotated" rather than intentional.
@@ -90,6 +112,28 @@ function handleMunicipioHover(info: PickingInfo<MunicipioFeature>) {
   }
 }
 
+/** codigo -> município lookup for footprint hovers/clicks (5.570 entries). */
+const muniByCodigo = computed(
+  () => new Map(demografia.municipios.map((municipio) => [municipio.codigo, municipio])),
+)
+
+/** Hover on a município footprint: same tooltip/highlight as its column. */
+function handleDemografiaBaseHover(info: PickingInfo<MunicipioFeature>) {
+  const codigo = info.object?.properties.codigo
+  const municipio = codigo ? muniByCodigo.value.get(codigo) : undefined
+  if (municipio) {
+    selection.setHoveredDemografia({
+      codigo: municipio.codigo,
+      name: municipio.name,
+      population: municipio.population,
+      gdpBrlThousands: municipio.gdpBrlThousands,
+    })
+    selection.setHoverPoint({ x: info.x, y: info.y })
+  } else {
+    selection.setHoveredDemografia(null)
+  }
+}
+
 function handleDemografiaHover(info: PickingInfo<DemografiaMunicipio>) {
   const municipio = info.object
   if (municipio) {
@@ -115,16 +159,44 @@ function handleWorldHover(info: PickingInfo<WorldFeature>) {
 
 function handleClick(event: maplibregl.MapMouseEvent) {
   if (!overlay) return
-  // Demographic view: a state click crops the camera to it (picking only the
-  // choropleth, so clicks land "through" the columns); anything else no-ops.
+  // Demographic view, two-step focus: the first click (column, footprint or
+  // ground) crops the camera on the clicked state and opens the state card;
+  // inside the cropped state, a column/footprint click focuses the município
+  // and opens its city card.
   if (selection.demographicView) {
+    const point = { x: event.point.x, y: event.point.y }
     const info = overlay.pickObject({
-      x: event.point.x,
-      y: event.point.y,
+      ...point,
       radius: 4,
-      layerIds: ['states-choropleth'],
+      layerIds: ['demografia-columns', 'municipal-borders', 'states-choropleth'],
     })
-    if (info?.layer?.id === 'states-choropleth') {
+    const openCityCard = (municipio: DemografiaMunicipio) => {
+      selection.selectDemografia(
+        {
+          codigo: municipio.codigo,
+          name: municipio.name,
+          population: municipio.population,
+          gdpBrlThousands: municipio.gdpBrlThousands,
+        },
+        point,
+      )
+      flyToDemografiaMunicipio(municipio.coordinates)
+    }
+    /** Card if the município sits in the cropped state, crop otherwise. */
+    const focus = (codigo: string) => {
+      const municipioUf = mapLayers.ufFromMunicipioCodigo(codigo)
+      if (municipioUf && municipioUf !== selection.demographicUf) {
+        selection.selectDemographicUf(municipioUf)
+        return
+      }
+      const municipio = muniByCodigo.value.get(codigo)
+      if (municipio) openCityCard(municipio)
+    }
+    if (info?.layer?.id === 'demografia-columns') {
+      focus((info as PickingInfo<DemografiaMunicipio>).object!.codigo)
+    } else if (info?.layer?.id === 'municipal-borders') {
+      focus((info as PickingInfo<MunicipioFeature>).object!.properties.codigo)
+    } else if (info?.layer?.id === 'states-choropleth') {
       const { UF } = (info as PickingInfo<BoundaryFeature>).object!.properties
       selection.selectDemographicUf(UF)
     }
@@ -162,6 +234,21 @@ function flyToGlobal() {
     pitch: cameraPitch(CONTEXT_PITCH.global),
     bearing: cameraBearing('global'),
     duration,
+  })
+}
+
+/**
+ * Focus the clicked município: glide the camera to its centroid, nudged
+ * right so it clears the city card on the left. Never zooms back out if the
+ * operator is already closer than the preset.
+ */
+function flyToDemografiaMunicipio(coordinates: [number, number]) {
+  if (!map) return
+  map.flyTo({
+    center: coordinates,
+    zoom: Math.max(map.getZoom(), 7.2),
+    offset: [150, 0],
+    duration: reduced.value ? 0 : 1200,
   })
 }
 
@@ -290,9 +377,20 @@ onMounted(() => {
   map.on('pitchend', (event) => {
     if (map && event.originalEvent) selection.setPitchOverride(map.getPitch())
   })
+  const animate = (now: number) => {
+    rafId = requestAnimationFrame(animate)
+    if (now - lastTick < 33) return // throttle to ~30fps
+    lastTick = now
+    // Reduced motion: hold the crest at full glow and the packets frozen
+    // (they still form a dotted arc, just not moving).
+    pulse.value = reduced.value ? 1 : 0.5 + 0.5 * Math.sin(now / 640)
+    flowTime.value = reduced.value ? 0 : now / FLOW_LOOP_MS
+  }
+  rafId = requestAnimationFrame(animate)
 })
 
 onBeforeUnmount(() => {
+  if (rafId !== undefined) cancelAnimationFrame(rafId)
   map?.remove()
   map = null
   overlay = null
@@ -307,6 +405,9 @@ watchEffect(() => {
       onHoverMunicipio: handleMunicipioHover,
       onHoverWorld: handleWorldHover,
       onHoverDemografia: handleDemografiaHover,
+      onHoverDemografiaBase: handleDemografiaBaseHover,
+      pulse: pulse.value,
+      flowTime: flowTime.value,
     }),
   })
 })
@@ -315,7 +416,10 @@ watchEffect(() => {
 watchEffect(() => {
   if (!mapReady.value || !map) return
   map.getCanvas().style.cursor =
-    selection.hoveredId || selection.hoveredMunicipio || selection.hoveredWorld
+    selection.hoveredId ||
+    selection.hoveredMunicipio ||
+    selection.hoveredWorld ||
+    selection.hoveredDemografia
       ? 'pointer'
       : ''
 })
@@ -404,6 +508,7 @@ watch(
     role="application"
     aria-label="Mapa do Brasil — selecione um estado"
   ></div>
+  <div class="horizon-fade" :style="{ opacity: horizonFadeOpacity }" aria-hidden="true"></div>
 </template>
 
 <style scoped>
@@ -417,5 +522,20 @@ watch(
 
 .map-root :deep(canvas) {
   outline: none;
+}
+
+.horizon-fade {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  /* rgb(3 6 8) mirrors --pa-bg-void; the gradient needs alpha stops, which
+     the hex token can't express. */
+  background: linear-gradient(
+    to bottom,
+    rgba(3, 6, 8, 0.95) 0%,
+    rgba(3, 6, 8, 0.5) 12%,
+    rgba(3, 6, 8, 0) 34%
+  );
+  transition: opacity 300ms ease;
 }
 </style>

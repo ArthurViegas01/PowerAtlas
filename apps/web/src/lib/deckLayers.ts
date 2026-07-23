@@ -1,18 +1,37 @@
 import { HeatmapLayer } from '@deck.gl/aggregation-layers'
 import type { Color, Layer, PickingInfo } from '@deck.gl/core'
 import { PathStyleExtension, type PathStyleExtensionProps } from '@deck.gl/extensions'
-import { ArcLayer, ColumnLayer, GeoJsonLayer, TextLayer } from '@deck.gl/layers'
+import {
+  ArcLayer,
+  ColumnLayer,
+  GeoJsonLayer,
+  PathLayer,
+  SolidPolygonLayer,
+  TextLayer,
+} from '@deck.gl/layers'
 
-import type {
-  BoundaryFeature,
-  MunicipioFeature,
-  MunicipioProps,
-  WorldFeature,
-  WorldProps,
+import {
+  boundaryCrestPaths,
+  boundaryWallQuads,
+  type BoundaryFeature,
+  type CrestPath,
+  type MunicipioFeature,
+  type MunicipioProps,
+  type WallQuad,
+  type WorldFeature,
+  type WorldProps,
 } from '@/lib/geo'
+import {
+  INFLOW_SEGMENTS,
+  OUTFLOW_SEGMENTS,
+  segmentColor,
+  segmentValue,
+  type FiscalSegmentDef,
+} from '@/lib/fiscalSegments'
 import { over, overVoid, paColor, shade, type RGBA } from '@/lib/palette'
 import type { ArcDatum, ColumnDatum, LabelDatum, MapLayerModel } from '@/stores/mapLayers'
 import type { DemografiaMunicipio } from '@/types/demografia'
+import type { FiscalMunicipio } from '@/types/fiscal'
 import type { AmbientSignal, PowerDimension } from '@/types/power-entity'
 
 export interface BuildLayersOptions {
@@ -21,11 +40,107 @@ export interface BuildLayersOptions {
   onHoverMunicipio: (info: PickingInfo<MunicipioFeature>) => void
   onHoverWorld: (info: PickingInfo<WorldFeature>) => void
   onHoverDemografia: (info: PickingInfo<DemografiaMunicipio>) => void
+  /** Hover on a município footprint (demographic view's borders layer). */
+  onHoverDemografiaBase: (info: PickingInfo<MunicipioFeature>) => void
+  /** 0..1 breathing phase for the national crest glow (1 = full, default). */
+  pulse?: number
+  /** Continuous time (in loop units) driving the fiscal flow stripes. */
+  flowTime?: number
 }
 
 function seriesColor(dimension: PowerDimension, alpha: number): RGBA {
   return dimension === 'official' ? paColor.official(alpha) : paColor.hidden(alpha)
 }
+
+/** One stacked column segment: a band from `position.z` up by `height`. */
+interface FiscalBand {
+  position: [number, number, number]
+  height: number
+  color: RGBA
+}
+
+/** Stable signature of an enabled-segment list (for memo + updateTriggers). */
+function outflowKey(segments: FiscalSegmentDef[]): string {
+  return segments.map((s) => s.key).join(',')
+}
+
+// Segment-band geometry is heavy (~40k instances) and independent of the
+// per-frame animation, so it is memoized by (metric + enabled segments +
+// dataset). The cache returns the SAME arrays when nothing relevant changed,
+// letting deck.gl skip re-upload while the flow arcs animate above.
+let fiscalBandCache: {
+  sig: string
+  outflow: FiscalBand[]
+  inflow: FiscalBand[]
+} | null = null
+
+function fiscalBands(
+  demo: MapLayerModel['demographic'],
+  fiscalBy: Map<string, FiscalMunicipio> | null,
+  enabledOutflow: FiscalSegmentDef[],
+  enabledInflow: FiscalSegmentDef[],
+  elevationOf: (d: DemografiaMunicipio) => number,
+  tipShare: (d: DemografiaMunicipio) => number,
+  greenHeight: (d: DemografiaMunicipio) => number,
+  inflowSum: (codigo: string) => number,
+  inflowElevationOf: (codigo: string) => number,
+  inflowCenter: (d: DemografiaMunicipio) => [number, number],
+): { outflow: FiscalBand[]; inflow: FiscalBand[] } {
+  const sig = [
+    demo.metric,
+    outflowKey(enabledOutflow),
+    outflowKey(enabledInflow),
+    demo.munis.length,
+    fiscalBy?.size ?? 0,
+  ].join('|')
+  if (fiscalBandCache && fiscalBandCache.sig === sig) return fiscalBandCache
+
+  const outflow: FiscalBand[] = []
+  const inflow: FiscalBand[] = []
+  for (const d of demo.munis) {
+    const flows = fiscalBy?.get(d.codigo)
+    if (!flows) continue
+    // Amber outflow bands stacked from the green top upward.
+    if (enabledOutflow.length > 0) {
+      const tipHeight = elevationOf(d) * tipShare(d)
+      const total = enabledOutflow.reduce((sum, s) => sum + segmentValue(flows, s.key), 0)
+      if (tipHeight > 0 && total > 0) {
+        let z = greenHeight(d)
+        for (const s of enabledOutflow) {
+          const value = segmentValue(flows, s.key)
+          if (value <= 0) continue
+          const height = tipHeight * (value / total)
+          outflow.push({ position: [d.coordinates[0], d.coordinates[1], z], height, color: segmentColor(s, 235) })
+          z += height
+        }
+      }
+    }
+    // Cyan inflow bands stacked from the ground up on the twin column.
+    if (enabledInflow.length > 0) {
+      const total = inflowSum(d.codigo)
+      const columnHeight = inflowElevationOf(d.codigo)
+      if (total > 0 && columnHeight > 0) {
+        const [cx, cy] = inflowCenter(d)
+        let z = 0
+        for (const s of enabledInflow) {
+          const value = segmentValue(flows, s.key)
+          if (value <= 0) continue
+          const height = columnHeight * (value / total)
+          inflow.push({ position: [cx, cy, z], height, color: segmentColor(s, 235) })
+          z += height
+        }
+      }
+    }
+  }
+  fiscalBandCache = { sig, outflow, inflow }
+  return fiscalBandCache
+}
+
+// Boundary relief walls, in meters. Low next to the score/demographic
+// columns (15km-180km) on purpose: they should read as parapets along the
+// borders, not as terrain.
+const STATE_WALL_ELEVATION = 3000
+const NATIONAL_WALL_ELEVATION = 5000
 
 function heatmapRamp(): Color[] {
   const base = paColor.official(255)
@@ -48,6 +163,9 @@ export function buildDeckLayers({
   onHoverMunicipio,
   onHoverWorld,
   onHoverDemografia,
+  onHoverDemografiaBase,
+  pulse = 1,
+  flowTime = 0,
 }: BuildLayersOptions): Layer[] {
   if (!model.ready || !model.states || !model.national) return []
 
@@ -216,6 +334,34 @@ export function buildDeckLayers({
     )
   }
 
+  // Country-wide municipal outlines: faint context lines in every view.
+  // The demographic view tints them with the metric color and makes them
+  // pickable, so footprint hovers highlight and clicks reach the city card.
+  if (model.municipalBorders) {
+    layers.push(
+      new GeoJsonLayer<MunicipioProps>({
+        id: 'municipal-borders',
+        data: model.municipalBorders,
+        pickable: demo.active,
+        stroked: true,
+        filled: demo.active,
+        getFillColor: (feature) =>
+          demo.active && feature.properties.codigo === demo.hoveredCodigo
+            ? shade(demoBase, 1, 46)
+            : [0, 0, 0, 0],
+        getLineColor: demo.active ? shade(demoBase, 0.9, 60) : paColor.official(38),
+        getLineWidth: 0.5,
+        lineWidthUnits: 'pixels',
+        lineWidthMinPixels: 0.3,
+        onHover: (info) => onHoverDemografiaBase(info as PickingInfo<MunicipioFeature>),
+        updateTriggers: {
+          getFillColor: [demo.active, demo.metric, demo.hoveredCodigo],
+          getLineColor: [demo.active, demo.metric],
+        },
+      }),
+    )
+  }
+
   // Empty while INFLUENCE_ARCS_ENABLED is off (mock links carry no meaning).
   if (model.arcs.length > 0) {
     layers.push(
@@ -269,24 +415,6 @@ export function buildDeckLayers({
     )
   }
 
-  // Demographic view: municipal outlines as context under the columns —
-  // faint on purpose, they only firm up as you tilt/zoom into a state.
-  if (demo.active && demo.borders) {
-    layers.push(
-      new GeoJsonLayer<MunicipioProps>({
-        id: 'demografia-borders',
-        data: demo.borders,
-        pickable: false,
-        stroked: true,
-        filled: false,
-        getLineColor: shade(demoBase, 0.9, 60),
-        getLineWidth: 0.5,
-        lineWidthUnits: 'pixels',
-        lineWidthMinPixels: 0.3,
-        updateTriggers: { getLineColor: [demo.metric] },
-      }),
-    )
-  }
 
   // Demographic view: one column per município, height ∝ √metric (linear
   // would make everything but the SP/RJ metros invisible).
@@ -296,45 +424,269 @@ export function buildDeckLayers({
     let max = 0
     for (const municipio of demo.munis) max = Math.max(max, metricValue(municipio))
     const base = demoBase
+    const elevationOf = (d: DemografiaMunicipio) =>
+      max ? 1500 + Math.sqrt(metricValue(d) / max) * 180000 : 0
+
+    // Fiscal overlay: only meaningful on the PIB metric (R$ against R$).
+    const fiscalBy = demo.metric === 'gdp' ? demo.fiscal.byCodigo : null
+    const seg = demo.fiscal.segments
+    const enabledOutflow = fiscalBy ? OUTFLOW_SEGMENTS.filter((s) => seg[s.key]) : []
+    const enabledInflow = fiscalBy ? INFLOW_SEGMENTS.filter((s) => seg[s.key]) : []
+    const outflowOn = enabledOutflow.length > 0
+    const inflowOn = enabledInflow.length > 0
+
+    // Sum of the ENABLED outflow segments for a município (R$ leaving).
+    const outflowSum = (codigo: string) => {
+      const flows = fiscalBy?.get(codigo)
+      if (!flows) return 0
+      let sum = 0
+      for (const s of enabledOutflow) sum += segmentValue(flows, s.key)
+      return sum
+    }
+    // Fraction of local PIB that leaves (capped: HQ-heavy municípios book
+    // more federal collection than their own PIB).
+    const tipShare = (d: DemografiaMunicipio) => {
+      if (!outflowOn || d.gdpBrlThousands <= 0) return 0
+      return Math.min(0.9, outflowSum(d.codigo) / (d.gdpBrlThousands * 1000))
+    }
+    const greenHeight = (d: DemografiaMunicipio) => elevationOf(d) * (1 - tipShare(d))
+
+    // Twin (inflow) column geometry. Scale uses the full return flow across
+    // all municípios so toggling segments doesn't rescale the whole map.
+    const COLUMN_RADIUS = 2400
+    let maxInflow = 0
+    if (fiscalBy) {
+      for (const flows of fiscalBy.values()) {
+        maxInflow = Math.max(maxInflow, flows.transferencias + flows.emendas)
+      }
+    }
+    const inflowSum = (codigo: string) => {
+      const flows = fiscalBy?.get(codigo)
+      if (!flows) return 0
+      let sum = 0
+      for (const s of enabledInflow) sum += segmentValue(flows, s.key)
+      return sum
+    }
+    const inflowElevationOf = (codigo: string) => {
+      const value = inflowSum(codigo)
+      return value > 0 && maxInflow ? 1200 + Math.sqrt(value / 1000 / maxInflow) * 180000 : 0
+    }
+    const glueOffset = (lat: number) =>
+      (2 * COLUMN_RADIUS) / (111320 * Math.cos((lat * Math.PI) / 180))
+    const inflowCenter = (d: DemografiaMunicipio): [number, number] => [
+      d.coordinates[0] + glueOffset(d.coordinates[1]),
+      d.coordinates[1],
+    ]
+
+    // Main column: PIB base, green, shortened to leave room for the amber
+    // outflow bands stacked on its top. Pickable target for hover/click.
     layers.push(
       new ColumnLayer<DemografiaMunicipio>({
         id: 'demografia-columns',
         data: demo.munis,
         pickable: true,
-        diskResolution: 10,
-        radius: 3200,
+        diskResolution: 6,
+        radius: COLUMN_RADIUS,
         extruded: true,
         flatShading: true,
         getPosition: (d) => d.coordinates,
-        getElevation: (d) => (max ? 1500 + Math.sqrt(metricValue(d) / max) * 180000 : 0),
+        getElevation: greenHeight,
         getFillColor: (d) => {
           if (d.codigo === demo.hoveredCodigo) return shade(base, 1, 255)
           const t = max ? Math.sqrt(metricValue(d) / max) : 0
-          // Floor at 0.45: the darker series colors would sink small
-          // municípios into the void with the old 0.35 ramp.
-          return shade(base, 0.45 + 0.55 * t, 90 + Math.round(150 * t))
+          // High floor (0.75): the darker series colors would sink small
+          // municípios into the void with a lower ramp.
+          return shade(base, 0.75 + 0.25 * t, 150 + Math.round(105 * t))
         },
         onHover: (info) => onHoverDemografia(info as PickingInfo<DemografiaMunicipio>),
         updateTriggers: {
-          getElevation: [demo.metric],
+          getElevation: [demo.metric, outflowKey(enabledOutflow)],
           getFillColor: [demo.metric, demo.hoveredCodigo],
         },
       }),
     )
+
+    // Stacked segment bands: amber outflow on top of the green column, cyan
+    // inflow on the glued twin. Geometry is memoized by (metric + enabled
+    // segments) so the ~40k instances aren't rebuilt on every animation
+    // frame — only when the toggles or metric change.
+    if (outflowOn || inflowOn) {
+      const bands = fiscalBands(
+        demo,
+        fiscalBy,
+        enabledOutflow,
+        enabledInflow,
+        elevationOf,
+        tipShare,
+        greenHeight,
+        inflowSum,
+        inflowElevationOf,
+        inflowCenter,
+      )
+      const bandLayer = (id: string, data: FiscalBand[]) =>
+        new ColumnLayer<FiscalBand>({
+          id,
+          data,
+          pickable: false,
+          diskResolution: 6,
+          radius: COLUMN_RADIUS,
+          extruded: true,
+          flatShading: true,
+          getPosition: (d) => d.position,
+          getElevation: (d) => d.height,
+          getFillColor: (d) => d.color,
+        })
+      if (bands.outflow.length > 0)
+        layers.push(bandLayer('demografia-outflow-segments', bands.outflow))
+      if (bands.inflow.length > 0)
+        layers.push(bandLayer('demografia-inflow-segments', bands.inflow))
+    }
+
+    // Flow arcs with marching stripes (like Bootstrap's animated progress
+    // bars): a faint continuous rail shows the route; bright stripes scroll
+    // along it in the flow direction. Outflow arcs climb from the column top
+    // to Brasília; inflow arcs leave Brasília toward the twin return column.
+    // Top movers plus the hovered/carded município.
+    const BRASILIA: [number, number] = [-47.8825, -15.7942]
+    if (outflowOn || inflowOn) {
+      const focus = new Set(
+        [demo.hoveredCodigo, demo.selectedCodigo].filter((c): c is string => c !== null),
+      )
+      const topFlows = (value: (codigo: string) => number) => {
+        const ranked = demo.munis
+          .filter((d) => value(d.codigo) > 0)
+          .sort((a, b) => value(b.codigo) - value(a.codigo))
+        const maxValue = ranked.length ? value(ranked[0].codigo) : 0
+        // Keep the 14 biggest movers nationally AND the top município of
+        // every state (codigo prefix = 2-digit UF code), so small states
+        // like AC or MS still get a flow instead of only the Sudeste.
+        const perStateTop = new Set<string>()
+        const seenState = new Set<string>()
+        for (const d of ranked) {
+          const uf = d.codigo.slice(0, 2)
+          if (seenState.has(uf)) continue
+          seenState.add(uf)
+          perStateTop.add(d.codigo)
+        }
+        return {
+          maxValue,
+          munis: ranked.filter(
+            (d, i) => i < 14 || perStateTop.has(d.codigo) || focus.has(d.codigo),
+          ),
+        }
+      }
+
+      type ArcPath = [number, number, number][]
+      interface FlowPath {
+        path: ArcPath
+        color: RGBA
+        width: number
+      }
+      const rails: FlowPath[] = []
+      const stripes: FlowPath[] = []
+      // Parabolic arc: linear in lon/lat, height bumps in the middle so it
+      // lifts off the ground like the old ArcLayer.
+      const sampleArc = (
+        ax: number,
+        ay: number,
+        az: number,
+        bx: number,
+        by: number,
+        bz: number,
+        bump: number,
+        u: number,
+      ): [number, number, number] => [
+        ax + (bx - ax) * u,
+        ay + (by - ay) * u,
+        az * (1 - u) + bz * u + bump * 4 * u * (1 - u),
+      ]
+      const RAIL_SAMPLES = 26
+      const STRIPE_COUNT = 4 // stripes traveling the arc at once
+      const STRIPE_LEN = 0.16 // dash length as a fraction of the arc
+      const STRIPE_SEG = 5 // sub-samples per stripe (keeps the curve smooth)
+      const emitArc = (
+        ax: number,
+        ay: number,
+        az: number,
+        bx: number,
+        by: number,
+        bz: number,
+        rgb: RGBA,
+        weight: number,
+      ) => {
+        const bump = Math.hypot(bx - ax, by - ay) * 111000 * 0.32
+        const at = (u: number) => sampleArc(ax, ay, az, bx, by, bz, bump, u)
+        const width = 1.4 + 2.6 * weight
+        // Continuous faint rail.
+        const rail: ArcPath = []
+        for (let i = 0; i <= RAIL_SAMPLES; i++) rail.push(at(i / RAIL_SAMPLES))
+        rails.push({ path: rail, color: [rgb[0], rgb[1], rgb[2], 48], width: Math.max(1, width * 0.7) })
+        // Stripes travel source -> target. Each head runs 0 -> 1+LEN so the
+        // body emerges from the base (clamped at 0) and slides into the
+        // destination (clamped at 1) instead of blinking in/out. Speed scales
+        // with the flow amount: more money, faster stripes.
+        const speed = 0.28 + 1.1 * weight
+        for (let s = 0; s < STRIPE_COUNT; s++) {
+          const phase = ((flowTime * speed + s / STRIPE_COUNT) % 1 + 1) % 1
+          const head = phase * (1 + STRIPE_LEN)
+          const start = Math.max(0, head - STRIPE_LEN)
+          const end = Math.min(1, head)
+          if (end - start < 1e-3) continue
+          const seg: ArcPath = []
+          for (let j = 0; j <= STRIPE_SEG; j++) seg.push(at(start + ((end - start) * j) / STRIPE_SEG))
+          stripes.push({ path: seg, color: [rgb[0], rgb[1], rgb[2], 240], width })
+        }
+      }
+      const amber = paColor.hidden(255)
+      const cyan = paColor.official(255)
+      if (outflowOn) {
+        const { maxValue, munis } = topFlows(outflowSum)
+        for (const d of munis) {
+          const weight = Math.sqrt(maxValue ? outflowSum(d.codigo) / maxValue : 0)
+          // City column top (the amber tip) -> Brasília.
+          emitArc(d.coordinates[0], d.coordinates[1], elevationOf(d), BRASILIA[0], BRASILIA[1], 0, amber, weight)
+        }
+      }
+      if (inflowOn) {
+        const { maxValue, munis } = topFlows(inflowSum)
+        for (const d of munis) {
+          const weight = Math.sqrt(maxValue ? inflowSum(d.codigo) / maxValue : 0)
+          const [tx, ty] = inflowCenter(d)
+          // Brasília -> top of the twin return column.
+          emitArc(BRASILIA[0], BRASILIA[1], 0, tx, ty, inflowElevationOf(d.codigo), cyan, weight)
+        }
+      }
+      // Rail first (drawn under), stripes on top. Both rebuilt each frame;
+      // the stripe geometry is what scrolls with flowPhase.
+      const flowPathLayer = (id: string, data: FlowPath[]) =>
+        new PathLayer<FlowPath>({
+          id,
+          data,
+          pickable: false,
+          widthUnits: 'pixels',
+          capRounded: true,
+          jointRounded: true,
+          getPath: (d) => d.path,
+          getColor: (d) => d.color,
+          getWidth: (d) => d.width,
+        })
+      if (rails.length > 0) layers.push(flowPathLayer('fiscal-flow-rails', rails))
+      if (stripes.length > 0) layers.push(flowPathLayer('fiscal-flow-stripes', stripes))
+    }
   }
 
-  // Score columns: slim cylinders (not the old chunky hexagons) so they read
-  // as markers, not landmasses. Hidden entirely during the municipal
-  // drill-down — that close, a 100 km column would bury the município —
-  // and in the demographic view, which has its own columns.
+  // Score columns: slim hexagonal prisms, same footprint as the demographic
+  // columns, so they read as markers, not landmasses. Hidden entirely during
+  // the municipal drill-down — that close, a 100 km column would bury the
+  // município — and in the demographic view, which has its own columns.
   if (!model.selectedMunicipioCodigo && !demo.active) {
     for (const dimension of ['official', 'hidden'] as const) {
       layers.push(
         new ColumnLayer<ColumnDatum>({
           id: `power-columns-${dimension}`,
           data: model.columns.filter((column) => column.dimension === dimension),
-          diskResolution: 24,
-          radius: 7500,
+          diskResolution: 6,
+          radius: 2400,
           extruded: true,
           flatShading: true,
           getPosition: (d) => d.coordinates,
@@ -346,6 +698,64 @@ export function buildDeckLayers({
       )
     }
   }
+
+  // Boundary relief: translucent walls tracing the state borders and the
+  // national outline, one vertical quad per boundary edge (boundaryWallQuads
+  // explains why the geometry is explicit). Unlit (material:false) so the
+  // walls keep the flat holographic look regardless of face orientation.
+  // Pushed last so everything behind a wall is already drawn and the wall
+  // blends over it instead of depth-clipping it.
+  const wallBase = demo.active ? demoBase : paColor.official(255)
+  layers.push(
+    new SolidPolygonLayer<WallQuad>({
+      id: 'state-walls',
+      data: boundaryWallQuads(model.states, STATE_WALL_ELEVATION),
+      getPolygon: (d) => d,
+      pickable: false,
+      _full3d: true,
+      material: false,
+      getFillColor: shade(wallBase, 1, 34),
+      updateTriggers: { getFillColor: [demo.active, demo.metric] },
+    }),
+    new SolidPolygonLayer<WallQuad>({
+      id: 'national-wall',
+      data: boundaryWallQuads(model.national, NATIONAL_WALL_ELEVATION),
+      getPolygon: (d) => d,
+      pickable: false,
+      _full3d: true,
+      material: false,
+      getFillColor: shade(wallBase, 1, 80),
+      updateTriggers: { getFillColor: [demo.active, demo.metric] },
+    }),
+    // Neon crest where each wall meets the sky: a subtle line on the state
+    // parapets, a brighter one crowning the national border. The national
+    // crest breathes with the pulse phase (a slow hologram shimmer).
+    new PathLayer<CrestPath>({
+      id: 'state-wall-crests',
+      data: boundaryCrestPaths(model.states, STATE_WALL_ELEVATION),
+      getPath: (d) => d,
+      pickable: false,
+      getColor: shade(wallBase, 1, 90),
+      getWidth: 1,
+      widthUnits: 'pixels',
+      widthMinPixels: 0.6,
+      updateTriggers: { getColor: [demo.active, demo.metric] },
+    }),
+    new PathLayer<CrestPath>({
+      id: 'national-wall-crest',
+      data: boundaryCrestPaths(model.national, NATIONAL_WALL_ELEVATION),
+      getPath: (d) => d,
+      pickable: false,
+      getColor: shade(wallBase, 1, Math.round(90 + 165 * pulse)),
+      getWidth: 1.2 + pulse,
+      widthUnits: 'pixels',
+      widthMinPixels: 1,
+      updateTriggers: {
+        getColor: [demo.active, demo.metric, pulse],
+        getWidth: [pulse],
+      },
+    }),
+  )
 
   return layers
 }

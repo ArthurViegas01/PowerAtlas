@@ -9,10 +9,13 @@ import type {
   MunicipioCollection,
   WorldCollection,
 } from '@/lib/geo'
+import type { FiscalSegmentKey } from '@/lib/fiscalSegments'
 import type { DemografiaMetric, DemografiaMunicipio } from '@/types/demografia'
+import type { FiscalMunicipio } from '@/types/fiscal'
 import type { AmbientSignal, PowerDimension } from '@/types/power-entity'
 
 import { useDemografiaStore } from './demografia'
+import { useFiscalStore } from './fiscal'
 import { useRankingsStore } from './rankings'
 import { useSelectionStore } from './selection'
 
@@ -60,16 +63,24 @@ export interface MapLayerModel {
   hoveredMunicipioCodigo: string | null
   heatmapPoints: AmbientSignal[]
   heatmapVisible: boolean
+  /** Merged municipal outlines of every loaded UF mesh (context lines). */
+  municipalBorders: MunicipioCollection | null
   /** Demographic view: per-município columns replace the influence layers. */
   demographic: {
     active: boolean
     metric: DemografiaMetric
     munis: DemografiaMunicipio[]
     hoveredCodigo: string | null
-    /** Merged municipal outlines of every loaded UF mesh (context lines). */
-    borders: MunicipioCollection | null
+    /** Município of the open city card (focused flow arcs). */
+    selectedCodigo: string | null
     /** State the camera is cropped on (click selects; Esc clears). */
     uf: string | null
+    /** Fiscal overlay: real federal flows per município (PIB metric only). */
+    fiscal: {
+      /** Per-segment visibility (previdencia, ir, … / fpm, fundeb, …). */
+      segments: Record<FiscalSegmentKey, boolean>
+      byCodigo: Map<string, FiscalMunicipio> | null
+    }
   }
 }
 
@@ -80,6 +91,7 @@ export const useMapLayersStore = defineStore('mapLayers', () => {
   const selection = useSelectionStore()
   const rankings = useRankingsStore()
   const demografia = useDemografiaStore()
+  const fiscal = useFiscalStore()
 
   const states = shallowRef<BoundaryCollection | null>(null)
   const national = shallowRef<BoundaryCollection | null>(null)
@@ -164,12 +176,11 @@ export const useMapLayersStore = defineStore('mapLayers', () => {
   )
 
   /**
-   * All loaded municipal meshes merged into one collection for the
-   * demographic view's context outlines. Fills in progressively while
-   * loadAllMunicipios streams the 27 UF meshes in.
+   * All loaded municipal meshes merged into one collection: context outlines
+   * for both the influence and the demographic views. Fills in progressively
+   * while loadAllMunicipios streams the 27 UF meshes in.
    */
-  const demografiaBorders = computed<MunicipioCollection | null>(() => {
-    if (!selection.demographicView) return null
+  const municipalBorders = computed<MunicipioCollection | null>(() => {
     const collections = [...municipiosByUf.value.values()]
     if (collections.length === 0) return null
     return {
@@ -197,13 +208,18 @@ export const useMapLayersStore = defineStore('mapLayers', () => {
     hoveredMunicipioCodigo: selection.hoveredMunicipio?.codigo ?? null,
     heatmapPoints: rankings.ambientSignals,
     heatmapVisible: !selection.hasSelection && !selection.demographicView,
+    municipalBorders: municipalBorders.value,
     demographic: {
       active: selection.demographicView,
       metric: selection.demographicMetric,
       munis: selection.demographicView ? demografia.municipios : [],
       hoveredCodigo: selection.hoveredDemografia?.codigo ?? null,
-      borders: demografiaBorders.value,
+      selectedCodigo: selection.selectedDemografia?.codigo ?? null,
       uf: selection.demographicUf,
+      fiscal: {
+        segments: selection.fiscalSegments,
+        byCodigo: fiscal.byCodigo.size > 0 ? fiscal.byCodigo : null,
+      },
     },
   }))
 
@@ -276,6 +292,14 @@ export const useMapLayersStore = defineStore('mapLayers', () => {
     await Promise.allSettled(ufs.map((uf) => loadMunicipios(uf)))
   }
 
+  /** UF sigla for a 7-digit IBGE municipality code (first 2 digits = state). */
+  function ufFromMunicipioCodigo(codigo: string): string | null {
+    const feature = states.value?.features.find(
+      (candidate) => candidate.properties.codarea === codigo.slice(0, 2),
+    )
+    return feature?.properties.UF ?? null
+  }
+
   function municipioBoundsFor(uf: string, codigo: string): Bounds | null {
     const feature = municipiosByUf.value.get(uf)?.features.find((f) => f.properties.codigo === codigo)
     return feature ? featureBounds(feature) : null
@@ -293,5 +317,6 @@ export const useMapLayersStore = defineStore('mapLayers', () => {
     loadMunicipios,
     loadAllMunicipios,
     municipioBoundsFor,
+    ufFromMunicipioCodigo,
   }
 })

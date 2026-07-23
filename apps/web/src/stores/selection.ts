@@ -1,6 +1,8 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 
+import { defaultFiscalSegments, type FiscalSegmentKey } from '@/lib/fiscalSegments'
+
 export interface ScreenPoint {
   x: number
   y: number
@@ -78,6 +80,14 @@ export const useSelectionStore = defineStore('selection', () => {
   const hoveredDemografia = ref<DemografiaHover | null>(null)
   /** State focused inside the demographic view (camera crop; Esc clears). */
   const demographicUf = ref<string | null>(null)
+  /** Município clicked in the demographic view — opens the left city card. */
+  const selectedDemografia = ref<DemografiaHover | null>(null)
+  /**
+   * Fiscal overlay (demographic view, PIB metric): which segments of the
+   * money leaving to / returning from Brasília are shown. Keyed by segment
+   * (previdencia, ir, ... / fpm, fundeb, ...); toggled in the right panel.
+   */
+  const fiscalSegments = ref<Record<FiscalSegmentKey, boolean>>(defaultFiscalSegments())
 
   const hasSelection = computed(() => selectedId.value !== null)
   const hasPanel = computed(() => selectedId.value !== null || lockedWorld.value !== null)
@@ -140,6 +150,7 @@ export const useSelectionStore = defineStore('selection', () => {
     if (demographicView.value) return
     closePanels()
     hoveredDemografia.value = null
+    selectedDemografia.value = null
     demographicView.value = true
     requestCamera('national')
   }
@@ -149,6 +160,7 @@ export const useSelectionStore = defineStore('selection', () => {
     if (!demographicView.value) return
     demographicView.value = false
     hoveredDemografia.value = null
+    selectedDemografia.value = null
     demographicUf.value = null
   }
 
@@ -156,6 +168,8 @@ export const useSelectionStore = defineStore('selection', () => {
   function selectDemographicUf(uf: string | null) {
     if (!demographicView.value || demographicUf.value === uf) return
     demographicUf.value = uf
+    // The city card belongs to the previous crop — the state card takes over.
+    selectedDemografia.value = null
   }
 
   function setDemographicMetric(metric: DemografiaMetric) {
@@ -164,6 +178,34 @@ export const useSelectionStore = defineStore('selection', () => {
 
   function setHoveredDemografia(hover: DemografiaHover | null) {
     hoveredDemografia.value = hover
+  }
+
+  /** Open the demographic city card (column or footprint click). */
+  function selectDemografia(municipio: DemografiaHover, point?: ScreenPoint) {
+    if (!demographicView.value) return
+    selectedDemografia.value = municipio
+    lastPing.value = point ?? null
+    pingSeq.value += 1
+  }
+
+  /** Close the demographic city card ([X] or Esc). */
+  function clearDemografia() {
+    selectedDemografia.value = null
+  }
+
+  /** Toggle one fiscal segment (right-panel switch). */
+  function toggleFiscalSegment(key: FiscalSegmentKey) {
+    fiscalSegments.value = {
+      ...fiscalSegments.value,
+      [key]: !fiscalSegments.value[key],
+    }
+  }
+
+  /** Turn a whole group (outflow/inflow) on or off at once. */
+  function setFiscalGroup(keys: FiscalSegmentKey[], visible: boolean) {
+    const next = { ...fiscalSegments.value }
+    for (const key of keys) next[key] = visible
+    fiscalSegments.value = next
   }
 
   /** Rotate the camera by `delta` degrees (positive = counterclockwise). */
@@ -238,6 +280,8 @@ export const useSelectionStore = defineStore('selection', () => {
     demographicMetric,
     hoveredDemografia,
     demographicUf,
+    selectedDemografia,
+    fiscalSegments,
     mapPitch,
     pitchOverride,
     pitchRequest,
@@ -255,6 +299,10 @@ export const useSelectionStore = defineStore('selection', () => {
     selectDemographicUf,
     setDemographicMetric,
     setHoveredDemografia,
+    selectDemografia,
+    clearDemografia,
+    toggleFiscalSegment,
+    setFiscalGroup,
     requestPitch,
     setMapPitch,
     setPitchOverride,
