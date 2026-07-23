@@ -66,7 +66,6 @@ const readout = computed(() => {
 <style scoped>
 .hud-header {
   position: absolute;
-  top: 10px;
   left: 10px;
   right: 10px;
   z-index: 32;

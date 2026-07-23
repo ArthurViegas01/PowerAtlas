@@ -7,6 +7,7 @@ import HudHeader from '@/components/hud/HudHeader.vue'
 import HudPanel from '@/components/hud/HudPanel.vue'
 import MonitoringPanel from '@/components/hud/MonitoringPanel.vue'
 import ScanlineOverlay from '@/components/hud/ScanlineOverlay.vue'
+import DemografiaCard from '@/components/map/DemografiaCard.vue'
 import DemografiaMenu from '@/components/map/DemografiaMenu.vue'
 import MapCompass from '@/components/map/MapCompass.vue'
 import MapLegend from '@/components/map/MapLegend.vue'
@@ -18,6 +19,7 @@ import RankingColumn from '@/components/rankings/RankingColumn.vue'
 import IndicatorGrid from '@/components/shared/IndicatorGrid.vue'
 import { HIDDEN_INFLUENCE_ENABLED } from '@/lib/features'
 import { useDemografiaStore } from '@/stores/demografia'
+import { useFiscalStore } from '@/stores/fiscal'
 import { useIndicatorsStore } from '@/stores/indicators'
 import { useMapLayersStore } from '@/stores/mapLayers'
 import { useRankingsStore } from '@/stores/rankings'
@@ -28,6 +30,7 @@ const rankings = useRankingsStore()
 const mapLayers = useMapLayersStore()
 const indicators = useIndicatorsStore()
 const demografia = useDemografiaStore()
+const fiscal = useFiscalStore()
 
 const region = computed(() => rankings.regionById(selection.selectedId))
 const regionIndicators = computed(() => indicators.forRegion(selection.selectedId))
@@ -73,6 +76,7 @@ function viewDemographic() {
     return
   }
   void demografia.load()
+  void fiscal.load()
   // Municipal outlines for the demographic backdrop (27 meshes, cached).
   void mapLayers.loadAllMunicipios()
   selection.enterDemographicView()
@@ -84,9 +88,11 @@ function reload() {
 
 function onKeydown(event: KeyboardEvent) {
   if (event.key !== 'Escape') return
-  // Step out one level at a time: demographic UF crop -> demographic view ->
-  // municipality -> state -> national.
-  if (selection.demographicView && selection.demographicUf) {
+  // Step out one level at a time: demographic city card -> UF crop ->
+  // demographic view -> municipality -> state -> national.
+  if (selection.demographicView && selection.selectedDemografia) {
+    selection.clearDemografia()
+  } else if (selection.demographicView && selection.demographicUf) {
     selection.selectDemographicUf(null)
   } else if (selection.demographicView) {
     selection.exitDemographicView()
@@ -127,7 +133,9 @@ watch(
 
 onMounted(() => {
   void rankings.load()
-  void mapLayers.loadGeo()
+  // Municipal meshes ride behind the state geometry: the 27 UF outlines are
+  // context lines in every view now, so stream them in right after boot.
+  void mapLayers.loadGeo().then(() => mapLayers.loadAllMunicipios())
   void indicators.loadUf()
   window.addEventListener('keydown', onKeydown)
 })
@@ -255,6 +263,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
     <MapLegend />
     <MapCompass />
     <MonitoringPanel v-if="!selection.demographicView" />
+    <DemografiaCard />
     <DemografiaMenu />
     <HudClock />
 
