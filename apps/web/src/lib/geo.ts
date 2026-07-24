@@ -140,6 +140,50 @@ export function boundaryCrestPaths(
   return paths
 }
 
+/** A município outline ring, tagged with its código for the click lift. */
+export interface MunicipioRing {
+  codigo: string
+  ring: [number, number][]
+}
+
+const ringCache = new WeakMap<object, Map<string, MunicipioRing[]>>()
+
+/**
+ * Municipal outline rings whose código starts with `prefix` (the 2-digit UF
+ * code), so the demographic click effect can lift just the selected state's
+ * mesh. Cached per collection and prefix.
+ */
+export function municipalRingsByPrefix(
+  collection: FeatureCollection<Polygon | MultiPolygon, { codigo: string }>,
+  prefix: string,
+): MunicipioRing[] {
+  let byPrefix = ringCache.get(collection)
+  if (!byPrefix) {
+    byPrefix = new Map()
+    ringCache.set(collection, byPrefix)
+  }
+  const cached = byPrefix.get(prefix)
+  if (cached) return cached
+
+  const out: MunicipioRing[] = []
+  for (const feature of collection.features) {
+    const codigo = feature.properties.codigo
+    if (!codigo || !codigo.startsWith(prefix)) continue
+    const walkRings = (coords: unknown): void => {
+      if (!Array.isArray(coords) || coords.length === 0) return
+      const first = coords[0] as unknown[]
+      if (Array.isArray(first) && typeof first[0] === 'number') {
+        out.push({ codigo, ring: coords as [number, number][] })
+        return
+      }
+      for (const child of coords) walkRings(child)
+    }
+    walkRings(feature.geometry.coordinates)
+  }
+  byPrefix.set(prefix, out)
+  return out
+}
+
 function boundsOf(coords: unknown): Bounds {
   let west = Infinity
   let south = Infinity

@@ -78,7 +78,11 @@ const munFc = {
 
 const noop = () => {}
 
-function build(m: MapLayerModel, pulse?: number) {
+function build(
+  m: MapLayerModel,
+  pulse?: number,
+  ripple?: { epicenter: [number, number]; elapsed: number } | null,
+) {
   return buildDeckLayers({
     model: m,
     onHoverState: noop,
@@ -87,6 +91,7 @@ function build(m: MapLayerModel, pulse?: number) {
     onHoverDemografia: noop,
     onHoverDemografiaBase: noop,
     pulse,
+    ripple,
   })
 }
 
@@ -423,5 +428,105 @@ describe('buildDeckLayers', () => {
       }),
     ).find((l) => l.id === 'demografia-columns')
     expect((layer!.props as { pickable: boolean }).pickable).toBe(true)
+  })
+
+  const statesFc = {
+    type: 'FeatureCollection',
+    features: [
+      {
+        type: 'Feature',
+        properties: { codarea: '35', UF: 'SP', name: 'São Paulo' },
+        geometry: { type: 'Polygon', coordinates: [[[0, 0], [0, 1], [1, 1], [0, 0]]] },
+      },
+    ],
+  } as unknown as MapLayerModel['states']
+  const spMuni = {
+    codigo: '3550308',
+    name: 'São Paulo',
+    coordinates: [-46.6, -23.5] as [number, number],
+    population: 1_000_000,
+    gdpBrlThousands: 1_000_000,
+  }
+  const demoModel = (uf: string | null) =>
+    model({
+      states: statesFc,
+      demographic: {
+        active: true,
+        metric: 'population',
+        munis: [spMuni],
+        hoveredCodigo: null,
+        selectedCodigo: null,
+        uf,
+        fiscal: { segments: noSegments(), byCodigo: null },
+      },
+    })
+  const columnZ = (layers: ReturnType<typeof build>, datum: typeof spMuni) => {
+    const layer = layers.find((l) => l.id === 'demografia-columns')!
+    const getPos = (layer.props as unknown as { getPosition: (d: typeof spMuni) => number[] })
+      .getPosition
+    return getPos(datum)[2]
+  }
+
+  it('keeps columns grounded when no ripple plays (lift disabled)', () => {
+    // Persistent state lift is off for now, so selecting a state alone does
+    // not raise its columns — only a ripple does.
+    expect(columnZ(build(demoModel(null)), spMuni)).toBe(0)
+    expect(columnZ(build(demoModel('SP')), spMuni)).toBe(0)
+  })
+
+  it('bounces columns near the ripple epicenter, not far ones', () => {
+    // Both municípios belong to SP (código prefix 35) and SP is cropped, so
+    // both carry the base lift; only the near one gets the wavefront bump.
+    const spFar = { ...spMuni, codigo: '3500000', coordinates: [-53, -20] as [number, number] }
+    const layers = build(
+      model({
+        states: statesFc,
+        demographic: {
+          active: true,
+          metric: 'population',
+          munis: [spMuni, spFar],
+          hoveredCodigo: null,
+          selectedCodigo: null,
+          uf: 'SP',
+          fiscal: { segments: noSegments(), byCodigo: null },
+        },
+      }),
+      undefined,
+      { epicenter: [-46.6, -23.5], elapsed: 0 },
+    )
+    const near = columnZ(layers, spMuni)
+    const far = columnZ(layers, spFar)
+    expect(near).toBeGreaterThan(far) // near got the bump on top of the lift
+  })
+
+  it('does not ripple or lift columns of other states', () => {
+    // SP cropped, but the ripple epicenter sits on an RJ município.
+    const rjMuni = {
+      codigo: '3300100',
+      name: 'RJ',
+      coordinates: [-43.2, -22.9] as [number, number],
+      population: 100,
+      gdpBrlThousands: 100,
+    }
+    const z = columnZ(
+      build(
+        model({
+          states: statesFc,
+          demographic: {
+            active: true,
+            metric: 'population',
+            munis: [rjMuni],
+            hoveredCodigo: null,
+            selectedCodigo: null,
+            uf: 'SP',
+            fiscal: { segments: noSegments(), byCodigo: null },
+          },
+        }),
+        undefined,
+        { epicenter: [-43.2, -22.9], elapsed: 0 },
+      ),
+      rjMuni,
+    )
+    expect(z).toBe(0) // RJ column untouched by SP's click
   })
 })
