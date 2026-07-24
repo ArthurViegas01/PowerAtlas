@@ -37,6 +37,15 @@ const FLOW_LOOP_MS = 4200
 let rafId: number | undefined
 let lastTick = 0
 
+// Click ripple across the demographic columns: epicenter + start time, read
+// each frame by the layer builder. Cleared once the wave has decayed.
+const ripple = ref<{ epicenter: [number, number]; start: number } | null>(null)
+const RIPPLE_LIFETIME_MS = 3400
+function triggerRipple(event: maplibregl.MapMouseEvent) {
+  if (reduced.value) return
+  ripple.value = { epicenter: [event.lngLat.lng, event.lngLat.lat], start: performance.now() }
+}
+
 // Horizon fade: darkens the far edge of the map as the camera tilts, so the
 // distant clutter recedes instead of competing with the foreground. Purely
 // cosmetic, driven by pitch (flat view = invisible).
@@ -187,6 +196,7 @@ function handleClick(event: maplibregl.MapMouseEvent) {
       const municipioUf = mapLayers.ufFromMunicipioCodigo(codigo)
       if (municipioUf && municipioUf !== selection.demographicUf) {
         selection.selectDemographicUf(municipioUf)
+        triggerRipple(event)
         return
       }
       const municipio = muniByCodigo.value.get(codigo)
@@ -199,6 +209,7 @@ function handleClick(event: maplibregl.MapMouseEvent) {
     } else if (info?.layer?.id === 'states-choropleth') {
       const { UF } = (info as PickingInfo<BoundaryFeature>).object!.properties
       selection.selectDemographicUf(UF)
+      triggerRipple(event)
     }
     return
   }
@@ -398,6 +409,19 @@ onBeforeUnmount(() => {
 
 watchEffect(() => {
   if (!mapReady.value || !overlay) return
+  // Reading flowTime/pulse keeps this effect re-running each animation frame,
+  // which is also when the ripple's elapsed time advances.
+  const frame = flowTime.value
+  void frame
+  let rippleArg: { epicenter: [number, number]; elapsed: number } | null = null
+  if (ripple.value) {
+    const elapsedMs = performance.now() - ripple.value.start
+    if (elapsedMs <= RIPPLE_LIFETIME_MS) {
+      rippleArg = { epicenter: ripple.value.epicenter, elapsed: elapsedMs / 1000 }
+    } else {
+      ripple.value = null // decayed: let columns settle
+    }
+  }
   overlay.setProps({
     layers: buildDeckLayers({
       model: mapLayers.layerModel,
@@ -408,6 +432,7 @@ watchEffect(() => {
       onHoverDemografiaBase: handleDemografiaBaseHover,
       pulse: pulse.value,
       flowTime: flowTime.value,
+      ripple: rippleArg,
     }),
   })
 })

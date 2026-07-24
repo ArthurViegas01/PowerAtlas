@@ -13,10 +13,12 @@ import {
 import {
   boundaryCrestPaths,
   boundaryWallQuads,
+  municipalRingsByPrefix,
   type BoundaryFeature,
   type CrestPath,
   type MunicipioFeature,
   type MunicipioProps,
+  type MunicipioRing,
   type WallQuad,
   type WorldFeature,
   type WorldProps,
@@ -46,6 +48,12 @@ export interface BuildLayersOptions {
   pulse?: number
   /** Continuous time (in loop units) driving the fiscal flow stripes. */
   flowTime?: number
+  /**
+   * Active click ripple across the demographic columns: a bounce wave
+   * expanding from `epicenter` (lon/lat), `elapsed` seconds after the click.
+   * Null when no ripple is playing.
+   */
+  ripple?: { epicenter: [number, number]; elapsed: number } | null
 }
 
 function seriesColor(dimension: PowerDimension, alpha: number): RGBA {
@@ -54,9 +62,52 @@ function seriesColor(dimension: PowerDimension, alpha: number): RGBA {
 
 /** One stacked column segment: a band from `position.z` up by `height`. */
 interface FiscalBand {
+  /** Owner município (lets the click lift/ripple find its state). */
+  codigo: string
   position: [number, number, number]
   height: number
   color: RGBA
+}
+
+// Demographic click feedback. The clicked state's columns float above the
+// rest, and a bounce wave ripples out from the click point: each column
+// rises as the wavefront reaches it and settles back once it passes.
+// Persistent lift of the selected state (the raised platform). Off for now:
+// only the transient ripple bounce plays. Flip to re-enable the lift and its
+// mesh platform.
+const STATE_LIFT_ENABLED = false
+const STATE_LIFT_M = 42000 // persistent lift of the selected state
+const RIPPLE_AMP_M = 34000 // peak bounce height at the wavefront
+const RIPPLE_SPEED_DEG = 3.6 // wavefront expansion, degrees per second
+const RIPPLE_WIDTH_DEG = 0.7 // gaussian half-width of the wavefront
+const RIPPLE_DURATION_S = 3.4 // total life of the ripple
+
+/**
+ * Vertical offset (m) applied to a column: the persistent state lift (when
+ * enabled) plus the transient bounce wave. Both are confined to the selected
+ * state (código prefix match), so clicking one state never disturbs its
+ * neighbors. Shared by the green base, the segment bands and the flow arcs so
+ * they move as one.
+ */
+function columnLift(
+  lon: number,
+  lat: number,
+  codigo: string,
+  liftedPrefix: string | null,
+  ripple: { epicenter: [number, number]; elapsed: number } | null | undefined,
+): number {
+  if (!liftedPrefix || !codigo.startsWith(liftedPrefix)) return 0
+  let z = STATE_LIFT_ENABLED ? STATE_LIFT_M : 0
+  if (ripple) {
+    const dx = (lon - ripple.epicenter[0]) * Math.cos((lat * Math.PI) / 180)
+    const dy = lat - ripple.epicenter[1]
+    const dist = Math.hypot(dx, dy)
+    const front = ripple.elapsed * RIPPLE_SPEED_DEG
+    const fade = Math.max(0, 1 - ripple.elapsed / RIPPLE_DURATION_S)
+    const bump = Math.exp(-(((dist - front) / RIPPLE_WIDTH_DEG) ** 2))
+    z += RIPPLE_AMP_M * fade * bump
+  }
+  return z
 }
 
 /** Stable signature of an enabled-segment list (for memo + updateTriggers). */
@@ -110,7 +161,7 @@ function fiscalBands(
           const value = segmentValue(flows, s.key)
           if (value <= 0) continue
           const height = tipHeight * (value / total)
-          outflow.push({ position: [d.coordinates[0], d.coordinates[1], z], height, color: segmentColor(s, 235) })
+          outflow.push({ codigo: d.codigo, position: [d.coordinates[0], d.coordinates[1], z], height, color: segmentColor(s, 235) })
           z += height
         }
       }
@@ -126,7 +177,7 @@ function fiscalBands(
           const value = segmentValue(flows, s.key)
           if (value <= 0) continue
           const height = columnHeight * (value / total)
-          inflow.push({ position: [cx, cy, z], height, color: segmentColor(s, 235) })
+          inflow.push({ codigo: d.codigo, position: [cx, cy, z], height, color: segmentColor(s, 235) })
           z += height
         }
       }
@@ -166,6 +217,7 @@ export function buildDeckLayers({
   onHoverDemografiaBase,
   pulse = 1,
   flowTime = 0,
+  ripple = null,
 }: BuildLayersOptions): Layer[] {
   if (!model.ready || !model.states || !model.national) return []
 
@@ -427,6 +479,18 @@ export function buildDeckLayers({
     const elevationOf = (d: DemografiaMunicipio) =>
       max ? 1500 + Math.sqrt(metricValue(d) / max) * 180000 : 0
 
+    // Click feedback: lift the selected state and ripple a bounce from the
+    // click. `liftedPrefix` is the 2-digit IBGE code of the cropped state.
+    const liftedPrefix = demo.uf
+      ? (model.states?.features.find((f) => f.properties.UF === demo.uf)?.properties.codarea ??
+        null)
+      : null
+    const lift = (lon: number, lat: number, codigo: string) =>
+      columnLift(lon, lat, codigo, liftedPrefix, ripple)
+    // updateTrigger token: advances each frame while a ripple plays, then
+    // settles to a constant so lifted columns stop re-uploading.
+    const liftTrigger = [liftedPrefix, ripple ? ripple.elapsed : -1]
+
     // Fiscal overlay: only meaningful on the PIB metric (R$ against R$).
     const fiscalBy = demo.metric === 'gdp' ? demo.fiscal.byCodigo : null
     const seg = demo.fiscal.segments
@@ -478,6 +542,26 @@ export function buildDeckLayers({
       d.coordinates[1],
     ]
 
+    // Selected state's municipal mesh, raised to the lift height so the
+    // columns sit on a solid platform instead of floating. It holds a steady
+    // lift (no ripple) — the columns are what pop off it as the wave passes.
+    if (STATE_LIFT_ENABLED && liftedPrefix && model.municipalBorders) {
+      layers.push(
+        new PathLayer<MunicipioRing>({
+          id: 'demografia-state-mesh',
+          data: municipalRingsByPrefix(model.municipalBorders, liftedPrefix),
+          pickable: false,
+          widthUnits: 'pixels',
+          getWidth: 1,
+          widthMinPixels: 0.6,
+          getPath: (d) =>
+            d.ring.map(([lon, lat]): [number, number, number] => [lon, lat, STATE_LIFT_M]),
+          getColor: shade(demoBase, 1, 120),
+          updateTriggers: { getPath: [liftedPrefix] },
+        }),
+      )
+    }
+
     // Main column: PIB base, green, shortened to leave room for the amber
     // outflow bands stacked on its top. Pickable target for hover/click.
     layers.push(
@@ -489,7 +573,7 @@ export function buildDeckLayers({
         radius: COLUMN_RADIUS,
         extruded: true,
         flatShading: true,
-        getPosition: (d) => d.coordinates,
+        getPosition: (d) => [d.coordinates[0], d.coordinates[1], lift(d.coordinates[0], d.coordinates[1], d.codigo)],
         getElevation: greenHeight,
         getFillColor: (d) => {
           if (d.codigo === demo.hoveredCodigo) return shade(base, 1, 255)
@@ -500,6 +584,7 @@ export function buildDeckLayers({
         },
         onHover: (info) => onHoverDemografia(info as PickingInfo<DemografiaMunicipio>),
         updateTriggers: {
+          getPosition: liftTrigger,
           getElevation: [demo.metric, outflowKey(enabledOutflow)],
           getFillColor: [demo.metric, demo.hoveredCodigo],
         },
@@ -532,9 +617,14 @@ export function buildDeckLayers({
           radius: COLUMN_RADIUS,
           extruded: true,
           flatShading: true,
-          getPosition: (d) => d.position,
+          getPosition: (d) => [
+            d.position[0],
+            d.position[1],
+            d.position[2] + lift(d.position[0], d.position[1], d.codigo),
+          ],
           getElevation: (d) => d.height,
           getFillColor: (d) => d.color,
+          updateTriggers: { getPosition: liftTrigger },
         })
       if (bands.outflow.length > 0)
         layers.push(bandLayer('demografia-outflow-segments', bands.outflow))
@@ -643,8 +733,9 @@ export function buildDeckLayers({
         const { maxValue, munis } = topFlows(outflowSum)
         for (const d of munis) {
           const weight = Math.sqrt(maxValue ? outflowSum(d.codigo) / maxValue : 0)
-          // City column top (the amber tip) -> Brasília.
-          emitArc(d.coordinates[0], d.coordinates[1], elevationOf(d), BRASILIA[0], BRASILIA[1], 0, amber, weight)
+          // City column top (the amber tip, lifted with the column) -> Brasília.
+          const cz = elevationOf(d) + lift(d.coordinates[0], d.coordinates[1], d.codigo)
+          emitArc(d.coordinates[0], d.coordinates[1], cz, BRASILIA[0], BRASILIA[1], 0, amber, weight)
         }
       }
       if (inflowOn) {
@@ -652,8 +743,9 @@ export function buildDeckLayers({
         for (const d of munis) {
           const weight = Math.sqrt(maxValue ? inflowSum(d.codigo) / maxValue : 0)
           const [tx, ty] = inflowCenter(d)
-          // Brasília -> top of the twin return column.
-          emitArc(BRASILIA[0], BRASILIA[1], 0, tx, ty, inflowElevationOf(d.codigo), cyan, weight)
+          // Brasília -> top of the twin return column (lifted with the column).
+          const cz = inflowElevationOf(d.codigo) + lift(tx, ty, d.codigo)
+          emitArc(BRASILIA[0], BRASILIA[1], 0, tx, ty, cz, cyan, weight)
         }
       }
       // Rail first (drawn under), stripes on top. Both rebuilt each frame;
