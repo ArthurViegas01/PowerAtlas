@@ -4,12 +4,19 @@ import { RouterLink } from 'vue-router'
 
 import DataTable from '@/components/dashboard/DataTable.vue'
 import KpiTile from '@/components/dashboard/KpiTile.vue'
+import BarChart from '@/components/dashboard/charts/BarChart.vue'
+import ChartCard from '@/components/dashboard/charts/ChartCard.vue'
+import CorrelationHeatmap from '@/components/dashboard/charts/CorrelationHeatmap.vue'
+import Histogram from '@/components/dashboard/charts/Histogram.vue'
+import LineChart from '@/components/dashboard/charts/LineChart.vue'
+import ScatterPlot from '@/components/dashboard/charts/ScatterPlot.vue'
 import {
   buildDemografiaDataset,
   buildFiscalDataset,
   buildIndicatorsDataset,
   buildRankingsDataset,
 } from '@/lib/datasets'
+import { chartsFor } from '@/lib/datasetCharts'
 import { downloadText, toCsv, toJson } from '@/lib/csv'
 import { useDemografiaStore } from '@/stores/demografia'
 import { useFiscalStore } from '@/stores/fiscal'
@@ -54,6 +61,8 @@ const active = computed(
 // indicators store loads a 3 KB file at boot and exposes no loading flag; the
 // two big municipal sets are what a spinner would be waiting on.
 const loading = computed(() => rankings.loading || demografia.loading || fiscal.loading)
+
+const charts = computed(() => (active.value ? chartsFor(active.value) : []))
 
 function exportCsv() {
   downloadText(`poweratlas-${active.value.id}.csv`, 'text/csv', toCsv(active.value.columns, active.value.rows))
@@ -116,7 +125,42 @@ function exportJson() {
         <p v-if="loading && active.rows.length === 0" class="loading pa-data">
           CARREGANDO DATASET<span class="pa-blink">▌</span>
         </p>
-        <DataTable v-else :dataset="active" />
+        <template v-else>
+          <div v-if="charts.length" class="charts-grid">
+            <ChartCard
+              v-for="(spec, i) in charts"
+              :key="`${active.id}-${i}`"
+              :title="spec.title"
+              :hint="spec.hint"
+              :class="{ 'chart-wide': spec.kind === 'heatmap' }"
+            >
+              <BarChart v-if="spec.kind === 'bar'" :items="spec.items" />
+              <Histogram
+                v-else-if="spec.kind === 'histogram'"
+                :values="spec.values"
+                :format="spec.format"
+                :allow-log="spec.allowLog"
+              />
+              <ScatterPlot
+                v-else-if="spec.kind === 'scatter'"
+                :points="spec.points"
+                :x-label="spec.xLabel"
+                :y-label="spec.yLabel"
+                :x-format="spec.xFormat"
+                :y-format="spec.yFormat"
+                :log-x="spec.logX"
+                :log-y="spec.logY"
+              />
+              <LineChart v-else-if="spec.kind === 'line'" :values="spec.values" />
+              <CorrelationHeatmap
+                v-else-if="spec.kind === 'heatmap'"
+                :keys="spec.keys"
+                :matrix="spec.matrix"
+              />
+            </ChartCard>
+          </div>
+          <DataTable :dataset="active" />
+        </template>
       </section>
     </main>
 
@@ -291,6 +335,16 @@ function exportJson() {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 12px;
+}
+
+.charts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 12px;
+}
+
+.charts-grid .chart-wide {
+  grid-column: 1 / -1;
 }
 
 .loading {
