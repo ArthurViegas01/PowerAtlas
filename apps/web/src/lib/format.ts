@@ -15,6 +15,12 @@ const gdpFmt = new Intl.NumberFormat('pt-BR', {
   notation: 'compact',
   maximumFractionDigits: 1,
 })
+const brlFmt = new Intl.NumberFormat('pt-BR', {
+  style: 'currency',
+  currency: 'BRL',
+  notation: 'compact',
+  maximumFractionDigits: 1,
+})
 
 export function formatInt(value: number | null): string {
   return value == null ? NOT_AVAILABLE : intFmt.format(value)
@@ -36,4 +42,19 @@ export function formatGdpThousands(value: number | null): string {
 /** Compact population readout for tight spots (tooltip): "44,4 mi hab". */
 export function formatPeopleCompact(value: number | null): string {
   return value == null ? NOT_AVAILABLE : `${compactFmt.format(value)} hab`
+}
+
+/** One decimal place, no unit ("1,4"). */
+export function formatDecimal(value: number | null): string {
+  return value == null ? NOT_AVAILABLE : oneDecimalFmt.format(value)
+}
+
+/** Compact BRL for values already in whole reais ("R$ 2,8 tri"). */
+export function formatBrl(value: number | null): string {
+  return value == null ? NOT_AVAILABLE : brlFmt.format(value)
+}
+
+/** Compact count ("5,57 mil", "1,2 mi") for headline tiles. */
+export function formatCompact(value: number | null): string {
+  return value == null ? NOT_AVAILABLE : compactFmt.format(value)
 }

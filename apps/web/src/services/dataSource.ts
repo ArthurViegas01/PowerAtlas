@@ -11,9 +11,11 @@
 import {
   loadMonitoringDocuments as loadMonitoringFromApi,
   loadRegionPowerData as loadFromApi,
+  loadStats as loadStatsFromApi,
 } from '@/services/apiClient'
 import { loadRegionPowerData as loadFromMock } from '@/services/mockDataLoader'
 import type { MonitoringDocument } from '@/types/monitoring'
+import type { StatsResponse } from '@/types/stats'
 
 export const usingApi = Boolean(import.meta.env.VITE_API_URL)
 
@@ -22,3 +24,8 @@ export const loadRegionPowerData = usingApi ? loadFromApi : loadFromMock
 /** Offline mock has no ingested feed — the monitoring panel simply hides. */
 export const loadMonitoringDocuments: (limit?: number) => Promise<MonitoringDocument[]> =
   usingApi ? loadMonitoringFromApi : async () => []
+
+/** Offline mock has no database — the console's pipeline panel hides. */
+export const loadStats: () => Promise<StatsResponse | null> = usingApi
+  ? loadStatsFromApi
+  : async () => null
