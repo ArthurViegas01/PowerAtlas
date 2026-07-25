@@ -1,13 +1,28 @@
-# Database migrations (F4)
+# Database migrations
 
 Plain-SQL migrations for PostgreSQL + PostGIS, applied in filename order and
 tracked in a `schema_migrations` table (no ORM, no Alembic). The runtime access
 layer is raw asyncpg, mirroring the Encaixe house pattern.
 
-- `0001_init.sql` — regions, entities, sources, entity_sources, influence_links,
-  ambient_signals; PostGIS point geometries (EPSG:4326) for capitals and ambient
-  signals; `ord` columns preserve the mock array order so the DB payload stays
-  byte-compatible with the F3 mock loader.
+- `0001_init.sql` (F4): regions, entities, sources, entity_sources,
+  influence_links, ambient_signals; PostGIS point geometries (EPSG:4326) for
+  capitals and ambient signals; `ord` columns preserve the mock array order so
+  the DB payload stays byte-compatible with the F3 mock loader.
+- `0002_pipeline.sql` (F5): staging schema for the ingestion and scoring
+  pipeline. `ingest_sources` (the feed allowlist), `raw_documents` (deduped by
+  a UNIQUE `content_hash`), `doc_chunks` (`vector(1024)` embeddings behind an
+  HNSW index; the model and dimension are recorded in a comment in the
+  migration), `scoring_runs` (model, prompt version, stats),
+  `entity_candidates` and `candidate_citations`.
+
+  **`entity_candidates` carries `CHECK (status = 'draft')`.** The pipeline
+  cannot promote its own output: nothing reaches the served tables without the
+  human review gate (F6). This is the content-safety rule of
+  ARCHITECTURE.md section 5 expressed in the schema instead of in code.
+
+pgvector plus PostGIS in one server needs a custom image, so the compose
+`postgres` service builds `db/Dockerfile` (postgis/postgis:16-3.4 +
+postgresql-16-pgvector) instead of pulling an image.
 
 ## Usage
 

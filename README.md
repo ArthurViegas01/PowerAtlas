@@ -103,6 +103,24 @@ now toggles the demographic view. That view gained its own palette — darker
 blue for population, forest green for GDP (`--pa-demo-*` tokens) — applied
 to columns, municipal outlines, state lines and the national border.
 
+**Boundary relief, city cards and real fiscal flows: v0.12.0.** The state
+divides and the national outline gained 3D relief (translucent walls with a
+pulsing neon crest), and the framing no longer flies out to sea chasing
+distant islands (Trindade, Fernando de Noronha). The demographic view gained a
+state and município card in the left panel (decrypted-text reveal, camera
+focus on click, hover highlight) and slimmer hexagonal columns. Its PIB metric
+now carries a **real fiscal flow** for 2025, per município: the outflow column
+is segmented by tax (previdência, IR, IPI, demais) and a twin return column by
+transfer (FPM, FUNDEB, outras, emendas), with animated striped arcs whose
+speed scales with the amount and per-segment toggles in the menu. Data comes
+from Receita Federal, Tesouro Nacional and the Portal da Transparência, joined
+offline by `pnpm fiscal` ([docs/data-sources.md](docs/data-sources.md)).
+
+**Ripple on state selection: v0.13.0.** Clicking a state in the demographic
+view propagates a wave from the click point; columns bounce as the front
+passes and settle back. Contained to the selected state (by IBGE code prefix,
+so neighbours stay still) and disabled under `prefers-reduced-motion`.
+
 Deviations from the original plans: [ARCHITECTURE.md](ARCHITECTURE.md) §3
 and [docs/data-sources.md](docs/data-sources.md). Next phases (scoring
 pipeline, review workflow): ARCHITECTURE.md §6.
@@ -110,8 +128,10 @@ pipeline, review workflow): ARCHITECTURE.md §6.
 ## Stack (Phase 1)
 
 - Vue 3 + TypeScript + Vite, Pinia for state
-- MapLibre GL JS base map + deck.gl overlay (choropleth, 3D columns at state
-  capitals, influence arcs, ambient heatmap)
+- MapLibre GL JS base map + deck.gl overlay: choropleth, 3D columns at the
+  state capitals, per-município demographic and fiscal columns, flow arcs,
+  boundary relief, ambient heatmap (full stack and the two view modes:
+  [docs/map-layers.md](docs/map-layers.md))
 - GSAP for HUD choreography — all motion gated behind `prefers-reduced-motion`
 - Tailwind CSS v4 layered over hand-written design tokens
   (`apps/web/src/styles/tokens.css`)
@@ -130,14 +150,18 @@ pnpm install
 pnpm dev        # Vite dev server on http://localhost:5173
 pnpm build      # vue-tsc type-check + production build
 pnpm preview    # serve the production build on http://localhost:4173
-pnpm test       # vitest (stores + composables)
+pnpm test       # vitest (stores, composables, layer factory)
 pnpm geo        # re-fetch + simplify IBGE boundaries (needs network)
 pnpm indicators # re-fetch IBGE factual indicators (needs network)
 pnpm demografia # rebuild the demographic-view dataset (offline join)
+pnpm fiscal     # rebuild the fiscal-flow dataset (needs network; cached)
 ```
 
-Equivalent `make web-*` targets exist in the Makefile for machines with GNU
-make installed.
+The four data scripts commit their output, so a fresh clone runs with no
+network. Re-run `demografia` after `geo` or `indicators` changes its inputs.
+
+Every script has an equivalent Makefile target (`make help` lists them) for
+machines with GNU make installed.
 
 ### Full stack (F3/F4/F5)
 
@@ -155,7 +179,8 @@ a few minutes; later boots reuse them.
 Migrations and the fictional seed run automatically on boot (the seed only
 fills an *empty* database, so pipeline data survives restarts). If host port
 8000 is taken by another project, override it with `PA_API_PORT=8010` (in a
-root `.env` or the shell) — the web's `VITE_API_URL` follows it.
+root `.env`, see [.env.example](.env.example), or in the shell): the web's
+`VITE_API_URL` follows it.
 
 For host development of the API/worker (faster reload; needs Python >= 3.11),
 the granular targets remain:
@@ -173,6 +198,7 @@ pnpm db-migrate     # apply SQL migrations
 pnpm db-seed        # full reseed from the fictional dataset (truncates!)
 pnpm api-dev-db     # uvicorn against the database
 pnpm worker-dev     # celery worker on the host (pool=solo)
+pnpm pipeline-ingest # run the RSS ingestion once, no broker needed
 ```
 
 Point the web at it with `VITE_API_URL=http://localhost:8000`
@@ -208,21 +234,47 @@ region's ranking panel (any UF sigla or `BR`).
    asset-path issues).
 7. Zoom out (or "VISÃO GLOBAL"): dim dashed world appears; hovering a
    country reads "EM BREVE"; clicking one opens the "área bloqueada" panel.
+8. "VISÃO DEMOGRÁFICA [BR]": 5,570 columns render; switching POPULAÇÃO/PIB
+   repaints columns, outlines and legend in the metric's color; hovering a
+   column reads its POP/PIB.
+9. On the PIB metric: the fiscal columns segment by tax, the twin return
+   column appears, striped arcs animate to and from Brasília, and the menu
+   toggles hide individual segments.
+10. Click a state in that view: camera crops to it, the ripple bounces its
+    columns only, and the RECORTE chip appears. Click a column: the city card
+    opens on the left.
+11. Esc walks back one level per press (city card, crop, view, município,
+    state, national).
 
 ## Repository layout
 
 ```
-apps/web/            Phase 1 frontend (Vite + Vue 3 + TS)
-apps/api/            F3/F4 backend — FastAPI over PostGIS (power-data endpoint)
-db/migrations/       F4 — Postgres/PostGIS SQL migrations + seed
-infra/               deferred — Terraform (not started)
-docs/data-sources.md boundary data provenance
-ARCHITECTURE.md      topology, decisions, deviations, deferred work
+apps/web/              frontend (Vite + Vue 3 + TS)
+  src/lib/             pure helpers: deck.gl layer factory, palette, geo, format
+  src/stores/          Pinia: selection, rankings, mapLayers, indicators,
+                       demografia, fiscal, monitoring
+  scripts/             dataset builders (geo, indicators, demografia, fiscal)
+  public/geo/          committed IBGE + Natural Earth meshes
+  public/data/         committed indicator, demographic and fiscal datasets
+apps/api/              backend: FastAPI over PostGIS + the Celery worker
+db/                    SQL migrations + the PostGIS/pgvector image
+infra/                 deferred: Terraform (not started)
+docs/                  data provenance + map layer reference
+ARCHITECTURE.md        topology, decisions, deviations, deferred work
+PLAN.md                phase-by-phase state, conventions, roadmap (pt-BR)
 ```
 
 ## Documentation
 
-- [ARCHITECTURE.md](ARCHITECTURE.md) — topology + rationale + "Deferred to
-  Phase 2" section
-- [docs/data-sources.md](docs/data-sources.md) — where the map boundaries come
-  from and how they were processed
+- [ARCHITECTURE.md](ARCHITECTURE.md): topology, the rationale behind each
+  choice, deviations, and what is deferred to later phases
+- [PLAN.md](PLAN.md): running state of every phase, mandatory commit/git
+  conventions, environment gotchas, roadmap (pt-BR)
+- [docs/data-sources.md](docs/data-sources.md): every dataset in the repo, its
+  official source, how it was processed, and the caveats
+- [docs/map-layers.md](docs/map-layers.md): the deck.gl layer stack, the two
+  view modes, the feature flags
+- [apps/api/README.md](apps/api/README.md): endpoints, layout, database and
+  pipeline
+- [db/migrations/README.md](db/migrations/README.md): schema, migration
+  workflow, and the draft-only constraint

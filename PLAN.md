@@ -1,15 +1,17 @@
 # PowerAtlas — Plano de continuação (F3+)
 
-> **Handoff para um chat novo.** Estado em 2026-07-22: **v0.11.0 released**
-> (`main`, tags `v0.2.0`..`v0.11.0`) — compose full-stack, F5a/F5b,
-> monitoramento, visão demográfica (com paleta própria pop/PIB), controles
-> de visão e refinos de layout do HUD. Fase atual: **F5**
-> (desenho na seção 3; etapas 1 e 2 de 3 entregues — a F5c,
-> embeddings + scoring, está PAUSADA sem custos de IA). Este arquivo é
-> **versionado** no repo — atualize a seção de estado quando uma fase fechar
+> **Handoff para um chat novo.** Estado em 2026-07-24: **v0.13.0 released**
+> (`main`, tags `v0.2.0`..`v0.13.0`): compose full-stack, F5a/F5b,
+> monitoramento, visão demográfica (paleta própria pop/PIB, ficha de
+> município, fluxo fiscal real de 2025), relevo nas fronteiras, ripple ao
+> clicar num estado e refinos de layout do HUD. Fase atual: **F5**
+> (desenho na seção 3; etapas 1 e 2 de 3 entregues, a F5c
+> (embeddings + scoring) está PAUSADA sem custos de IA). Este arquivo é
+> **versionado** no repo: atualize a seção de estado quando uma fase fechar
 > e enxugue o que já foi entregue.
 > Leia junto: `ARCHITECTURE.md` (decisões + seção 6 "deferred"),
-> `docs/data-sources.md`, `README.md` (status + QA checklist).
+> `docs/data-sources.md`, `docs/map-layers.md` (camadas e modos de visão),
+> `README.md` (status + QA checklist).
 
 ## 1. Estado atual
 
@@ -51,11 +53,14 @@
   que distorceria). A API lê do banco quando `PA_DATABASE_URL` está setado, ou
   do mock caso contrário; payload byte-idêntico. `docker-compose.yml`
   (postgres + api). Teste de paridade DB->fonte marcado `-m integration`.
-- **Comandos**: `pnpm dev` (5173) · `pnpm build` (vue-tsc + vite) ·
-  `pnpm preview` (4173) · `pnpm geo`. API: `pnpm api-install` · `pnpm api-dev`
-  (uvicorn :8000) · `pnpm api-test` · `pnpm api-lint`. Banco:
-  `pnpm db-up` · `pnpm db-migrate` · `pnpm db-seed` · `pnpm api-dev-db`
-  (`make migrate` encadeia os três). Deep-link de QA: `/?region=SP`
+- **Comandos**: `docker compose up` sobe o stack inteiro. Web: `pnpm dev`
+  (5173) · `pnpm build` (vue-tsc + vite) · `pnpm preview` (4173) ·
+  `pnpm test` (vitest). Datasets: `pnpm geo` · `pnpm indicators` ·
+  `pnpm demografia` (offline) · `pnpm fiscal`. API: `pnpm api-install` ·
+  `pnpm api-dev` (uvicorn :8000) · `pnpm api-test` · `pnpm api-lint`. Banco e
+  worker: `pnpm db-up` · `pnpm redis-up` · `pnpm db-migrate` · `pnpm db-seed` ·
+  `pnpm api-dev-db` · `pnpm worker-dev` · `pnpm pipeline-ingest`
+  (`make migrate` encadeia up + migrate + seed). Deep-link de QA: `/?region=SP`
   (qualquer UF ou BR); com API: `VITE_API_URL=http://localhost:8000 pnpm dev`.
 - **Trilha frontend (pós-v0.5.0, 2026-07-19)**: code-splitting do bundle
   (manualChunks para maplibre/deck/gsap; shell do app de ~2 MB para ~104 kB);
@@ -196,6 +201,32 @@
   estados, borda externa do BR, realce do recorte, legenda e menu (rampa
   com piso 0.45 p/ municípios pequenos não sumirem). Verificado no browser;
   47 testes + typecheck verdes.
+- **Relevo, ficha e fluxo fiscal (2026-07-23, v0.12.0)**: (a) **relevo nas
+  divisas**: muros translúcidos com crista neon pulsante nas UFs e no contorno
+  do Brasil (`boundaryWallQuads` em `lib/geo.ts`, camadas empurradas por
+  último para blendar em vez de recortar o que está atrás); o enquadramento
+  parou de ir ao oceano por causa das ilhas distantes (Trindade, Fernando de
+  Noronha). (b) **ficha demográfica**: `DemografiaCard.vue` no painel esquerdo
+  com estado e município, texto decriptado (`DecryptedText.vue`), foco de
+  câmera ao clicar na coluna, hover realçando o município, malha municipal
+  visível também na visão de influência; colunas viraram hexágonos finos.
+  (c) **fluxo fiscal** (métrica PIB) com dados reais de 2025 por município:
+  novo `build-fiscal.mjs` (`pnpm fiscal`) junta Receita Federal (arrecadação
+  total + previdência + IR + IPI), Tesouro (transferências, FPM, FUNDEB) e
+  Portal da Transparência (emendas por favorecido) em
+  `public/data/fiscal/municipios.json` (5.570 municípios, 422 KB, match por
+  nome normalizado + UF porque nenhuma fonte publica código IBGE). Colunas
+  segmentadas por tributo na saída e por repasse na entrada (coluna gêmea de
+  retorno colada), arcos em listras marchando com velocidade proporcional ao
+  valor, toggles por segmento no menu. Totais 2025: arrecadação R$ 2.757,1 bi,
+  transferências R$ 500,5 bi, emendas R$ 43,3 bi. Ressalvas em
+  `docs/data-sources.md` (arrecadação é onde se paga, não onde se produz).
+- **Ripple ao selecionar estado (2026-07-24, v0.13.0)**: clique num estado na
+  visão demográfica propaga uma onda a partir do ponto do clique e as colunas
+  dão um bounce conforme a frente passa (`RIPPLE_*` em `deckLayers.ts`).
+  Contido ao estado pelo prefixo do código IBGE (vizinhos não se mexem) e
+  gated por `prefers-reduced-motion`. Inclui o lift persistente do estado e a
+  malha elevada como plataforma, desligados por `STATE_LIFT_ENABLED`.
 - **Pendências conhecidas da trilha frontend**: ranking por município
   (depende da F5); reativar a dimensão oculta (flip do flag) quando F5/F6
   existirem. (Tooltip de hover validado com mouse real em 2026-07-22.)
@@ -385,15 +416,17 @@ reais nomeadas podem aparecer no produto. Os campos
 
 ## 4. Verificação padrão de toda fase
 
-`pnpm build` verde; QA checklist do README (7 itens); varredura de null
-bytes; na api: pytest/ruff/mypy. Commits pequenos no padrão, branch por
+`pnpm build` e `pnpm test` verdes; QA checklist do README (11 itens);
+varredura de null bytes; na api: pytest/ruff/mypy. Commits pequenos no padrão, branch por
 fase, merge --no-ff na develop; release na main com tag quando fechar um
 conjunto coeso.
 
 ## 5. Como retomar num chat novo
 
-Prompt sugerido: *"Leia o PLAN.md na raiz do PowerAtlas e o
-ARCHITECTURE.md. Vamos implementar a etapa F5a (worker + infra) conforme o
-desenho da F5 — comece pelo compose (redis + worker) e pela imagem de banco
-com pgvector, espelhando o worker do Encaixe."* O dev server sobe com
-`pnpm dev`; QA rápido via `/?region=SP`.
+Prompt sugerido: *"Leia o PLAN.md na raiz do PowerAtlas e o ARCHITECTURE.md.
+A F5a e a F5b estão entregues e a F5c está pausada (sem custos de IA); a
+trilha ativa é a de melhorias de UI. Vamos [tarefa]."* Para retomar a F5c,
+decidir primeiro entre embeddings locais (fastembed/ONNX) e o scoring v0
+heurístico descritos na seção 3. O dev server sobe com `pnpm dev` (ou
+`docker compose up` para o stack inteiro); QA rápido via `/?region=SP` e pela
+visão demográfica. Camadas do mapa e modos de visão: `docs/map-layers.md`.

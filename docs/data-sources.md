@@ -111,6 +111,90 @@ files on demand per selected state.
 rankings remain fictional until the F5/F6 pipeline and review gate exist
 (ARCHITECTURE.md §5).
 
+## Demographic view dataset (`apps/web/public/data/demografia/municipios.json`)
+
+**Source:** none of its own. This file is an **offline join** of two datasets
+already committed above: the municipal meshes (`public/geo/municipios/*.geojson`)
+and the municipal indicators (`public/data/indicators/municipios/*.json`).
+
+**Processing** (`apps/web/scripts/build-demografia.mjs`, `pnpm demografia`):
+for every município it derives an approximate centroid (vertex average of the
+largest ring, which is precise enough to anchor a column at national zoom) and
+pairs it with the Censo 2022 population and the 2023 PIB. Rows are stored as
+tuples, not objects, to keep the payload small:
+
+```
+{ censusYear, gdpYear,
+  municipios: [[codigo, name, lon, lat, population, gdpBrlThousands], ...] }
+```
+
+Result: 5,570 municípios, **312 KB**, fetched once when the demographic view
+first opens. The script needs no network: re-run it after `pnpm geo` or
+`pnpm indicators` changes either input.
+
+## Fiscal flows (`apps/web/public/data/fiscal/municipios.json`)
+
+Real federal money flows per município, powering the fiscal columns and the
+animated flow arcs of the demographic view. Reference year **2025**.
+
+**Sources (all public, all open data, no API key):**
+
+1. **Receita Federal**, "Arrecadação das receitas administradas pela RFB por
+   município" (XLSX). The main file's `TOTAL` sheet is the whole federal
+   collection; three component files break it down by tax: the
+   *previdenciária* file (INSS), the *IR* file and the *IPI* file.
+2. **Tesouro Nacional** (CKAN, "Transferências Constitucionais para
+   Municípios"): monthly CSVs (latin1, `;`) with FPM, FUNDEB, ITR, CIDE and
+   the rest.
+3. **Portal da Transparência**, "Emendas Parlamentares" (bulk ZIP, latin1),
+   file `EmendasParlamentares_PorFavorecido.csv`: money actually *received*,
+   attributed to the favorecido's município and filtered by payment date.
+
+```
+receita:  https://www.gov.br/receitafederal/pt-br/acesso-a-informacao/dados-abertos/receitadata/arrecadacao/...
+tesouro:  https://www.tesourotransparente.gov.br/ckan/api/3/action/package_show?id=transferencias-constitucionais-para-municipios
+emendas:  https://portaldatransparencia.gov.br/download-de-dados/emendas-parlamentares/UNICO
+```
+
+**Processing** (`apps/web/scripts/build-fiscal.mjs`, `pnpm fiscal`; downloads
+are cached in `apps/web/scripts/.cache-fiscal`, which is gitignored). Output
+tuples in whole BRL:
+
+```
+{ referenceYear, sources,
+  municipios: [[codigo, arrecadacao, previdencia, ir, ipi,
+                transferencias, fpm, fundeb, emendas], ...] }
+```
+
+5,570 municípios, **422 KB**, loaded on demand alongside the demographic
+dataset. 2025 totals for the committed file: arrecadação R$ 2,757.1 bi
+(previdência 723.1, IR 914.6, IPI 86.3), transferências R$ 500.5 bi (FPM
+170.1, FUNDEB 261.5) and emendas R$ 43.3 bi.
+
+**Caveats worth knowing before trusting a single município's number:**
+
+- **Matching is by normalized name + UF**, because none of the three sources
+  publishes the IBGE code. Rows that fail to match are dropped and the script
+  reports the ignored volume.
+- **Collection is booked where the taxpayer pays**, not where the economic
+  activity happened: headquarters concentrate collection in a few capitals
+  (São Paulo alone books R$ 557 bi). This is a property of the source, not a
+  bug in the join.
+- **Previdência comes from the dedicated file, not the GPS sheet**: since 2021
+  most of the social-security take is paid via DARF, so the main file's GPS
+  sheet alone would understate it by roughly 50x.
+- **Two segments are derived on the front, not stored**: "demais tributos"
+  (arrecadação minus previdência, IR and IPI) and "outras transferências"
+  (transferências minus FPM and FUNDEB). The builder clamps the components so
+  neither derived slice can go negative.
+- **Emendas use the favorecido file** because ~96% of 2025 empenhos in the main
+  file carry no município (MÚLTIPLO / Nacional / UF), which makes the
+  favorecido payments the only usable municipal signal.
+
+**Role:** factual context, like the IBGE indicators. These are public figures
+about territories, not claims about power holders, so the content-safety rule
+(ARCHITECTURE.md section 5) is untouched.
+
 ## Rankings / entities (`apps/web/src/data/mock/*.json`)
 
 Hand-written **fictional placeholder data for UI development only** — every

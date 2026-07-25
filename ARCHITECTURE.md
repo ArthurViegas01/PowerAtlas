@@ -6,34 +6,51 @@
 > for each choice, deviations from the initial plan, and what is deliberately
 > deferred.
 
-## 1. High-level topology (Phase 1 — frontend only)
+## 1. High-level topology
 
 ```
 +----------------------------------------------------------------------+
-|  apps/web — Vite + Vue 3 + TypeScript (static build, no backend)     |
+|  apps/web  ·  Vite + Vue 3 + TypeScript (static build)               |
 |                                                                      |
 |  Pinia stores                                                        |
-|    selection   <- click/hover state from deck.gl picking             |
-|    rankings    <- services/dataSource  (mock JSON or FastAPI, per VITE_API_URL)      |
-|    mapLayers   <- derives a plain deck.gl "layer model" from both    |
+|    selection   <- click/hover state from deck.gl picking, view mode  |
+|    rankings    <- services/dataSource (mock JSON or API, VITE_API_URL)|
+|    mapLayers   <- plain deck.gl "layer model" + lazy municipal meshes |
+|    indicators  <- IBGE population/area/density/PIB (static JSON)     |
+|    demografia  <- centroid + pop + PIB of the 5.570 municipios       |
+|    fiscal      <- federal collection, transfers and amendments       |
+|    monitoring  <- ingested headlines from the API (F5b)              |
 |                                                                      |
 |  MapLibre GL JS (camera, minimal dark style)                         |
-|    + deck.gl MapboxOverlay                                           |
-|        GeoJsonLayer   world backdrop, dim + dashed ("em breve")      |
-|        GeoJsonLayer   state choropleth + national outline + picking  |
-|        ColumnLayer    3D twin extrusions at state capitals           |
-|        ArcLayer       cross-region influence links                   |
-|        HeatmapLayer   ambient activity while nothing is selected     |
+|    + deck.gl MapboxOverlay  ->  src/lib/deckLayers.ts (pure factory) |
+|        world backdrop · state choropleth · municipal mesh            |
+|        capital columns · demographic columns · fiscal bands + arcs   |
+|        boundary relief walls · ambient heatmap · labels              |
+|        (full stack and view modes: docs/map-layers.md)               |
 |                                                                      |
 |  GSAP choreography (panel stagger, counters, scan sweep)             |
 |    all gated by useReducedMotion()                                   |
 +----------------------------------------------------------------------+
-        |                                        |
-        v                                        v
-  public/geo/*.geojson                    src/data/mock/*.json
-  IBGE malhas, simplified                 fictional placeholder data
-  (docs/data-sources.md)                  (see §5 content-safety)
+     |                    |                          |
+     v                    v                          v
+ public/geo/*        public/data/*            apps/api (FastAPI)
+ IBGE malhas +       IBGE indicators,         GET /api/v1/power-data
+ Natural Earth       demografia, fiscal       GET /api/v1/monitoring/*
+ (docs/data-sources.md)                              |
+                                                     v
+                                        Postgres + PostGIS + pgvector
+                                        (db/migrations, raw asyncpg)
+                                                     ^
+                                                     |
+                                        Celery worker + Redis (F5)
+                                        RSS ingestion -> raw_documents
+
+ src/data/mock/*.json  ·  fictional placeholder rankings (see §5)
 ```
+
+The API is optional: without `VITE_API_URL` the web runs fully offline on the
+bundled mock, and without `PA_DATABASE_URL` the API itself serves that same
+mock. The payload is byte-identical along every path.
 
 ## 2. Key decisions
 
@@ -101,12 +118,46 @@ indicators store mirrors the mapLayers lazy-load pattern).
 ### 2.6 Mock data is shaped as the future API contract
 
 `src/types/power-entity.ts` (PowerRegion, PowerEntity, SourceCitation,
-ConfidenceLevel, ReviewStatus) is the exact JSON shape the Phase 2 FastAPI
-will serve. `services/mockDataLoader.ts` has the same async signature a
-future `apiClient.ts` will have, so the swap is a one-file change.
+ConfidenceLevel, ReviewStatus) is the exact JSON shape the FastAPI backend
+serves. The seam paid off in F3: `services/dataSource.ts` picks
+`apiClient.ts` (same async signature as `mockDataLoader.ts`) when
+`VITE_API_URL` is set, and nothing else in the app changed.
 `status`/`confidence`/`sources` exist on every entity *now* because the
 Phase 2 review workflow (draft → single-admin approval → published) needs
 them; the UI already renders draft entities distinctly to prove the seam.
+
+### 2.7 The demographic view is a separate read-only mode, not a layer toggle
+
+Population/PIB columns per município and the influence HUD compete for the
+same screen: both want the whole country, both want the camera, and both want
+clicks. Rather than layering them, the demographic view is a **mode** on the
+selection store (`demographicView`) that disables region selection entirely
+and swaps the layer set, the legend and the side menu. Two consequences worth
+knowing: Esc walks back through the mode's own levels before leaving it (city
+card, UF crop, then the view), and the mode owns its palette (`--pa-demo-*`)
+so nothing about it can be confused with the cyan/amber influence series.
+
+Column heights use the **square root** of the metric. Linear heights make São
+Paulo a needle and flatten the other 5,569 municípios into the ground plane.
+
+### 2.8 Fiscal flows as a built dataset, matched by name
+
+The fiscal overlay needs three federal sources (Receita Federal, Tesouro
+Nacional, Portal da Transparência) that publish incompatible spreadsheets,
+none of them keyed by IBGE code. `scripts/build-fiscal.mjs` does the join
+**offline, once**, and commits a 422 KB tuple file: the same script + output +
+provenance pattern as the meshes (§2.4) and the indicators (§2.5), for the
+same reason (the browser must never do this work, and the numbers must be
+reviewable in a diff).
+
+Matching is by normalized name + UF because the sources give nothing better;
+unmatched rows are dropped and the script reports the ignored volume. Two
+segments ("demais tributos", "outras transferências") are **derived on the
+front** from the stored components instead of being stored, so a value can
+never contradict its own total. Like the IBGE indicators, this data sits
+outside the frozen power-entity contract (§4) and is factual context about
+territories, not a claim about power holders (§5). Caveats that matter when
+reading a single município's number: docs/data-sources.md.
 
 ## 3. Deviations from the initial plan
 
@@ -173,13 +224,28 @@ byte-identical to the mock. The API reads from the DB when `PA_DATABASE_URL` is
 set and from the mock JSON otherwise, so unit tests and offline dev need no
 Postgres (DB tests are opt-in, `-m integration`).
 
+**Shipped in F5a/F5b:** the **pipeline infrastructure**. Celery + Redis
+(`src/worker/`), a custom database image carrying PostGIS *and* pgvector
+(`db/Dockerfile`), migration `0002_pipeline.sql` (ingest allowlist, deduped
+`raw_documents`, `doc_chunks` with an HNSW index, `scoring_runs`,
+`entity_candidates`, `candidate_citations`), and RSS ingestion from
+allowlisted institutional feeds (`src/ingest/`, `pnpm pipeline-ingest`),
+surfaced by the monitoring endpoint and the HUD's MONITORAMENTO panel.
+
+The safety property is enforced **in the database**, not just in code:
+`entity_candidates` carries `CHECK (status = 'draft')`, so the pipeline
+physically cannot write into the served tables. A parity test asserts the
+`power-data` payload is byte-identical before and after a pipeline run.
+
 Still deferred:
 
-- **Celery + Redis + pgvector**: news scraping → embedding → LLM scoring
-  pipeline for the "hidden power" indices.
-- **Review workflow**: draft/published gate, single admin approver, every
+- **F5c: embeddings + LLM scoring** (`doc_chunks` -> `entity_candidates` with
+  mandatory citations). **Paused deliberately** to avoid AI API costs; free
+  local alternatives (fastembed/ONNX embeddings, a heuristic "scoring v0" with
+  no LLM) are noted in PLAN.md section 3 for whenever it resumes.
+- **Review workflow (F6)**: draft/published gate, single admin approver, every
   AI-derived score requires a source citation before publish.
 - **Writes + auth**: the API is read-only; no mutation endpoints or auth yet.
-- **infra Terraform** — deferred; `docker-compose.yml` covers local infra.
-- **Full data coverage**: all 27 UFs + richer national layer (mock covers
-  BR + 5 sample states on purpose).
+- **infra Terraform**: deferred; `docker-compose.yml` covers local infra.
+- **Municipal rankings**: the municipal panel is factual-only until the
+  pipeline can produce scored entities.
