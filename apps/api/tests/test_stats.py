@@ -17,6 +17,7 @@ def test_stats_empty_without_database(client: TestClient) -> None:
     assert resp.status_code == 200
     body = resp.json()
     assert body["database"] is False
+    assert body["writesAllowed"] is False
     assert body["content"] == {
         "regions": 0,
         "entities": 0,

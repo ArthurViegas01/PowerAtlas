@@ -21,6 +21,7 @@ import type {
 } from '@/types/dataset'
 import type { DemografiaMunicipio } from '@/types/demografia'
 import type { FiscalMunicipio } from '@/types/fiscal'
+import type { ImportedDatasetDetail } from '@/types/importedDataset'
 import type { RegionIndicators, UfIndicatorsFile } from '@/types/indicators'
 import type { PowerRegion } from '@/types/power-entity'
 
@@ -269,6 +270,28 @@ export function buildRankingsDataset(regions: PowerRegion[]): TabularDataset {
         'DRAFT',
       ),
     ],
+  }
+}
+
+// -- Imported (operator-uploaded CSV/JSON) -----------------------------------
+
+export function buildImportedDataset(detail: ImportedDatasetDetail): TabularDataset {
+  const numeric = detail.columns.filter((c) => c.numeric)
+  const kpis: DatasetKpi[] = [kpi('REGISTROS', detail.rowCount, formatInt(detail.rowCount))]
+  // Sum the first two numeric columns as generic headline totals.
+  for (const column of numeric.slice(0, 2)) {
+    const total = sumColumn(detail.rows, column.key)
+    kpis.push(kpi(column.label, total, formatCell(column, total)))
+  }
+  return {
+    id: detail.id,
+    label: detail.name.toUpperCase(),
+    description: `Dataset importado · ${detail.rowCount} registros · ${detail.columns.length} colunas.`,
+    source: detail.source,
+    fictional: false,
+    columns: detail.columns,
+    rows: detail.rows,
+    kpis,
   }
 }
 

@@ -6,6 +6,11 @@
  * `VITE_API_URL`; the endpoint mirrors the aggregated shape the mock loader
  * builds locally (`GET /api/v1/power-data`).
  */
+import type {
+  ImportedDatasetDetail,
+  ImportedDatasetMeta,
+  ImportPayload,
+} from '@/types/importedDataset'
 import type { MonitoringDocument } from '@/types/monitoring'
 import type { RegionPowerData } from '@/types/power-entity'
 import type { StatsResponse } from '@/types/stats'
@@ -13,22 +18,38 @@ import type { StatsResponse } from '@/types/stats'
 const POWER_DATA_PATH = '/api/v1/power-data'
 const MONITORING_PATH = '/api/v1/monitoring/documents'
 const STATS_PATH = '/api/v1/stats'
+const DATASETS_PATH = '/api/v1/datasets'
 
 function endpoint(baseUrl: string, path: string): string {
   return `${baseUrl.replace(/\/+$/, '')}${path}`
 }
 
-async function fetchJson<T>(path: string): Promise<T> {
+function apiBase(): string {
   const baseUrl = import.meta.env.VITE_API_URL
   if (!baseUrl) throw new Error('VITE_API_URL is not set; cannot reach the API.')
+  return baseUrl
+}
 
-  const response = await fetch(endpoint(baseUrl, path), {
+async function fetchJson<T>(path: string): Promise<T> {
+  const response = await fetch(endpoint(apiBase(), path), {
     headers: { accept: 'application/json' },
   })
   if (!response.ok) {
     throw new Error(`API request failed: ${response.status} ${response.statusText}`)
   }
   return (await response.json()) as T
+}
+
+/** Turn an API error body ({detail: ...}) into a readable Error. */
+async function apiError(response: Response): Promise<Error> {
+  let detail = `${response.status} ${response.statusText}`
+  try {
+    const body = (await response.json()) as { detail?: string }
+    if (body.detail) detail = body.detail
+  } catch {
+    /* non-JSON body */
+  }
+  return new Error(detail)
 }
 
 export async function loadRegionPowerData(): Promise<RegionPowerData> {
@@ -44,4 +65,30 @@ export async function loadMonitoringDocuments(limit = 8): Promise<MonitoringDocu
 
 export async function loadStats(): Promise<StatsResponse> {
   return fetchJson<StatsResponse>(STATS_PATH)
+}
+
+export async function listDatasets(): Promise<ImportedDatasetMeta[]> {
+  const payload = await fetchJson<{ datasets: ImportedDatasetMeta[] }>(DATASETS_PATH)
+  return payload.datasets
+}
+
+export async function getDataset(id: string): Promise<ImportedDatasetDetail> {
+  return fetchJson<ImportedDatasetDetail>(`${DATASETS_PATH}/${id}`)
+}
+
+export async function importDataset(payload: ImportPayload): Promise<ImportedDatasetMeta> {
+  const response = await fetch(endpoint(apiBase(), `${DATASETS_PATH}/import`), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', accept: 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  if (!response.ok) throw await apiError(response)
+  return (await response.json()) as ImportedDatasetMeta
+}
+
+export async function deleteDataset(id: string): Promise<void> {
+  const response = await fetch(endpoint(apiBase(), `${DATASETS_PATH}/${id}`), {
+    method: 'DELETE',
+  })
+  if (!response.ok) throw await apiError(response)
 }

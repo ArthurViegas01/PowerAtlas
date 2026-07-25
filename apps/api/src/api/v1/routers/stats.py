@@ -11,6 +11,7 @@ from datetime import UTC, datetime
 
 from fastapi import APIRouter, Request
 
+from ....core.config import get_settings
 from ....models.stats import (
     ContentStats,
     DayCount,
@@ -56,6 +57,7 @@ def _empty() -> StatsResponse:
     return StatsResponse(
         generated_at=datetime.now(UTC),
         database=False,
+        writes_allowed=get_settings().allow_writes,
         content=ContentStats(regions=0, entities=0, ambient_signals=0, influence_links=0),
         pipeline=PipelineStats(
             documents=0, candidates=0, scoring_runs=0, sources=[], documents_by_day=[]
@@ -83,6 +85,7 @@ async def get_stats(request: Request) -> StatsResponse:
     return StatsResponse(
         generated_at=datetime.now(UTC),
         database=True,
+        writes_allowed=get_settings().allow_writes,
         content=ContentStats(
             regions=content_row["regions"],
             entities=content_row["entities"],

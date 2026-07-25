@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 
 import DataTable from '@/components/dashboard/DataTable.vue'
+import ImportDialog from '@/components/dashboard/ImportDialog.vue'
 import KpiTile from '@/components/dashboard/KpiTile.vue'
 import PipelinePanel from '@/components/dashboard/PipelinePanel.vue'
 import BarChart from '@/components/dashboard/charts/BarChart.vue'
@@ -14,6 +15,7 @@ import ScatterPlot from '@/components/dashboard/charts/ScatterPlot.vue'
 import {
   buildDemografiaDataset,
   buildFiscalDataset,
+  buildImportedDataset,
   buildIndicatorsDataset,
   buildRankingsDataset,
 } from '@/lib/datasets'
@@ -21,6 +23,7 @@ import { chartsFor } from '@/lib/datasetCharts'
 import { downloadText, toCsv, toJson } from '@/lib/csv'
 import { useDemografiaStore } from '@/stores/demografia'
 import { useFiscalStore } from '@/stores/fiscal'
+import { useImportedDatasetsStore } from '@/stores/importedDatasets'
 import { useIndicatorsStore } from '@/stores/indicators'
 import { useRankingsStore } from '@/stores/rankings'
 import { useStatsStore } from '@/stores/stats'
@@ -29,14 +32,16 @@ import type { TabularDataset } from '@/types/dataset'
 /**
  * Data console: a tabular/analytical view over every dataset the app manages.
  * Reuses the client-side stores (no re-fetch): IBGE indicators, the demographic
- * and fiscal municipal sets, and the fictional rankings. KPIs + a sortable,
- * searchable table + CSV/JSON export. Charts arrive in the next stage.
+ * and fiscal municipal sets, the fictional rankings, plus the pipeline/backend
+ * overview and operator-imported datasets. KPIs, SVG charts, a sortable table
+ * and CSV/JSON export.
  */
 const rankings = useRankingsStore()
 const indicators = useIndicatorsStore()
 const demografia = useDemografiaStore()
 const fiscal = useFiscalStore()
 const stats = useStatsStore()
+const imported = useImportedDatasetsStore()
 
 onMounted(() => {
   void rankings.load()
@@ -44,6 +49,7 @@ onMounted(() => {
   void demografia.load()
   void fiscal.load()
   void stats.load()
+  void imported.loadList()
 })
 
 /** 'pipeline' is a backend-observability view, not a TabularDataset. */
@@ -53,7 +59,7 @@ const nameByCodigo = computed(
   () => new Map(demografia.municipios.map((m) => [m.codigo, m.name])),
 )
 
-const datasets = computed<TabularDataset[]>(() => [
+const builtinDatasets = computed<TabularDataset[]>(() => [
   buildIndicatorsDataset(indicators.ufFile),
   buildDemografiaDataset(demografia.municipios, demografia.censusYear, demografia.gdpYear),
   buildFiscalDataset(fiscal.byCodigo, fiscal.referenceYear, nameByCodigo.value),
@@ -61,12 +67,43 @@ const datasets = computed<TabularDataset[]>(() => [
 ])
 
 const activeId = ref('indicators')
-/** The active dataset, or undefined when the pipeline view is selected. */
-const active = computed(() => datasets.value.find((d) => d.id === activeId.value))
+const showImport = ref(false)
+
+/** Whether the active id is an imported dataset. */
+const activeIsImported = computed(() => imported.list.some((d) => d.id === activeId.value))
+
+/** The active dataset, or undefined for the pipeline view or a not-yet-loaded import. */
+const active = computed<TabularDataset | undefined>(() => {
+  if (isPipeline.value) return undefined
+  const builtin = builtinDatasets.value.find((d) => d.id === activeId.value)
+  if (builtin) return builtin
+  const detail = imported.detailById.get(activeId.value)
+  return detail ? buildImportedDataset(detail) : undefined
+})
+
+// Fetch an imported dataset's rows the first time it is selected.
+watch(activeId, (id) => {
+  if (imported.list.some((d) => d.id === id)) void imported.loadDetail(id)
+})
+
+function onImported(id: string) {
+  showImport.value = false
+  activeId.value = id
+  void imported.loadDetail(id)
+}
+
+async function removeActive() {
+  const id = activeId.value
+  if (!activeIsImported.value) return
+  await imported.remove(id)
+  activeId.value = 'indicators'
+}
 
 // indicators store loads a 3 KB file at boot and exposes no loading flag; the
 // two big municipal sets are what a spinner would be waiting on.
-const loading = computed(() => rankings.loading || demografia.loading || fiscal.loading)
+const loading = computed(
+  () => rankings.loading || demografia.loading || fiscal.loading || imported.loading,
+)
 
 const charts = computed(() => (active.value ? chartsFor(active.value) : []))
 
@@ -98,7 +135,7 @@ function exportJson() {
     <main class="console-body">
       <nav class="dataset-tabs" aria-label="Conjuntos de dados">
         <button
-          v-for="ds in datasets"
+          v-for="ds in builtinDatasets"
           :key="ds.id"
           class="ds-tab pa-data"
           :class="{ 'ds-tab--active': ds.id === activeId, 'ds-tab--fictional': ds.fictional }"
@@ -106,6 +143,24 @@ function exportJson() {
           @click="activeId = ds.id"
         >
           {{ ds.label }}
+        </button>
+        <button
+          v-for="ds in imported.list"
+          :key="ds.id"
+          class="ds-tab ds-tab--imported pa-data"
+          :class="{ 'ds-tab--active': ds.id === activeId }"
+          type="button"
+          @click="activeId = ds.id"
+        >
+          {{ ds.name.toUpperCase() }}
+        </button>
+        <button
+          v-if="stats.data?.writesAllowed"
+          class="ds-tab ds-tab--action pa-data"
+          type="button"
+          @click="showImport = true"
+        >
+          + IMPORTAR
         </button>
         <button
           v-if="stats.available"
@@ -130,6 +185,14 @@ function exportJson() {
           <div class="panel-actions">
             <button class="action pa-data" type="button" @click="exportCsv">EXPORTAR CSV</button>
             <button class="action pa-data" type="button" @click="exportJson">EXPORTAR JSON</button>
+            <button
+              v-if="activeIsImported"
+              class="action action-danger pa-data"
+              type="button"
+              @click="removeActive"
+            >
+              REMOVER
+            </button>
           </div>
         </div>
 
@@ -181,7 +244,13 @@ function exportJson() {
           <DataTable :dataset="active" />
         </template>
       </section>
+
+      <p v-else class="loading pa-data">
+        CARREGANDO DATASET<span class="pa-blink">▌</span>
+      </p>
     </main>
+
+    <ImportDialog v-if="showImport" @close="showImport = false" @imported="onImported" />
 
     <footer class="disclaimer pa-data" role="note">
       ⚠ {{ rankings.disclaimer || 'PROTÓTIPO · DADOS SIMULADOS · ENTIDADES FICTÍCIAS' }}
@@ -288,8 +357,38 @@ function exportJson() {
   border-color: color-mix(in srgb, var(--pa-series-hidden) 40%, transparent);
 }
 
+.ds-tab--imported {
+  color: var(--pa-confidence-high);
+  border-color: color-mix(in srgb, var(--pa-confidence-high) 40%, transparent);
+}
+
+.ds-tab--imported.ds-tab--active {
+  color: var(--pa-bg-void);
+  background: var(--pa-confidence-high);
+  border-color: var(--pa-confidence-high);
+}
+
+.ds-tab--action {
+  color: var(--pa-text-dim);
+  border-style: dashed;
+}
+
+.ds-tab--action:hover {
+  color: var(--pa-series-official);
+  border-color: var(--pa-border-cyan);
+}
+
 .ds-tab--pipeline {
   margin-left: auto;
+}
+
+.action-danger {
+  color: var(--pa-danger);
+  border-color: color-mix(in srgb, var(--pa-danger) 40%, transparent);
+}
+
+.action-danger:hover {
+  box-shadow: 0 0 12px color-mix(in srgb, var(--pa-danger) 40%, transparent);
 }
 
 .dataset-panel {

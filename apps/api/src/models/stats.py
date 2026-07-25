@@ -56,5 +56,7 @@ class PipelineStats(_Base):
 class StatsResponse(_Base):
     generated_at: datetime
     database: bool
+    # Whether the dataset import/delete endpoints are enabled (PA_ALLOW_WRITES).
+    writes_allowed: bool
     content: ContentStats
     pipeline: PipelineStats

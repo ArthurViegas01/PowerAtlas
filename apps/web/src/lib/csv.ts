@@ -1,5 +1,10 @@
 import type { CellValue, DatasetColumn } from '@/types/dataset'
 
+export interface ParsedCsv {
+  columns: DatasetColumn[]
+  rows: Record<string, CellValue>[]
+}
+
 /** Quote a CSV field when it holds a delimiter, quote or newline (RFC 4180). */
 function escapeCsv(value: CellValue): string {
   if (value == null) return ''
@@ -23,6 +28,102 @@ export function toJson(columns: DatasetColumn[], rows: Record<string, CellValue>
   const keys = columns.map((c) => c.key)
   const shaped = rows.map((row) => Object.fromEntries(keys.map((k) => [k, row[k] ?? null])))
   return JSON.stringify(shaped, null, 2)
+}
+
+/**
+ * Parse CSV text into fields. Handles quoted fields, escaped quotes and commas
+ * or newlines inside quotes (RFC 4180). Returns a matrix of string cells.
+ */
+function parseCsvGrid(text: string): string[][] {
+  const rows: string[][] = []
+  let row: string[] = []
+  let field = ''
+  let quoted = false
+  const src = text.replace(/\r\n?/g, '\n')
+  for (let i = 0; i < src.length; i++) {
+    const char = src[i]
+    if (quoted) {
+      if (char === '"' && src[i + 1] === '"') {
+        field += '"'
+        i++
+      } else if (char === '"') {
+        quoted = false
+      } else {
+        field += char
+      }
+    } else if (char === '"') {
+      quoted = true
+    } else if (char === ',') {
+      row.push(field)
+      field = ''
+    } else if (char === '\n') {
+      row.push(field)
+      rows.push(row)
+      row = []
+      field = ''
+    } else {
+      field += char
+    }
+  }
+  // Flush the last field/row unless the input ended on a clean newline.
+  if (field !== '' || row.length > 0) {
+    row.push(field)
+    rows.push(row)
+  }
+  return rows
+}
+
+/** Detect whether every non-empty cell in a column is a number. */
+function detectNumeric(cells: string[]): { numeric: boolean; allInteger: boolean } {
+  let sawValue = false
+  let allInteger = true
+  for (const cell of cells) {
+    const trimmed = cell.trim()
+    if (trimmed === '') continue
+    sawValue = true
+    const normalized = trimmed.replace(/\s/g, '')
+    if (!/^-?\d+(\.\d+)?$/.test(normalized)) return { numeric: false, allInteger: false }
+    if (normalized.includes('.')) allInteger = false
+  }
+  return { numeric: sawValue, allInteger }
+}
+
+/**
+ * Parse a CSV file into a console-ready dataset: the first line is the header
+ * (column keys), and each column's type is inferred from its values (numeric
+ * when every non-empty cell is a number). Empty numeric cells become null.
+ */
+export function parseCsvDataset(text: string): ParsedCsv {
+  const grid = parseCsvGrid(text).filter((r) => r.some((c) => c.trim() !== ''))
+  if (grid.length === 0) return { columns: [], rows: [] }
+  const header = grid[0].map((h, i) => h.trim() || `coluna_${i + 1}`)
+  const body = grid.slice(1)
+
+  const columns: DatasetColumn[] = header.map((key, col) => {
+    const cells = body.map((r) => r[col] ?? '')
+    const { numeric, allInteger } = detectNumeric(cells)
+    return {
+      key,
+      label: key.toUpperCase(),
+      numeric,
+      format: numeric ? (allInteger ? 'int' : 'decimal') : 'text',
+    }
+  })
+
+  const rows: Record<string, CellValue>[] = body.map((cells) => {
+    const row: Record<string, CellValue> = {}
+    columns.forEach((column, col) => {
+      const raw = (cells[col] ?? '').trim()
+      if (column.numeric) {
+        row[column.key] = raw === '' ? null : Number(raw.replace(/\s/g, ''))
+      } else {
+        row[column.key] = raw
+      }
+    })
+    return row
+  })
+
+  return { columns, rows }
 }
 
 /** Trigger a client-side file download for a text blob. */

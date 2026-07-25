@@ -34,6 +34,8 @@ export interface PipelineStats {
 export interface StatsResponse {
   generatedAt: string
   database: boolean
+  /** Whether the dataset import/delete endpoints are enabled (PA_ALLOW_WRITES). */
+  writesAllowed: boolean
   content: ContentStats
   pipeline: PipelineStats
 }
