@@ -159,6 +159,30 @@ outside the frozen power-entity contract (§4) and is factual context about
 territories, not a claim about power holders (§5). Caveats that matter when
 reading a single município's number: docs/data-sources.md.
 
+### 2.9 The data console is a second route, and imports live in an isolated namespace
+
+The map answers "where"; it is a poor tool for "what data do we hold, and is it
+sane". The **data console** (`/dados`, docs/data-console.md) is a separate
+route (vue-router, the app's first) for tabular/analytical work: KPIs, charts,
+a table, export, backend observability, and CSV import. It reuses the Pinia
+stores the map already fills, so the factual datasets are never re-fetched, and
+it reuses the design tokens, so it reads as the same product.
+
+Charts are **hand-rolled SVG/CSS**, no charting library: the aesthetic is too
+specific and the bundle discipline too deliberate to hand off to one. A generic
+engine (`lib/datasetCharts.ts`) derives the chart set from column metadata, so
+the built-in and imported datasets render identically.
+
+**Import persists, but into a walled-off namespace.** The console can upload a
+CSV and store it, which means the API takes its first writes. To keep the
+content-safety rule (§5) and the read-only power contract intact, those writes
+go **only** to a new `datasets` / `dataset_rows` namespace (migration 0003)
+with no path to the served tables. A parity test asserts `GET /api/v1/power-data`
+is byte-identical before and after an import. Writes are gated behind
+`PA_ALLOW_WRITES` (off by default), a minimal guard until real auth arrives with
+the review workflow (F6). Export stays client-side and uniform across every
+dataset, so there is no server export endpoint.
+
 ## 3. Deviations from the initial plan
 
 ### 3.1 Tailwind CSS v4 (CSS-first) instead of `tailwind.config.ts`

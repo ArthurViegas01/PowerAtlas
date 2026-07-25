@@ -5,7 +5,10 @@ already uses (`apps/web/src/types/power-entity.ts`), plus the monitoring feed
 of the F5 ingestion pipeline, and it hosts the Celery worker code that fills
 that feed.
 
-Still deliberately narrow: **no writes, no auth**. Those arrive with the review
+Reads are open and cover the power contract, the monitoring feed and a stats
+overview. The only writes are the data console's dataset import/delete, gated
+behind `PA_ALLOW_WRITES` and confined to an isolated `datasets` namespace that
+can never affect the served power data. Real auth still arrives with the review
 workflow (see the root `PLAN.md` and `ARCHITECTURE.md` section 6).
 
 ## Layout
@@ -42,6 +45,15 @@ with the web). It is the fallback whenever no database is configured.
 - `GET /api/v1/monitoring/documents?limit=20` -> latest ingested headlines
   (source, title, url, publication date), newest first. Database-only by
   design: with no pool it returns an empty list and the web hides the panel.
+- `GET /api/v1/stats` -> counts of the served tables and the pipeline staging
+  (documents by source and by day, candidates), plus `writesAllowed`. Feeds the
+  data console's PIPELINE + BANCO panel. Database-only; empty envelope
+  otherwise.
+- `GET /api/v1/datasets`, `GET /api/v1/datasets/{id}` -> the operator-imported
+  datasets (isolated `datasets` namespace). Reads are open.
+- `POST /api/v1/datasets/import`, `DELETE /api/v1/datasets/{id}` -> **gated by
+  `PA_ALLOW_WRITES`** (403 otherwise). Writes touch only the `datasets`
+  namespace, never the served tables; the power-data parity test proves it.
 
 ## Running
 
