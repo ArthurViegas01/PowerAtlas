@@ -4,3 +4,10 @@
 
 [build.environment]
   NODE_VERSION = "22"
+
+# SPA fallback: vue-router history mode serves every path from index.html, so a
+# hard reload on /dados resolves instead of 404ing.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
