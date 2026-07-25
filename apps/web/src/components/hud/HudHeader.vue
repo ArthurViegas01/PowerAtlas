@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { RouterLink } from 'vue-router'
 
 import { useSelectionStore } from '@/stores/selection'
 
@@ -59,6 +60,9 @@ const readout = computed(() => {
       >
         VISÃO DEMOGRÁFICA [BR]
       </button>
+      <RouterLink to="/dados" class="national-btn console-link pa-data" title="Abrir o console de dados">
+        CONSOLE DE DADOS
+      </RouterLink>
     </div>
   </header>
 </template>
@@ -121,6 +125,17 @@ const readout = computed(() => {
 
 .national-btn:hover:not(:disabled) {
   box-shadow: var(--pa-glow-cyan);
+}
+
+/* Router link styled as a button; amber accent sets the console apart. */
+.console-link {
+  text-decoration: none;
+  color: var(--pa-series-hidden);
+  border-color: color-mix(in srgb, var(--pa-series-hidden) 45%, transparent);
+}
+
+.console-link:hover {
+  box-shadow: var(--pa-glow-amber);
 }
 
 .national-btn:disabled {

@@ -44,12 +44,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         lifespan=lifespan,
     )
 
-    # Explicit origin allowlist (web dev + preview). No wildcard.
+    # Explicit origin allowlist (web dev + preview). No wildcard. POST/DELETE
+    # are for the data console's dataset import/delete, themselves gated by
+    # PA_ALLOW_WRITES and confined to the isolated `datasets` namespace.
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
         allow_credentials=False,
-        allow_methods=["GET"],
+        allow_methods=["GET", "POST", "DELETE"],
         allow_headers=["*"],
     )
 
@@ -69,11 +71,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         """Liveness probe: process is up, reports whether a database is wired."""
         return {"status": "ok", "version": app.version, "database": settings.use_database}
 
+    from .api.v1.routers.datasets import router as datasets_router
     from .api.v1.routers.monitoring import router as monitoring_router
     from .api.v1.routers.power_data import router as power_data_router
+    from .api.v1.routers.stats import router as stats_router
 
     app.include_router(power_data_router, prefix="/api")
     app.include_router(monitoring_router, prefix="/api")
+    app.include_router(stats_router, prefix="/api")
+    app.include_router(datasets_router, prefix="/api")
 
     return app
 

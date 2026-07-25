@@ -121,6 +121,17 @@ view propagates a wave from the click point; columns bounce as the front
 passes and settle back. Contained to the selected state (by IBGE code prefix,
 so neighbours stay still) and disabled under `prefers-reduced-motion`.
 
+**Data console (`/dados`).** A second screen for controlling the data itself,
+not the geography: every dataset (IBGE indicators, demographic, fiscal, the
+fictional rankings, and operator-imported CSVs) as KPIs, hand-rolled SVG charts
+(bars, histogram with log toggle, scatter, concentration curve, correlation
+heatmap), and a sortable/searchable table, plus CSV/JSON export. When a backend
+is connected it adds a PIPELINE + BANCO panel (served-table and ingestion
+counts, documents by source/day, latest headlines) and CSV import. Import
+persists into an isolated `datasets` namespace, gated by `PA_ALLOW_WRITES` and
+provably unable to touch the served power data
+([docs/data-console.md](docs/data-console.md)).
+
 Deviations from the original plans: [ARCHITECTURE.md](ARCHITECTURE.md) §3
 and [docs/data-sources.md](docs/data-sources.md). Next phases (scoring
 pipeline, review workflow): ARCHITECTURE.md §6.
@@ -250,9 +261,11 @@ region's ranking panel (any UF sigla or `BR`).
 
 ```
 apps/web/              frontend (Vite + Vue 3 + TS)
-  src/lib/             pure helpers: deck.gl layer factory, palette, geo, format
+  src/screens/         the two routes: MapScreen, DataConsoleScreen
+  src/lib/             pure helpers: deck.gl layer factory, palette, geo,
+                       format, stats, csv, dataset adapters
   src/stores/          Pinia: selection, rankings, mapLayers, indicators,
-                       demografia, fiscal, monitoring
+                       demografia, fiscal, monitoring, stats, importedDatasets
   scripts/             dataset builders (geo, indicators, demografia, fiscal)
   public/geo/          committed IBGE + Natural Earth meshes
   public/data/         committed indicator, demographic and fiscal datasets
@@ -274,6 +287,8 @@ PLAN.md                phase-by-phase state, conventions, roadmap (pt-BR)
   official source, how it was processed, and the caveats
 - [docs/map-layers.md](docs/map-layers.md): the deck.gl layer stack, the two
   view modes, the feature flags
+- [docs/data-console.md](docs/data-console.md): the `/dados` screen, its charts,
+  the pipeline panel and the isolated import namespace
 - [apps/api/README.md](apps/api/README.md): endpoints, layout, database and
   pipeline
 - [db/migrations/README.md](db/migrations/README.md): schema, migration

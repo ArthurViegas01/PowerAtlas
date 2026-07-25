@@ -43,6 +43,14 @@ class Settings(BaseSettings):
     def use_database(self) -> bool:
         return bool(self.database_url)
 
+    # -- Writes ------------------------------------------------------------
+    # The API is read-only for the power contract. This flag gates the data
+    # console's dataset import/delete endpoints, which write ONLY to the
+    # isolated `datasets` namespace (migration 0003), never to the served
+    # tables. Off by default; the local compose api service turns it on. A
+    # minimal guard until real auth arrives (F6).
+    allow_writes: bool = False
+
     # -- Worker / pipeline (F5) --------------------------------------------
     # Redis backs the Celery broker and result backend (dbs 1 and 2, with 0
     # reserved for direct use, mirroring Encaixe). Defaults target the

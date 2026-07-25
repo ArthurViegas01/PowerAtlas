@@ -227,9 +227,37 @@
   Contido ao estado pelo prefixo do código IBGE (vizinhos não se mexem) e
   gated por `prefers-reduced-motion`. Inclui o lift persistente do estado e a
   malha elevada como plataforma, desligados por `STATE_LIFT_ENABLED`.
+- **Console de dados (2026-07-25, `feat/web-data-console-a`, 4 etapas)**: tela
+  nova `/dados` para observabilidade dos dados (não da geografia).
+  `docs/data-console.md`. Introduz **vue-router** (primeira rota do app): o HUD
+  virou `screens/MapScreen.vue` sem mudar comportamento, `App.vue` é só o shell
+  com `<router-view>`, console lazy-loaded (chunk próprio). Stores ficam acima
+  do router (estado do mapa sobrevive à ida ao console). Etapas:
+  (A) shell + KPIs + tabela ordenável/buscável/paginada + export CSV/JSON, sobre
+  os datasets client-side (`lib/datasets.ts` adapta os stores a
+  `{columns, rows, kpis}`; `lib/csv.ts`).
+  (B) gráficos SVG próprios sem lib (`lib/stats.ts` com testes; motor genérico
+  `lib/datasetCharts.ts` deriva os 5 gráficos das colunas: barras, histograma
+  log, scatter, curva de concentração, heatmap de correlação; cores dos tokens,
+  reduced-motion respeitado).
+  (C) endpoint `GET /api/v1/stats` (read-only, DB-only) + painel PIPELINE +
+  BANCO (contagens servidas + ingestão por fonte/dia + manchetes; reusa
+  monitoring). Só aparece com `VITE_API_URL`.
+  (D) import de CSV com **persistência isolada**: migration `0003_datasets.sql`
+  (`datasets`/`dataset_rows`, namespace sem relação com as tabelas servidas),
+  guard `PA_ALLOW_WRITES` (default false; compose api liga), endpoints
+  import/delete gated, CORS libera POST/DELETE. `parseCsvDataset` no front
+  (inferência de tipo); dataset importado reusa o motor genérico. **Teste de
+  paridade garante `power-data` byte-idêntico antes/depois do import** (regra de
+  conteúdo intacta). Export segue client-side, uniforme.
+  Verificado ponta a ponta no browser (stack no ar, ingest de 45 docs, import →
+  KPIs/gráficos → remover → banco vazio, paridade ok). build + 76 testes web +
+  typecheck; pytest stats/datasets unit+integration; ruff/mypy verdes.
 - **Pendências conhecidas da trilha frontend**: ranking por município
   (depende da F5); reativar a dimensão oculta (flip do flag) quando F5/F6
-  existirem. (Tooltip de hover validado com mouse real em 2026-07-22.)
+  existirem. Venv host da API está defasada (sem `celery` da F5a): rodar a
+  suíte completa exige `pnpm api-install` de novo, ou o container. (Tooltip de
+  hover validado com mouse real em 2026-07-22.)
 
 ## 2. Convenções obrigatórias (não pular)
 

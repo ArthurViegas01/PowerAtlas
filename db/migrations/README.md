@@ -20,6 +20,12 @@ layer is raw asyncpg, mirroring the Encaixe house pattern.
   human review gate (F6). This is the content-safety rule of
   ARCHITECTURE.md section 5 expressed in the schema instead of in code.
 
+- `0003_datasets.sql`: the data console's operator-imported datasets. `datasets`
+  (metadata + column descriptors as jsonb) and `dataset_rows` (rows as jsonb,
+  order preserved). A **separate namespace** with no relationship to the served
+  power-entity tables: the import endpoint writes only here, so the power-data
+  payload is never affected (docs/data-console.md).
+
 pgvector plus PostGIS in one server needs a custom image, so the compose
 `postgres` service builds `db/Dockerfile` (postgis/postgis:16-3.4 +
 postgresql-16-pgvector) instead of pulling an image.
