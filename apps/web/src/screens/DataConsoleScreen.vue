@@ -4,6 +4,7 @@ import { RouterLink } from 'vue-router'
 
 import DataTable from '@/components/dashboard/DataTable.vue'
 import KpiTile from '@/components/dashboard/KpiTile.vue'
+import PipelinePanel from '@/components/dashboard/PipelinePanel.vue'
 import BarChart from '@/components/dashboard/charts/BarChart.vue'
 import ChartCard from '@/components/dashboard/charts/ChartCard.vue'
 import CorrelationHeatmap from '@/components/dashboard/charts/CorrelationHeatmap.vue'
@@ -22,6 +23,7 @@ import { useDemografiaStore } from '@/stores/demografia'
 import { useFiscalStore } from '@/stores/fiscal'
 import { useIndicatorsStore } from '@/stores/indicators'
 import { useRankingsStore } from '@/stores/rankings'
+import { useStatsStore } from '@/stores/stats'
 import type { TabularDataset } from '@/types/dataset'
 
 /**
@@ -34,13 +36,18 @@ const rankings = useRankingsStore()
 const indicators = useIndicatorsStore()
 const demografia = useDemografiaStore()
 const fiscal = useFiscalStore()
+const stats = useStatsStore()
 
 onMounted(() => {
   void rankings.load()
   void indicators.loadUf()
   void demografia.load()
   void fiscal.load()
+  void stats.load()
 })
+
+/** 'pipeline' is a backend-observability view, not a TabularDataset. */
+const isPipeline = computed(() => activeId.value === 'pipeline')
 
 const nameByCodigo = computed(
   () => new Map(demografia.municipios.map((m) => [m.codigo, m.name])),
@@ -54,9 +61,8 @@ const datasets = computed<TabularDataset[]>(() => [
 ])
 
 const activeId = ref('indicators')
-const active = computed(
-  () => datasets.value.find((d) => d.id === activeId.value) ?? datasets.value[0],
-)
+/** The active dataset, or undefined when the pipeline view is selected. */
+const active = computed(() => datasets.value.find((d) => d.id === activeId.value))
 
 // indicators store loads a 3 KB file at boot and exposes no loading flag; the
 // two big municipal sets are what a spinner would be waiting on.
@@ -65,10 +71,12 @@ const loading = computed(() => rankings.loading || demografia.loading || fiscal.
 const charts = computed(() => (active.value ? chartsFor(active.value) : []))
 
 function exportCsv() {
+  if (!active.value) return
   downloadText(`poweratlas-${active.value.id}.csv`, 'text/csv', toCsv(active.value.columns, active.value.rows))
 }
 
 function exportJson() {
+  if (!active.value) return
   downloadText(
     `poweratlas-${active.value.id}.json`,
     'application/json',
@@ -99,9 +107,20 @@ function exportJson() {
         >
           {{ ds.label }}
         </button>
+        <button
+          v-if="stats.available"
+          class="ds-tab ds-tab--pipeline pa-data"
+          :class="{ 'ds-tab--active': isPipeline }"
+          type="button"
+          @click="activeId = 'pipeline'"
+        >
+          PIPELINE + BANCO
+        </button>
       </nav>
 
-      <section v-if="active" class="dataset-panel">
+      <PipelinePanel v-if="isPipeline" />
+
+      <section v-else-if="active" class="dataset-panel">
         <div class="panel-head">
           <div>
             <h1 class="panel-title pa-data">{{ active.label }}</h1>
@@ -267,6 +286,10 @@ function exportJson() {
 .ds-tab--fictional:not(.ds-tab--active) {
   color: var(--pa-series-hidden);
   border-color: color-mix(in srgb, var(--pa-series-hidden) 40%, transparent);
+}
+
+.ds-tab--pipeline {
+  margin-left: auto;
 }
 
 .dataset-panel {

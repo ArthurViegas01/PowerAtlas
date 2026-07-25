@@ -8,9 +8,11 @@
  */
 import type { MonitoringDocument } from '@/types/monitoring'
 import type { RegionPowerData } from '@/types/power-entity'
+import type { StatsResponse } from '@/types/stats'
 
 const POWER_DATA_PATH = '/api/v1/power-data'
 const MONITORING_PATH = '/api/v1/monitoring/documents'
+const STATS_PATH = '/api/v1/stats'
 
 function endpoint(baseUrl: string, path: string): string {
   return `${baseUrl.replace(/\/+$/, '')}${path}`
@@ -38,4 +40,8 @@ export async function loadMonitoringDocuments(limit = 8): Promise<MonitoringDocu
     `${MONITORING_PATH}?limit=${limit}`,
   )
   return payload.documents
+}
+
+export async function loadStats(): Promise<StatsResponse> {
+  return fetchJson<StatsResponse>(STATS_PATH)
 }

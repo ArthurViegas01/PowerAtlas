@@ -71,9 +71,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     from .api.v1.routers.monitoring import router as monitoring_router
     from .api.v1.routers.power_data import router as power_data_router
+    from .api.v1.routers.stats import router as stats_router
 
     app.include_router(power_data_router, prefix="/api")
     app.include_router(monitoring_router, prefix="/api")
+    app.include_router(stats_router, prefix="/api")
 
     return app
 
