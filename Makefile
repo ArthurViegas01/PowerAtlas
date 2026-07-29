@@ -1,7 +1,7 @@
 # PowerAtlas — common development commands.
 
 .PHONY: help web-install web-dev web-build web-preview web-typecheck web-test \
-	geo-refresh indicators demografia fiscal \
+	geo-refresh subdivisoes indicators demografia fiscal \
 	api-install api-dev api-test api-lint db-up db-down db-migrate db-seed migrate \
 	redis-up worker-dev pipeline-ingest
 
@@ -14,6 +14,7 @@ help:
 	@echo "  make web-typecheck  Run vue-tsc --noEmit"
 	@echo "  make web-test       Run the web test suite (vitest)"
 	@echo "  make geo-refresh    Re-fetch + simplify IBGE boundary files"
+	@echo "  make subdivisoes    Rebuild the IBGE bairro/distrito meshes (network)"
 	@echo "  make indicators     Re-fetch the IBGE factual indicators"
 	@echo "  make demografia     Rebuild the demographic dataset (offline join)"
 	@echo "  make fiscal         Rebuild the fiscal-flow dataset (needs network)"
@@ -49,6 +50,9 @@ web-test:
 
 geo-refresh:
 	pnpm --filter @poweratlas/web geo
+
+subdivisoes:
+	pnpm --filter @poweratlas/web subdivisoes
 
 indicators:
 	pnpm --filter @poweratlas/web indicators
