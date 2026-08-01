@@ -2,15 +2,22 @@
 import type { PickingInfo } from '@deck.gl/core'
 import { MapboxOverlay } from '@deck.gl/mapbox'
 import maplibregl from 'maplibre-gl'
-import { computed, onBeforeUnmount, onMounted, ref, watch, watchEffect } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, watchEffect } from 'vue'
 
 import { useReducedMotion } from '@/composables/useReducedMotion'
 import { buildDeckLayers } from '@/lib/deckLayers'
-import type { Bounds, BoundaryFeature, MunicipioFeature, WorldFeature } from '@/lib/geo'
+import type {
+  SubdivisaoFeature,
+  Bounds,
+  BoundaryFeature,
+  MunicipioFeature,
+  WorldFeature,
+} from '@/lib/geo'
 import { baseMapStyle } from '@/lib/mapStyle'
+import { useComercioStore } from '@/stores/comercio'
 import { useDemografiaStore } from '@/stores/demografia'
 import { useMapLayersStore } from '@/stores/mapLayers'
-import { useSelectionStore } from '@/stores/selection'
+import { useSelectionStore, type SubdivisaoRef } from '@/stores/selection'
 import type { DemografiaMunicipio } from '@/types/demografia'
 
 const emit = defineEmits<{ (event: 'region-selected', regionId: string): void }>()
@@ -19,6 +26,7 @@ const container = ref<HTMLDivElement | null>(null)
 const selection = useSelectionStore()
 const mapLayers = useMapLayersStore()
 const demografia = useDemografiaStore()
+const comercio = useComercioStore()
 const reduced = useReducedMotion()
 
 let map: maplibregl.Map | null = null
@@ -54,6 +62,69 @@ const horizonFadeOpacity = computed(() => {
   return t * 0.8
 })
 
+// Country name labels for the trade view live as an HTML overlay (not a deck
+// TextLayer): crisp at any zoom, upright, and drawn above the horizon fade so
+// tilting never clips them. Brazil's tag is gold over its green territory.
+//
+// The reactive list only holds WHICH labels exist (rebuilt on data change);
+// their screen positions are written imperatively straight to the DOM on every
+// map 'render'/'move', the way maplibre's own markers track the camera — so
+// dragging never leaves them lagging behind a Vue reactivity tick.
+interface TradeLabel {
+  key: string
+  text: string
+  color: string
+  lon: number
+  lat: number
+  selected: boolean
+  brasil: boolean
+}
+const tradeLabels = ref<TradeLabel[]>([])
+const labelsContainer = ref<HTMLDivElement | null>(null)
+const BRASIL_LABEL_RGB: [number, number, number] = [235, 200, 75]
+
+function rebuildTradeLabels() {
+  const model = mapLayers.layerModel
+  const out: TradeLabel[] = []
+  if (model.globalIdle) {
+    const [r, g, b] = BRASIL_LABEL_RGB
+    out.push({ key: 'BR', text: 'BRASIL', color: `rgb(${r}, ${g}, ${b})`, lon: -52.5, lat: -10.5, selected: false, brasil: true })
+  }
+  for (const highlight of model.trade.highlights) {
+    const [r, g, b] = highlight.color
+    out.push({
+      key: highlight.iso,
+      text: highlight.name.toUpperCase(),
+      color: `rgb(${r}, ${g}, ${b})`,
+      lon: highlight.coordinates[0],
+      lat: highlight.coordinates[1],
+      selected: highlight.selected,
+      brasil: false,
+    })
+  }
+  tradeLabels.value = out
+  // Position the freshly-rendered spans once Vue has committed them.
+  void nextTick(positionTradeLabels)
+}
+
+/** Write each label's screen position straight to the DOM (no reactivity). */
+function positionTradeLabels() {
+  if (!map || !labelsContainer.value) return
+  const width = map.getContainer().clientWidth
+  const height = map.getContainer().clientHeight
+  for (const node of Array.from(labelsContainer.value.children) as HTMLElement[]) {
+    const lon = Number(node.dataset.lon)
+    const lat = Number(node.dataset.lat)
+    const point = map.project([lon, lat])
+    if (point.x < -60 || point.x > width + 60 || point.y < -30 || point.y > height + 30) {
+      node.style.display = 'none'
+      continue
+    }
+    node.style.display = ''
+    node.style.transform = `translate(-50%, -50%) translate(${point.x}px, ${point.y}px)`
+  }
+}
+
 // North-up on open (BRG 000) — the old cinematic tilt (-8) read as "the map
 // renders slightly rotated" rather than intentional.
 const NATIONAL_CAMERA = {
@@ -79,6 +150,13 @@ const CONTEXT_PITCH = {
 
 /** Hard tilt range: MapLibre supports up to 85° (default caps at 60). */
 const MAX_PITCH = 85
+
+/**
+ * Deepest zoom the map allows. Was 9 (município framing) until the subdivision
+ * mesh landed; 12 is about as close as those polygons stay honest at the
+ * simplification scripts/fetch-subdivisoes.mjs applies.
+ */
+const MAX_ZOOM = 12
 
 /** Last framing applied — tells the AUTO reset which preset to ease back to. */
 let cameraContext: keyof typeof CONTEXT_BEARING = 'national'
@@ -118,6 +196,28 @@ function handleMunicipioHover(info: PickingInfo<MunicipioFeature>) {
     selection.setHoverPoint({ x: info.x, y: info.y })
   } else {
     selection.setHoveredMunicipio(null)
+  }
+}
+
+/**
+ * The mesh features carry the Censo readouts but not which division they
+ * belong to — that is a property of the município, so it comes from the
+ * coverage index.
+ */
+function subdivisaoRefFrom(feature: SubdivisaoFeature): SubdivisaoRef {
+  const level =
+    mapLayers.subdivisaoInfoFor(selection.drilledMunicipioCodigo)?.level ?? 'bairro'
+  const { codigo, name, population, households, areaKm2, density } = feature.properties
+  return { codigo, name, level, population, households, areaKm2, density }
+}
+
+function handleSubdivisaoHover(info: PickingInfo<SubdivisaoFeature>) {
+  const feature = info.object
+  if (feature) {
+    selection.setHoveredSubdivisao(subdivisaoRefFrom(feature))
+    selection.setHoverPoint({ x: info.x, y: info.y })
+  } else {
+    selection.setHoveredSubdivisao(null)
   }
 }
 
@@ -166,6 +266,11 @@ function handleWorldHover(info: PickingInfo<WorldFeature>) {
   if (feature) selection.setHoverPoint({ x: info.x, y: info.y })
 }
 
+/** Open a subdivision from a picking hit (same move in both views). */
+function selectSubdivisaoFrom(info: PickingInfo<SubdivisaoFeature>, point: { x: number; y: number }) {
+  selection.selectSubdivisao(subdivisaoRefFrom(info.object!), point)
+}
+
 function handleClick(event: maplibregl.MapMouseEvent) {
   if (!overlay) return
   // Demographic view, two-step focus: the first click (column, footprint or
@@ -177,7 +282,9 @@ function handleClick(event: maplibregl.MapMouseEvent) {
     const info = overlay.pickObject({
       ...point,
       radius: 4,
-      layerIds: ['demografia-columns', 'municipal-borders', 'states-choropleth'],
+      // 'bairros' first: once the camera is inside a city, its bairros own the
+      // clicks that would otherwise land on the município footprint below.
+      layerIds: ['subdivisoes', 'demografia-columns', 'municipal-borders', 'states-choropleth'],
     })
     const openCityCard = (municipio: DemografiaMunicipio) => {
       selection.selectDemografia(
@@ -202,7 +309,9 @@ function handleClick(event: maplibregl.MapMouseEvent) {
       const municipio = muniByCodigo.value.get(codigo)
       if (municipio) openCityCard(municipio)
     }
-    if (info?.layer?.id === 'demografia-columns') {
+    if (info?.layer?.id === 'subdivisoes') {
+      selectSubdivisaoFrom(info as PickingInfo<SubdivisaoFeature>, point)
+    } else if (info?.layer?.id === 'demografia-columns') {
       focus((info as PickingInfo<DemografiaMunicipio>).object!.codigo)
     } else if (info?.layer?.id === 'municipal-borders') {
       focus((info as PickingInfo<MunicipioFeature>).object!.properties.codigo)
@@ -217,9 +326,11 @@ function handleClick(event: maplibregl.MapMouseEvent) {
   const info = overlay.pickObject({
     ...point,
     radius: 4,
-    layerIds: ['municipios', 'states-choropleth', 'world-countries'],
+    layerIds: ['subdivisoes', 'municipios', 'states-choropleth', 'world-countries'],
   })
-  if (info?.layer?.id === 'municipios') {
+  if (info?.layer?.id === 'subdivisoes') {
+    selectSubdivisaoFrom(info as PickingInfo<SubdivisaoFeature>, point)
+  } else if (info?.layer?.id === 'municipios') {
     const { codigo, name } = (info as PickingInfo<MunicipioFeature>).object!.properties
     selection.selectMunicipio(codigo, name, point)
   } else if (info?.layer?.id === 'states-choropleth') {
@@ -228,7 +339,14 @@ function handleClick(event: maplibregl.MapMouseEvent) {
     emit('region-selected', UF)
   } else if (info?.layer?.id === 'world-countries') {
     const { iso, name } = (info as PickingInfo<WorldFeature>).object!.properties
-    selection.lockWorld({ iso, name }, point)
+    // With the trade arrows on, a country with trade data opens its trade
+    // panel (and explodes its sector arcs); otherwise it falls back to the
+    // "região não mapeada" lock panel.
+    if (selection.tradeVisible && !selection.demographicView && comercio.byIso.get(iso)) {
+      selection.selectTradePartner({ iso, name }, point)
+    } else {
+      selection.lockWorld({ iso, name }, point)
+    }
   } else {
     selection.closePanels()
   }
@@ -344,6 +462,32 @@ function flyToMunicipio(uf: string, codigo: string) {
   })
 }
 
+/**
+ * Close in on one bairro. Same framing as the município flight, just deeper:
+ * bairros are small enough that fitting their bounds usually pins the camera
+ * at MAX_ZOOM.
+ */
+function flyToSubdivisao(municipioCodigo: string, subdivisaoCodigo: string) {
+  if (!map) return
+  const bounds = mapLayers.subdivisaoBoundsFor(municipioCodigo, subdivisaoCodigo)
+  if (!bounds) return
+  const padding = {
+    top: 80,
+    bottom: 90,
+    left: 80,
+    right: Math.min(map.getContainer().clientWidth * 0.45, 580),
+  }
+  const camera = map.cameraForBounds(bounds, { padding, maxZoom: MAX_ZOOM })
+  if (!camera) return
+  map.flyTo({
+    center: camera.center,
+    zoom: camera.zoom,
+    pitch: cameraPitch(50),
+    bearing: cameraBearing('region'),
+    duration: reduced.value ? 0 : 1100,
+  })
+}
+
 onMounted(() => {
   if (!container.value) return
   map = new maplibregl.Map({
@@ -354,7 +498,7 @@ onMounted(() => {
     pitch: NATIONAL_CAMERA.pitch,
     bearing: NATIONAL_CAMERA.bearing,
     minZoom: 1.5,
-    maxZoom: 9,
+    maxZoom: MAX_ZOOM,
     maxPitch: MAX_PITCH,
     // deck.gl draws layers on world copy 0 only — don't render wrapped
     // copies of the base map that our layers would never cover.
@@ -369,6 +513,10 @@ onMounted(() => {
   overlay = new MapboxOverlay({ interleaved: false, layers: [] })
   map.addControl(overlay as unknown as maplibregl.IControl)
   map.on('click', handleClick)
+  // Country labels track the camera imperatively, in sync with the map's own
+  // frames — no reactivity round-trip, so a drag never leaves them lagging.
+  map.on('render', positionTradeLabels)
+  map.on('move', positionTradeLabels)
   map.on('load', () => {
     mapReady.value = true
   })
@@ -427,6 +575,7 @@ watchEffect(() => {
       model: mapLayers.layerModel,
       onHoverState: handleStateHover,
       onHoverMunicipio: handleMunicipioHover,
+      onHoverSubdivisao: handleSubdivisaoHover,
       onHoverWorld: handleWorldHover,
       onHoverDemografia: handleDemografiaHover,
       onHoverDemografiaBase: handleDemografiaBaseHover,
@@ -437,12 +586,25 @@ watchEffect(() => {
   })
 })
 
+// Rebuild the label set (which countries, colors) only when it actually
+// changes — a signature keeps hovers from churning it — and let the per-frame
+// positioning place the spans.
+watch(
+  () => {
+    const { globalIdle, trade } = mapLayers.layerModel
+    return `${globalIdle}|${trade.highlights.map((h) => `${h.iso}${h.selected ? '*' : ''}`).join(',')}`
+  },
+  () => rebuildTradeLabels(),
+  { immediate: true },
+)
+
 // One place decides the cursor: avoids the hover handlers fighting.
 watchEffect(() => {
   if (!mapReady.value || !map) return
   map.getCanvas().style.cursor =
     selection.hoveredId ||
     selection.hoveredMunicipio ||
+    selection.hoveredSubdivisao ||
     selection.hoveredWorld ||
     selection.hoveredDemografia
       ? 'pointer'
@@ -466,6 +628,32 @@ watch(
     if (!selection.selectedId) return
     if (codigo) flyToMunicipio(selection.selectedId, codigo)
     else flyToRegion(selection.selectedId)
+  },
+)
+
+// The subdivision mesh rides behind the município drill-down, either view.
+watch(
+  () => selection.drilledMunicipioCodigo,
+  (codigo) => {
+    if (codigo) void mapLayers.loadSubdivisoes(codigo)
+  },
+)
+
+// Drill into / out of a bairro. Leaving one reframes on its município rather
+// than holding the close-up on a bairro that is no longer selected.
+watch(
+  () => selection.selectedSubdivisao?.codigo ?? null,
+  (codigo) => {
+    const municipio = selection.drilledMunicipioCodigo
+    if (!municipio) return
+    if (codigo) {
+      flyToSubdivisao(municipio, codigo)
+    } else if (selection.demographicView) {
+      const coordinates = muniByCodigo.value.get(municipio)?.coordinates
+      if (coordinates) flyToDemografiaMunicipio(coordinates)
+    } else if (selection.selectedId) {
+      flyToMunicipio(selection.selectedId, municipio)
+    }
   },
 )
 
@@ -534,6 +722,18 @@ watch(
     aria-label="Mapa do Brasil — selecione um estado"
   ></div>
   <div class="horizon-fade" :style="{ opacity: horizonFadeOpacity }" aria-hidden="true"></div>
+  <div ref="labelsContainer" class="country-labels" aria-hidden="true">
+    <span
+      v-for="label in tradeLabels"
+      :key="label.key"
+      class="clabel"
+      :class="{ 'clabel--sel': label.selected, 'clabel--br': label.brasil }"
+      :style="{ color: label.color }"
+      :data-lon="label.lon"
+      :data-lat="label.lat"
+      >{{ label.text }}</span
+    >
+  </div>
 </template>
 
 <style scoped>
@@ -562,5 +762,43 @@ watch(
     rgba(3, 6, 8, 0) 34%
   );
   transition: opacity 300ms ease;
+}
+
+/* HTML overlay for the trade country names — above the horizon fade so a tilt
+   never clips them, and crisper than a deck TextLayer. */
+.country-labels {
+  position: absolute;
+  inset: 0;
+  z-index: 16;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.clabel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  /* Parked off-screen until positionTradeLabels writes the real transform, so
+     a freshly added label never flashes at the top-left corner. */
+  transform: translate(-9999px, -9999px);
+  font-family: 'Fira Code', monospace;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+  text-shadow:
+    0 0 2px rgba(3, 6, 8, 0.95),
+    0 0 4px rgba(3, 6, 8, 0.95),
+    0 1px 2px rgba(3, 6, 8, 0.95);
+  will-change: transform;
+}
+
+.clabel--sel {
+  font-size: 11px;
+}
+
+.clabel--br {
+  font-size: 13px;
+  letter-spacing: 0.16em;
 }
 </style>

@@ -40,6 +40,7 @@ Listed in draw order. Ids match the strings in `deckLayers.ts`.
 | `national-outline` | GeoJson | Brazil's outer border (dissolved from the simplified states) |
 | `municipios` | GeoJson | Municipal mesh of the selected state (loaded on demand) |
 | `municipal-borders` | GeoJson | Faint context borders, all 27 meshes merged |
+| `subdivisoes` | GeoJson | Bairro/distrito mesh of the drilled município (on demand) |
 | `influence-arcs` | Arc | Capital-to-capital links, behind `INFLUENCE_ARCS_ENABLED` |
 | `state-labels` | Text | UF siglas |
 | `demografia-state-mesh` | Path | Cropped state's mesh raised into a platform, behind `STATE_LIFT_ENABLED` (off) |
@@ -90,10 +91,38 @@ becomes one column per município across the whole country.
 - **City card**: clicking a column opens the left-hand card with the município's
   demographic and fiscal breakdown.
 
+## Subdivision drill-down (deepest level)
+
+Closing the camera on a município loads that city's IBGE subdivision mesh
+(`geo/subdivisoes/{codigo}.geojson`) and draws it above the municipal lines.
+It works from either view: the município panel in the influence HUD, the city
+card in the demographic view. `selection.drilledMunicipioCodigo` is the single
+computed that says which município is open, whichever view is on.
+
+- **Two levels, partial by nature**: 895 municípios are cut into bairros,
+  1,692 more fall back to distritos (São Paulo among them, with 96), and 2,983
+  have no division worth drilling into. `geo/subdivisoes/index.json` loads once
+  and carries `{count, level}` per município: it gates the fetch, so a city
+  without a subdivision settles with no request at all, and it tells the panel
+  whether to print BAIRRO or DISTRITO instead of guessing.
+- **Styling follows the view**: neutral cyan fills in the influence HUD;
+  in the demographic view the units shade by **population density** on a
+  √ ramp. They keep the population palette even under the PIB metric, because
+  the PIB dos Municípios has no breakdown this far down and borrowing the
+  green would claim data nobody published. The panel, card and tooltip all
+  show PIB as `N/D` at this level.
+- **Columns clear out of the way**: opening a município hides the demographic
+  columns within 60 km of it, its own included, along with their fiscal bands
+  and flow arcs. Otherwise the mesh the camera just flew to would sit buried
+  under 100 km prisms.
+- **Zoom**: the map's `maxZoom` went from 9 to 12 for this layer; that is
+  about as close as the 20%-simplified polygons stay honest.
+
 ### Esc walks back one level at a time
 
-City card, then UF crop, then demographic view, then município, then state,
-then national. The cascade lives in `App.vue`; each step is one keypress.
+Subdivision, then city card, then UF crop, then demographic view, then
+município, then state, then national. The cascade lives in `MapScreen.vue`;
+each step is one keypress.
 
 ## Feature flags (`src/lib/features.ts`)
 
@@ -111,6 +140,10 @@ now, so only the ripple animates.
 - Municipal meshes load **one state at a time** (largest, MG, is 569 KB); the
   app never holds all 5,570 polygons as pickable geometry. The demographic
   view is the exception and it uses centroids, not polygons.
+- Subdivision meshes load **one município at a time** (median 8 KB for bairros,
+  18 KB for distritos, largest Belo Horizonte at 363 KB) and carry their
+  Censo 2022 readouts in the feature
+  properties, so a city costs one request, not two.
 - Failed dataset loads are handled without retry loops: a 404 or the SPA
   fallback marks the entry and moves on (`mapLayers`, `indicators`,
   `demografia` and `fiscal` stores all follow the same pattern).

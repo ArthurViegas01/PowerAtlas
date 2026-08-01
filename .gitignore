@@ -16,6 +16,7 @@ __pycache__/
 .cache/
 apps/web/scripts/.cache/
 apps/web/scripts/.cache-fiscal/
+apps/web/scripts/.cache-comercio/
 .pnpm-store/
 
 # env

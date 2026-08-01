@@ -49,6 +49,9 @@ function model(overrides: Partial<MapLayerModel> = {}): MapLayerModel {
     municipios: null,
     selectedMunicipioCodigo: null,
     hoveredMunicipioCodigo: null,
+    subdivisoes: null,
+    selectedSubdivisaoCodigo: null,
+    hoveredSubdivisaoCodigo: null,
     heatmapPoints: [],
     heatmapVisible: false,
     municipalBorders: null,
@@ -61,6 +64,8 @@ function model(overrides: Partial<MapLayerModel> = {}): MapLayerModel {
       uf: null,
       fiscal: { segments: noSegments(), byCodigo: null },
     },
+    trade: { active: false, direction: 'export', arcs: [], exploded: false, highlights: [] },
+    globalIdle: false,
     ...overrides,
   }
 }
@@ -76,6 +81,37 @@ const munFc = {
   ],
 } as unknown as MapLayerModel['municipios']
 
+/** Two bairros of Rio: a dense one and a sparse one (for the density ramp). */
+const subdivisaoFc = {
+  type: 'FeatureCollection',
+  features: [
+    {
+      type: 'Feature',
+      properties: {
+        codigo: '3304557018',
+        name: 'Copacabana',
+        population: 128_919,
+        households: 84_715,
+        areaKm2: 4.1082,
+        density: 31_380.9,
+      },
+      geometry: { type: 'Polygon', coordinates: [[[0, 0], [0, 1], [1, 1], [0, 0]]] },
+    },
+    {
+      type: 'Feature',
+      properties: {
+        codigo: '3304557999',
+        name: 'Bairro esparso',
+        population: 12_000,
+        households: 4_000,
+        areaKm2: 100,
+        density: 120,
+      },
+      geometry: { type: 'Polygon', coordinates: [[[2, 2], [2, 3], [3, 3], [2, 2]]] },
+    },
+  ],
+} as unknown as MapLayerModel['subdivisoes']
+
 const noop = () => {}
 
 function build(
@@ -87,6 +123,7 @@ function build(
     model: m,
     onHoverState: noop,
     onHoverMunicipio: noop,
+    onHoverSubdivisao: noop,
     onHoverWorld: noop,
     onHoverDemografia: noop,
     onHoverDemografiaBase: noop,
@@ -120,6 +157,45 @@ describe('buildDeckLayers', () => {
   it('makes the municipios layer pickable so hover/click reach the tooltip', () => {
     const layer = build(model({ municipios: munFc })).find((l) => l.id === 'municipios')
     expect((layer!.props as { pickable: boolean }).pickable).toBe(true)
+  })
+
+  it('adds the subdivisoes layer only when a subdivision mesh is loaded', () => {
+    expect(build(model()).find((l) => l.id === 'subdivisoes')).toBeUndefined()
+    const layers = build(model({ municipios: munFc, subdivisoes: subdivisaoFc }))
+    const subdivisoes = layers.find((l) => l.id === 'subdivisoes')
+    expect(subdivisoes).toBeDefined()
+    // Pickable, and drawn above the município it sits inside.
+    expect((subdivisoes!.props as { pickable: boolean }).pickable).toBe(true)
+    const ids = layers.map((l) => l.id)
+    expect(ids).toContain('municipios')
+    expect(ids.indexOf('subdivisoes')).toBeGreaterThan(ids.indexOf('municipios'))
+  })
+
+  it('shades subdivisions by density in the demographic view', () => {
+    const demographic = {
+      active: true,
+      metric: 'population' as const,
+      munis: [],
+      hoveredCodigo: null,
+      selectedCodigo: null,
+      uf: null,
+      fiscal: { segments: noSegments(), byCodigo: null },
+    }
+    const layer = build(model({ subdivisoes: subdivisaoFc, demographic })).find(
+      (l) => l.id === 'subdivisoes',
+    )
+    const getFillColor = (
+      layer!.props as unknown as {
+        getFillColor: (f: { properties: { codigo: string; density: number | null } }) => number[]
+      }
+    ).getFillColor
+    const dense = getFillColor({ properties: { codigo: '3304557018', density: 31_380 } })
+    const sparse = getFillColor({ properties: { codigo: '3304557999', density: 120 } })
+    // Fills are precomposited over the void, so they come back opaque and the
+    // ramp lives in the RGB: the denser bairro reads brighter than the void.
+    const luma = (color: number[]) => color[0] + color[1] + color[2]
+    expect(dense[3]).toBe(255)
+    expect(luma(dense)).toBeGreaterThan(luma(sparse))
   })
 
   it('hides the score columns during the municipal drill-down', () => {
@@ -403,6 +479,33 @@ describe('buildDeckLayers', () => {
       (d) => d.path,
     )
     expect(codigos.length).toBeGreaterThanOrEqual(15)
+  })
+
+  it('clears the columns around the município being drilled into', () => {
+    // Porto Alegre opened; Canoas sits ~9 km away, the third município ~125 km.
+    const canoas = { ...poa, codigo: '4304606', name: 'Canoas', coordinates: [-51.18, -29.92] as [number, number] }
+    const distante = { ...poa, codigo: '4300000', name: 'Distante', coordinates: [-52.5, -30] as [number, number] }
+    const demographic = (selectedCodigo: string | null) => ({
+      active: true,
+      metric: 'population' as const,
+      munis: [poa, canoas, distante],
+      hoveredCodigo: null,
+      selectedCodigo,
+      uf: 'RS',
+      fiscal: { segments: noSegments(), byCodigo: null },
+    })
+    const dataOf = (selectedCodigo: string | null) =>
+      (
+        build(model({ demographic: demographic(selectedCodigo) })).find(
+          (l) => l.id === 'demografia-columns',
+        )!.props as { data: { codigo: string }[] }
+      ).data.map((d) => d.codigo)
+
+    // Nothing opened: every column stands.
+    expect(dataOf(null)).toEqual(['4314902', '4304606', '4300000'])
+    // Porto Alegre opened: its own column and its neighbour's are gone, so
+    // the subdivision mesh underneath is not buried; the far one stays.
+    expect(dataOf('4314902')).toEqual(['4300000'])
   })
 
   it('keeps the demografia layer pickable so hover reaches the tooltip', () => {

@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
 
+import { useComercioStore } from '@/stores/comercio'
 import { useSelectionStore } from '@/stores/selection'
 
 const emit = defineEmits<{
@@ -11,10 +12,14 @@ const emit = defineEmits<{
 }>()
 
 const selection = useSelectionStore()
+const comercio = useComercioStore()
 
 const readout = computed(() => {
   if (selection.selectedId) {
     return `⌖ ${selection.selectedId} · ${(selection.selectedName ?? '').toUpperCase()}`
+  }
+  if (selection.selectedPartner) {
+    return `⌖ ${selection.selectedPartner.name.toUpperCase()} · PARCEIRO COMERCIAL`
   }
   if (selection.lockedWorld) {
     return `⌖ ${selection.lockedWorld.name.toUpperCase()} · NÃO MAPEADO`
@@ -23,7 +28,13 @@ const readout = computed(() => {
     return `► ${selection.hoveredId} · ${(selection.hoveredName ?? '').toUpperCase()}`
   }
   if (selection.hoveredWorld) {
-    return `► ${selection.hoveredWorld.name.toUpperCase()} · EM BREVE`
+    // With the trade arrows on, a partner country reads as a trade partner
+    // instead of the "em breve" backdrop.
+    const isPartner =
+      selection.tradeVisible &&
+      !selection.demographicView &&
+      comercio.byIso.get(selection.hoveredWorld.iso)
+    return `► ${selection.hoveredWorld.name.toUpperCase()} · ${isPartner ? 'COMÉRCIO EXTERIOR' : 'EM BREVE'}`
   }
   return 'AGUARDANDO SELEÇÃO'
 })

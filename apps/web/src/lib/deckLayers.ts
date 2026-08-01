@@ -13,13 +13,18 @@ import {
 import {
   boundaryCrestPaths,
   boundaryWallQuads,
+  featureCrestPaths,
+  featureWallQuads,
   municipalRingsByPrefix,
+  type SubdivisaoFeature,
+  type SubdivisaoProps,
   type BoundaryFeature,
   type CrestPath,
   type MunicipioFeature,
   type MunicipioProps,
   type MunicipioRing,
   type WallQuad,
+  type WorldCollection,
   type WorldFeature,
   type WorldProps,
 } from '@/lib/geo'
@@ -31,7 +36,9 @@ import {
   type FiscalSegmentDef,
 } from '@/lib/fiscalSegments'
 import { over, overVoid, paColor, shade, type RGBA } from '@/lib/palette'
-import type { ArcDatum, ColumnDatum, LabelDatum, MapLayerModel } from '@/stores/mapLayers'
+import { sectorColor } from '@/lib/tradeSectors'
+import type { ArcDatum, ColumnDatum, LabelDatum, MapLayerModel, TradeArcDatum } from '@/stores/mapLayers'
+import { TRADE_ORIGIN } from '@/types/comercio'
 import type { DemografiaMunicipio } from '@/types/demografia'
 import type { FiscalMunicipio } from '@/types/fiscal'
 import type { AmbientSignal, PowerDimension } from '@/types/power-entity'
@@ -40,6 +47,7 @@ export interface BuildLayersOptions {
   model: MapLayerModel
   onHoverState: (info: PickingInfo<BoundaryFeature>) => void
   onHoverMunicipio: (info: PickingInfo<MunicipioFeature>) => void
+  onHoverSubdivisao: (info: PickingInfo<SubdivisaoFeature>) => void
   onHoverWorld: (info: PickingInfo<WorldFeature>) => void
   onHoverDemografia: (info: PickingInfo<DemografiaMunicipio>) => void
   /** Hover on a município footprint (demographic view's borders layer). */
@@ -110,6 +118,21 @@ function columnLift(
   return z
 }
 
+// Drilling into a município clears the demographic columns crowding it: its
+// own and its neighbours' inside this radius. Without it, the subdivision
+// mesh the camera just flew to sits buried under 100 km prisms.
+const DRILL_CLEAR_RADIUS_KM = 60
+const KM_PER_DEG = 111.32
+
+/** Km between two lon/lat points, with the usual cosine correction. */
+function distanceKm(
+  [lon, lat]: [number, number],
+  [originLon, originLat]: [number, number],
+): number {
+  const dx = (lon - originLon) * Math.cos((originLat * Math.PI) / 180) * KM_PER_DEG
+  return Math.hypot(dx, (lat - originLat) * KM_PER_DEG)
+}
+
 /** Stable signature of an enabled-segment list (for memo + updateTriggers). */
 function outflowKey(segments: FiscalSegmentDef[]): string {
   return segments.map((s) => s.key).join(',')
@@ -136,6 +159,7 @@ function fiscalBands(
   inflowSum: (codigo: string) => number,
   inflowElevationOf: (codigo: string) => number,
   inflowCenter: (d: DemografiaMunicipio) => [number, number],
+  cleared: Set<string>,
 ): { outflow: FiscalBand[]; inflow: FiscalBand[] } {
   const sig = [
     demo.metric,
@@ -143,12 +167,17 @@ function fiscalBands(
     outflowKey(enabledInflow),
     demo.munis.length,
     fiscalBy?.size ?? 0,
+    // Bands must vanish with the columns they stack on, so the drill-down
+    // that hides those columns has to invalidate this memo.
+    demo.selectedCodigo ?? '',
+    cleared.size,
   ].join('|')
   if (fiscalBandCache && fiscalBandCache.sig === sig) return fiscalBandCache
 
   const outflow: FiscalBand[] = []
   const inflow: FiscalBand[] = []
   for (const d of demo.munis) {
+    if (cleared.has(d.codigo)) continue
     const flows = fiscalBy?.get(d.codigo)
     if (!flows) continue
     // Amber outflow bands stacked from the green top upward.
@@ -204,6 +233,117 @@ function heatmapRamp(): Color[] {
   ]
 }
 
+/** One polyline of the trade flow (a faint rail or a bright marching stripe). */
+interface TradeFlowPath {
+  path: [number, number, number][]
+  color: RGBA
+  width: number
+}
+
+// World trade arcs share the demographic flow's marching-stripe look, tuned for
+// intercontinental spans: the mid-arc lift is capped so a link to Asia doesn't
+// shoot off the map, and the stripes march the way the goods move (out for
+// exports, in for imports).
+const TRADE_RAIL_SAMPLES = 30
+const TRADE_STRIPE_COUNT = 4
+const TRADE_STRIPE_LEN = 0.14
+const TRADE_STRIPE_SEG = 6
+const TRADE_MAX_BUMP_DEG = 70 // cap the arc-height distance term
+
+/**
+ * Rails + marching stripes for the world trade arrows. Each arc carries its own
+ * direction and origin: exports flow source -> partner, imports partner ->
+ * source, and the stripes always travel source -> destination so the sense
+ * reads at a glance. With both directions on, the two arcs sit in parallel lanes.
+ */
+function tradeFlowPaths(
+  arcs: TradeArcDatum[],
+  flowTime: number,
+): { rails: TradeFlowPath[]; stripes: TradeFlowPath[] } {
+  const rails: TradeFlowPath[] = []
+  const stripes: TradeFlowPath[] = []
+  for (const arc of arcs) {
+    const origin = arc.source ?? TRADE_ORIGIN
+    const [ax, ay] = arc.direction === 'export' ? origin : arc.target
+    const [bx, by] = arc.direction === 'export' ? arc.target : origin
+    const dist = Math.hypot(bx - ax, by - ay)
+    const bump = Math.min(dist, TRADE_MAX_BUMP_DEG) * 111000 * 0.3
+    const at = (u: number): [number, number, number] => [
+      ax + (bx - ax) * u,
+      ay + (by - ay) * u,
+      bump * 4 * u * (1 - u),
+    ]
+    const rgb =
+      arc.sectorIndex !== undefined
+        ? sectorColor(arc.sectorIndex, arc.sectorCode ?? '', 255)
+        : arc.colorRgb
+          ? ([arc.colorRgb[0], arc.colorRgb[1], arc.colorRgb[2], 255] as RGBA)
+          : arc.direction === 'export'
+            ? paColor.official(255)
+            : paColor.hidden(255)
+    const focus = arc.focus ? 1 : 0.32
+    const width = 1.2 + 3.4 * arc.weight
+    const rail: [number, number, number][] = []
+    for (let i = 0; i <= TRADE_RAIL_SAMPLES; i++) rail.push(at(i / TRADE_RAIL_SAMPLES))
+    rails.push({
+      path: rail,
+      color: [rgb[0], rgb[1], rgb[2], Math.round(46 * focus)],
+      width: Math.max(1, width * 0.55),
+    })
+    const speed = 0.3 + arc.weight
+    for (let s = 0; s < TRADE_STRIPE_COUNT; s++) {
+      const phase = (((flowTime * speed + s / TRADE_STRIPE_COUNT) % 1) + 1) % 1
+      const head = phase * (1 + TRADE_STRIPE_LEN)
+      const start = Math.max(0, head - TRADE_STRIPE_LEN)
+      const end = Math.min(1, head)
+      if (end - start < 1e-3) continue
+      const seg: [number, number, number][] = []
+      for (let j = 0; j <= TRADE_STRIPE_SEG; j++) seg.push(at(start + ((end - start) * j) / TRADE_STRIPE_SEG))
+      stripes.push({ path: seg, color: [rgb[0], rgb[1], rgb[2], Math.round(245 * focus)], width })
+    }
+  }
+  return { rails, stripes }
+}
+
+/** A colored wall quad / crest for a highlighted partner country. */
+interface TradeWall {
+  polygon: WallQuad
+  color: RGBA
+}
+interface TradeCrest {
+  path: CrestPath
+  color: RGBA
+}
+
+const TRADE_WALL_ELEVATION = 4200
+
+// Country walls are static geometry re-tagged with the partner color, so the
+// build is memoized by the highlight signature: the hundreds of quads aren't
+// rebuilt every animation frame, only when the highlighted set changes.
+let tradeWallCache: { sig: string; walls: TradeWall[]; crests: TradeCrest[] } | null = null
+
+function tradeCountryWalls(
+  world: WorldCollection,
+  highlights: MapLayerModel['trade']['highlights'],
+  sig: string,
+): { walls: TradeWall[]; crests: TradeCrest[] } {
+  if (tradeWallCache && tradeWallCache.sig === sig) return tradeWallCache
+  const byIso = new Map(world.features.map((f) => [f.properties.iso, f]))
+  const walls: TradeWall[] = []
+  const crests: TradeCrest[] = []
+  for (const highlight of highlights) {
+    const feature = byIso.get(highlight.iso)
+    if (!feature) continue
+    const [r, g, b] = highlight.color
+    const fill: RGBA = [r, g, b, 60]
+    const crest: RGBA = [r, g, b, 235]
+    for (const quad of featureWallQuads(feature, TRADE_WALL_ELEVATION)) walls.push({ polygon: quad, color: fill })
+    for (const path of featureCrestPaths(feature, TRADE_WALL_ELEVATION)) crests.push({ path, color: crest })
+  }
+  tradeWallCache = { sig, walls, crests }
+  return tradeWallCache
+}
+
 /**
  * Pure factory: MapLayerModel (plain data from the mapLayers store) in,
  * deck.gl layer instances out. MapView feeds the result to MapboxOverlay.
@@ -212,6 +352,7 @@ export function buildDeckLayers({
   model,
   onHoverState,
   onHoverMunicipio,
+  onHoverSubdivisao,
   onHoverWorld,
   onHoverDemografia,
   onHoverDemografiaBase,
@@ -224,6 +365,19 @@ export function buildDeckLayers({
   const dataRegions = new Set(model.dataRegionIds)
   const demo = model.demographic
   const layers: Layer[] = []
+
+  // Trade partners to fill + label in their national colors, and a signature
+  // of that set for the deck.gl updateTriggers.
+  const tradeHighlights = new Map(model.trade.highlights.map((h) => [h.iso, h]))
+  const tradeSig = model.trade.highlights.map((h) => `${h.iso}${h.selected ? '*' : ''}`).join(',')
+
+  // In the global idle context Brazil wears its own national identity (verde),
+  // like every partner wears theirs, instead of the app's cyan home color.
+  const BR_GREEN: RGBA = [64, 185, 110, 255]
+  const brazilFills = {
+    base: overVoid([BR_GREEN[0], BR_GREEN[1], BR_GREEN[2], 42]),
+    hovered: overVoid([BR_GREEN[0], BR_GREEN[1], BR_GREEN[2], 82]),
+  }
 
   // Area fills are precomposited over the void so the pixels are OPAQUE:
   // visually identical (they always sat on the flat void), but this is what
@@ -262,18 +416,32 @@ export function buildDeckLayers({
         pickable: !demo.active,
         stroked: true,
         filled: true,
-        getFillColor: (feature) =>
-          feature.properties.iso === model.hoveredWorldIso
-            ? fills.worldHover
-            : fills.world,
-        getLineColor: paColor.faint(160),
-        getLineWidth: 0.9,
+        getFillColor: (feature) => {
+          const highlight = tradeHighlights.get(feature.properties.iso)
+          if (highlight) {
+            const hovered = feature.properties.iso === model.hoveredWorldIso
+            const alpha = highlight.selected ? 165 : hovered ? 135 : 82
+            return overVoid([highlight.color[0], highlight.color[1], highlight.color[2], alpha])
+          }
+          return feature.properties.iso === model.hoveredWorldIso ? fills.worldHover : fills.world
+        },
+        getLineColor: (feature) => {
+          const highlight = tradeHighlights.get(feature.properties.iso)
+          return highlight
+            ? [highlight.color[0], highlight.color[1], highlight.color[2], 235]
+            : paColor.faint(160)
+        },
+        getLineWidth: (feature) => (tradeHighlights.has(feature.properties.iso) ? 1.4 : 0.9),
         lineWidthUnits: 'pixels',
         lineWidthMinPixels: 0.6,
         extensions: [new PathStyleExtension({ dash: true })],
         getDashArray: [5, 4],
         onHover: (info) => onHoverWorld(info as PickingInfo<WorldFeature>),
-        updateTriggers: { getFillColor: [model.hoveredWorldIso] },
+        updateTriggers: {
+          getFillColor: [model.hoveredWorldIso, tradeSig],
+          getLineColor: [tradeSig],
+          getLineWidth: [tradeSig],
+        },
       }),
     )
   }
@@ -305,6 +473,8 @@ export function buildDeckLayers({
         // Demographic view: faint base under the columns; the cropped state
         // gets a touch more presence, tinted by the metric color.
         if (demo.active) return uf === demo.uf ? demoCroppedFill : fills.stateDemo
+        // Global idle: the whole country reads as one green Brazil.
+        if (model.globalIdle) return uf === model.hoveredId ? brazilFills.hovered : brazilFills.base
         if (!dataRegions.has(uf)) return fills.stateNoData
         if (uf === model.selectedId) return fills.stateSelected
         if (uf === model.hoveredId) return fills.stateHovered
@@ -314,6 +484,7 @@ export function buildDeckLayers({
         const uf = feature.properties.UF
         const highlighted = demo.active ? uf === demo.uf : uf === model.selectedId
         if (demo.active) return shade(demoBase, 1, highlighted ? 255 : 120)
+        if (model.globalIdle) return [BR_GREEN[0], BR_GREEN[1], BR_GREEN[2], 150]
         return highlighted ? paColor.official(255) : paColor.official(88)
       },
       getLineWidth: (feature) => {
@@ -332,8 +503,9 @@ export function buildDeckLayers({
           demo.active,
           demo.uf,
           demo.metric,
+          model.globalIdle,
         ],
-        getLineColor: [model.selectedId, demo.active, demo.uf, demo.metric],
+        getLineColor: [model.selectedId, demo.active, demo.uf, demo.metric, model.globalIdle],
         getLineWidth: [model.selectedId, demo.active, demo.uf],
       },
     }),
@@ -346,12 +518,17 @@ export function buildDeckLayers({
       pickable: false,
       stroked: true,
       filled: false,
-      // The country border also wears the metric color in the demographic view.
-      getLineColor: demo.active ? shade(demoBase, 1, 210) : paColor.official(210),
+      // The country border also wears the metric color in the demographic view,
+      // and Brazil's green identity in the global idle context.
+      getLineColor: demo.active
+        ? shade(demoBase, 1, 210)
+        : model.globalIdle
+          ? [BR_GREEN[0], BR_GREEN[1], BR_GREEN[2], 210]
+          : paColor.official(210),
       getLineWidth: 1.8,
       lineWidthUnits: 'pixels',
       lineWidthMinPixels: 1.5,
-      updateTriggers: { getLineColor: [demo.active, demo.metric] },
+      updateTriggers: { getLineColor: [demo.active, demo.metric, model.globalIdle] },
     }),
   )
 
@@ -414,6 +591,72 @@ export function buildDeckLayers({
     )
   }
 
+  // Subdivision drill-down: the deepest level, one polygon per IBGE bairro
+  // (or distrito, where the município has no bairros) of the city the camera
+  // closed on. Drawn above the municipal context lines so its fills are not
+  // crossed by them. An absent layer usually means "IBGE gives this city no
+  // division to drill into" rather than a failed load, and
+  // mapLayers.subdivisaoInfoFor is what tells the two apart.
+  if (model.subdivisoes) {
+    // Subdivision fills composite over the selected município, which itself
+    // sits over the selected state (same chain as the municípios).
+    const subdivisaoFills = {
+      selected: over(paColor.official(150), municipioFills.selected),
+      hovered: over(paColor.official(84), municipioFills.selected),
+      base: over(paColor.official(26), municipioFills.selected),
+    }
+    // In the demographic view the bairros shade by population density, and
+    // they wear the POPULATION palette even when the PIB metric is on: the
+    // PIB dos Municípios has no bairro breakdown, so borrowing the green
+    // would claim data that does not exist.
+    const subdivisaoBase = paColor.demoPop(255)
+    let maxDensity = 0
+    if (demo.active) {
+      for (const feature of model.subdivisoes.features) {
+        maxDensity = Math.max(maxDensity, feature.properties.density ?? 0)
+      }
+    }
+    layers.push(
+      new GeoJsonLayer<SubdivisaoProps>({
+        id: 'subdivisoes',
+        data: model.subdivisoes,
+        pickable: true,
+        stroked: true,
+        filled: true,
+        getFillColor: (feature) => {
+          const { codigo, density } = feature.properties
+          if (codigo === model.selectedSubdivisaoCodigo) {
+            return demo.active ? overVoid(shade(subdivisaoBase, 1, 235)) : subdivisaoFills.selected
+          }
+          if (codigo === model.hoveredSubdivisaoCodigo) {
+            return demo.active ? overVoid(shade(subdivisaoBase, 1, 190)) : subdivisaoFills.hovered
+          }
+          if (!demo.active) return subdivisaoFills.base
+          // √ ramp like the columns: linear would flatten everything outside
+          // the one or two densest bairros.
+          const t = maxDensity ? Math.sqrt((density ?? 0) / maxDensity) : 0
+          return overVoid(shade(subdivisaoBase, 0.7 + 0.3 * t, 42 + Math.round(150 * t)))
+        },
+        getLineColor: demo.active ? shade(subdivisaoBase, 1, 150) : paColor.official(165),
+        getLineWidth: (feature) =>
+          feature.properties.codigo === model.selectedSubdivisaoCodigo ? 2 : 0.8,
+        lineWidthUnits: 'pixels',
+        lineWidthMinPixels: 0.6,
+        onHover: (info) => onHoverSubdivisao(info as PickingInfo<SubdivisaoFeature>),
+        updateTriggers: {
+          getFillColor: [
+            model.selectedSubdivisaoCodigo,
+            model.hoveredSubdivisaoCodigo,
+            demo.active,
+            maxDensity,
+          ],
+          getLineColor: [demo.active],
+          getLineWidth: [model.selectedSubdivisaoCodigo],
+        },
+      }),
+    )
+  }
+
   // Empty while INFLUENCE_ARCS_ENABLED is off (mock links carry no meaning).
   if (model.arcs.length > 0) {
     layers.push(
@@ -439,7 +682,9 @@ export function buildDeckLayers({
 
   // State siglas at each capital. Drawn above the fills; the selected state's
   // label brightens. Billboarded so it stays readable through the map tilt.
-  if (model.labels.length > 0) {
+  // Hidden in the global idle context — there the map reads as a single BRASIL
+  // among the world's partners, not 27 UFs.
+  if (!model.globalIdle && model.labels.length > 0) {
     layers.push(
       new TextLayer<LabelDatum>({
         id: 'state-labels',
@@ -467,6 +712,9 @@ export function buildDeckLayers({
     )
   }
 
+  // Global idle: the BRASIL tag (and the partner names) live in the HTML label
+  // overlay in MapView, so nothing here replaces the hidden state siglas.
+
 
   // Demographic view: one column per município, height ∝ √metric (linear
   // would make everything but the SP/RJ metros invisible).
@@ -478,6 +726,23 @@ export function buildDeckLayers({
     const base = demoBase
     const elevationOf = (d: DemografiaMunicipio) =>
       max ? 1500 + Math.sqrt(metricValue(d) / max) * 180000 : 0
+
+    // Opening a município clears the columns around it (its own included, or
+    // the mesh underneath would stay hidden behind its prism). Everything
+    // anchored to a cleared column goes with it: fiscal bands and flow arcs.
+    const drilled = demo.selectedCodigo
+      ? demo.munis.find((d) => d.codigo === demo.selectedCodigo)
+      : undefined
+    const cleared = new Set<string>()
+    if (drilled) {
+      for (const d of demo.munis) {
+        if (distanceKm(d.coordinates, drilled.coordinates) <= DRILL_CLEAR_RADIUS_KM) {
+          cleared.add(d.codigo)
+        }
+      }
+    }
+    const standingMunis =
+      cleared.size > 0 ? demo.munis.filter((d) => !cleared.has(d.codigo)) : demo.munis
 
     // Click feedback: lift the selected state and ripple a bounce from the
     // click. `liftedPrefix` is the 2-digit IBGE code of the cropped state.
@@ -567,7 +832,7 @@ export function buildDeckLayers({
     layers.push(
       new ColumnLayer<DemografiaMunicipio>({
         id: 'demografia-columns',
-        data: demo.munis,
+        data: standingMunis,
         pickable: true,
         diskResolution: 6,
         radius: COLUMN_RADIUS,
@@ -607,6 +872,7 @@ export function buildDeckLayers({
         inflowSum,
         inflowElevationOf,
         inflowCenter,
+        cleared,
       )
       const bandLayer = (id: string, data: FiscalBand[]) =>
         new ColumnLayer<FiscalBand>({
@@ -643,7 +909,9 @@ export function buildDeckLayers({
         [demo.hoveredCodigo, demo.selectedCodigo].filter((c): c is string => c !== null),
       )
       const topFlows = (value: (codigo: string) => number) => {
-        const ranked = demo.munis
+        // standingMunis, not demo.munis: an arc must not fly out of a column
+        // the drill-down just cleared.
+        const ranked = standingMunis
           .filter((d) => value(d.codigo) > 0)
           .sort((a, b) => value(b.codigo) - value(a.codigo))
         const maxValue = ranked.length ? value(ranked[0].codigo) : 0
@@ -770,8 +1038,9 @@ export function buildDeckLayers({
   // Score columns: slim hexagonal prisms, same footprint as the demographic
   // columns, so they read as markers, not landmasses. Hidden entirely during
   // the municipal drill-down — that close, a 100 km column would bury the
-  // município — and in the demographic view, which has its own columns.
-  if (!model.selectedMunicipioCodigo && !demo.active) {
+  // município — in the demographic view (its own columns), and in the global
+  // idle trade view, where cyan prisms would fight Brazil's green identity.
+  if (!model.selectedMunicipioCodigo && !demo.active && !model.globalIdle) {
     for (const dimension of ['official', 'hidden'] as const) {
       layers.push(
         new ColumnLayer<ColumnDatum>({
@@ -791,13 +1060,73 @@ export function buildDeckLayers({
     }
   }
 
+  // World trade arrows (Visão Global): animated Brazil -> partner links, one
+  // per top partner by default, or one per sector when a partner is exploded.
+  // Same marching-stripe motor as the fiscal flows, so exports/imports read as
+  // moving packets. Drawn above the land fills, below the boundary walls.
+  if (model.trade.active && model.trade.arcs.length > 0) {
+    const { rails, stripes } = tradeFlowPaths(model.trade.arcs, flowTime)
+    const tradePathLayer = (id: string, data: TradeFlowPath[]) =>
+      new PathLayer<TradeFlowPath>({
+        id,
+        data,
+        pickable: false,
+        widthUnits: 'pixels',
+        capRounded: true,
+        jointRounded: true,
+        getPath: (d) => d.path,
+        getColor: (d) => d.color,
+        getWidth: (d) => d.width,
+      })
+    if (rails.length > 0) layers.push(tradePathLayer('trade-flow-rails', rails))
+    if (stripes.length > 0) layers.push(tradePathLayer('trade-flow-stripes', stripes))
+    // Partner names ride in a crisp HTML overlay (MapView) instead of a deck
+    // TextLayer: sharper, and never clipped by the horizon fade when tilted.
+  }
+
+  // Colored parapets around the highlighted partners — the same wall + crest
+  // treatment Brazil wears, in each country's national color with a brighter
+  // crest, so a partner reads as a raised, glowing platform on the world map.
+  if (model.trade.active && model.world && model.trade.highlights.length > 0) {
+    const { walls, crests } = tradeCountryWalls(model.world, model.trade.highlights, tradeSig)
+    if (walls.length > 0) {
+      layers.push(
+        new SolidPolygonLayer<TradeWall>({
+          id: 'trade-country-walls',
+          data: walls,
+          getPolygon: (d) => d.polygon,
+          pickable: false,
+          _full3d: true,
+          material: false,
+          getFillColor: (d) => d.color,
+          updateTriggers: { getFillColor: [tradeSig] },
+        }),
+        new PathLayer<TradeCrest>({
+          id: 'trade-country-crests',
+          data: crests,
+          getPath: (d) => d.path,
+          getColor: (d) => d.color,
+          getWidth: 1.6,
+          widthUnits: 'pixels',
+          widthMinPixels: 1,
+          pickable: false,
+          updateTriggers: { getColor: [tradeSig] },
+        }),
+      )
+    }
+  }
+
   // Boundary relief: translucent walls tracing the state borders and the
   // national outline, one vertical quad per boundary edge (boundaryWallQuads
   // explains why the geometry is explicit). Unlit (material:false) so the
   // walls keep the flat holographic look regardless of face orientation.
   // Pushed last so everything behind a wall is already drawn and the wall
   // blends over it instead of depth-clipping it.
-  const wallBase = demo.active ? demoBase : paColor.official(255)
+  const wallBase = demo.active
+    ? demoBase
+    : model.globalIdle
+      ? BR_GREEN
+      : paColor.official(255)
   layers.push(
     new SolidPolygonLayer<WallQuad>({
       id: 'state-walls',
@@ -807,7 +1136,7 @@ export function buildDeckLayers({
       _full3d: true,
       material: false,
       getFillColor: shade(wallBase, 1, 34),
-      updateTriggers: { getFillColor: [demo.active, demo.metric] },
+      updateTriggers: { getFillColor: [demo.active, demo.metric, model.globalIdle] },
     }),
     new SolidPolygonLayer<WallQuad>({
       id: 'national-wall',
@@ -817,7 +1146,7 @@ export function buildDeckLayers({
       _full3d: true,
       material: false,
       getFillColor: shade(wallBase, 1, 80),
-      updateTriggers: { getFillColor: [demo.active, demo.metric] },
+      updateTriggers: { getFillColor: [demo.active, demo.metric, model.globalIdle] },
     }),
     // Neon crest where each wall meets the sky: a subtle line on the state
     // parapets, a brighter one crowning the national border. The national
@@ -831,7 +1160,7 @@ export function buildDeckLayers({
       getWidth: 1,
       widthUnits: 'pixels',
       widthMinPixels: 0.6,
-      updateTriggers: { getColor: [demo.active, demo.metric] },
+      updateTriggers: { getColor: [demo.active, demo.metric, model.globalIdle] },
     }),
     new PathLayer<CrestPath>({
       id: 'national-wall-crest',
@@ -843,7 +1172,7 @@ export function buildDeckLayers({
       widthUnits: 'pixels',
       widthMinPixels: 1,
       updateTriggers: {
-        getColor: [demo.active, demo.metric, pulse],
+        getColor: [demo.active, demo.metric, pulse, model.globalIdle],
         getWidth: [pulse],
       },
     }),

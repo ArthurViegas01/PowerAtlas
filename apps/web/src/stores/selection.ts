@@ -2,6 +2,8 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 
 import { defaultFiscalSegments, type FiscalSegmentKey } from '@/lib/fiscalSegments'
+import type { SubdivisaoLevel } from '@/lib/geo'
+import type { TradeDirection } from '@/types/comercio'
 
 export interface ScreenPoint {
   x: number
@@ -28,6 +30,22 @@ export interface DemografiaHover {
   gdpBrlThousands: number
 }
 
+/**
+ * A bairro or distrito under the cursor or open in the panel. Carries the
+ * whole Censo 2022 readout so the panel never has to look back into the mesh.
+ * No PIB: the PIB dos Municípios has no breakdown below the município.
+ */
+export interface SubdivisaoRef {
+  codigo: string
+  name: string
+  /** Which division this unit belongs to — the UI names it, never guesses. */
+  level: SubdivisaoLevel
+  population: number | null
+  households: number | null
+  areaKm2: number | null
+  density: number | null
+}
+
 /** Which region the operator is inspecting, plus hover/ping/camera UI state. */
 export const useSelectionStore = defineStore('selection', () => {
   const selectedId = ref<string | null>(null)
@@ -38,6 +56,9 @@ export const useSelectionStore = defineStore('selection', () => {
   const hoveredName = ref<string | null>(null)
   /** Municipality hover on the drill-down layer (belongs to selectedId). */
   const hoveredMunicipio = ref<{ codigo: string; name: string } | null>(null)
+  /** Subdivision drilled into inside the current município (both views). */
+  const selectedSubdivisao = ref<SubdivisaoRef | null>(null)
+  const hoveredSubdivisao = ref<SubdivisaoRef | null>(null)
   /** World-country hover on the backdrop layer. */
   const hoveredWorld = ref<WorldRegionRef | null>(null)
   /** Screen position of the last hover pick — anchors the map tooltip. */
@@ -89,14 +110,47 @@ export const useSelectionStore = defineStore('selection', () => {
    */
   const fiscalSegments = ref<Record<FiscalSegmentKey, boolean>>(defaultFiscalSegments())
 
+  /**
+   * World trade arrows (Visão Global): the animated Brazil -> partner links
+   * showing real exports/imports. Visible by default in the global context;
+   * the legend toggles them and switches the direction shown.
+   */
+  const tradeVisible = ref(true)
+  /**
+   * Directions shown, in activation order. Both can be on at once (arrows in
+   * each sense); at least one stays on. The order drives the stacked tables in
+   * the partner panel — whichever was turned on later sits below.
+   */
+  const tradeDirs = ref<TradeDirection[]>(['export'])
+  /** Partner country opened in the trade panel — explodes its sector arrows. */
+  const selectedPartner = ref<WorldRegionRef | null>(null)
+
   const hasSelection = computed(() => selectedId.value !== null)
-  const hasPanel = computed(() => selectedId.value !== null || lockedWorld.value !== null)
+  const hasPanel = computed(
+    () =>
+      selectedId.value !== null ||
+      lockedWorld.value !== null ||
+      selectedPartner.value !== null,
+  )
+
+  /**
+   * Município the camera has drilled into, whichever view is active: the
+   * drill-down panel in the influence HUD, the city card in the demographic
+   * view. This is what the lazy subdivision mesh keys off.
+   */
+  const drilledMunicipioCodigo = computed(() =>
+    demographicView.value
+      ? (selectedDemografia.value?.codigo ?? null)
+      : (selectedMunicipio.value?.codigo ?? null),
+  )
 
   function select(id: string, name: string, point?: ScreenPoint) {
     if (selectedId.value === id) return
     lockedWorld.value = null
+    selectedPartner.value = null // leaving the global trade context
     selectedMunicipio.value = null
     hoveredMunicipio.value = null // the old state's municipal layer is gone
+    clearSubdivisao()
     selectedId.value = id
     selectedName.value = name
     lastPing.value = point ?? null
@@ -107,6 +161,7 @@ export const useSelectionStore = defineStore('selection', () => {
   function selectMunicipio(codigo: string, name: string, point?: ScreenPoint) {
     if (selectedMunicipio.value?.codigo === codigo) return
     selectedMunicipio.value = { codigo, name }
+    clearSubdivisao() // the previous município's subdivision layer is gone
     lastPing.value = point ?? null
     pingSeq.value += 1
   }
@@ -114,6 +169,25 @@ export const useSelectionStore = defineStore('selection', () => {
   /** Leave the municipality view, back to the state's ranking. */
   function clearMunicipio() {
     selectedMunicipio.value = null
+    clearSubdivisao()
+  }
+
+  /** Drill into a bairro or distrito of the open município (deepest level). */
+  function selectSubdivisao(subdivisao: SubdivisaoRef, point?: ScreenPoint) {
+    if (selectedSubdivisao.value?.codigo === subdivisao.codigo) return
+    selectedSubdivisao.value = subdivisao
+    lastPing.value = point ?? null
+    pingSeq.value += 1
+  }
+
+  /** Leave the subdivision, back to the município ([X] or Esc). */
+  function clearSubdivisao() {
+    selectedSubdivisao.value = null
+    hoveredSubdivisao.value = null
+  }
+
+  function setHoveredSubdivisao(subdivisao: SubdivisaoRef | null) {
+    hoveredSubdivisao.value = subdivisao
   }
 
   /** Click on a not-yet-mapped country: swap any open panel for the lock panel. */
@@ -121,9 +195,50 @@ export const useSelectionStore = defineStore('selection', () => {
     if (lockedWorld.value?.iso === region.iso) return
     selectedId.value = null
     selectedName.value = null
+    selectedPartner.value = null
     lockedWorld.value = region
     lastPing.value = point ?? null
     pingSeq.value += 1
+  }
+
+  /** Toggle the world trade arrows on/off (legend switch). */
+  function toggleTrade() {
+    tradeVisible.value = !tradeVisible.value
+    if (!tradeVisible.value) selectedPartner.value = null
+  }
+
+  /** Toggle one direction on/off, keeping at least one active. */
+  function toggleTradeDirection(direction: TradeDirection) {
+    const current = tradeDirs.value
+    if (current.includes(direction)) {
+      if (current.length === 1) return // never leave both off
+      tradeDirs.value = current.filter((d) => d !== direction)
+    } else {
+      tradeDirs.value = [...current, direction]
+    }
+  }
+
+  /**
+   * Open the trade panel for a partner country: closes any Brazilian panel and
+   * explodes that country's arrow into one per sector. Same self-check as the
+   * other selectors so re-clicking the open partner is a no-op.
+   */
+  function selectTradePartner(region: WorldRegionRef, point?: ScreenPoint) {
+    if (selectedPartner.value?.iso === region.iso) return
+    selectedId.value = null
+    selectedName.value = null
+    selectedMunicipio.value = null
+    hoveredMunicipio.value = null
+    lockedWorld.value = null
+    clearSubdivisao()
+    selectedPartner.value = region
+    lastPing.value = point ?? null
+    pingSeq.value += 1
+  }
+
+  /** Close the trade panel, back to all-partner arrows ([X] or Esc). */
+  function clearTradePartner() {
+    selectedPartner.value = null
   }
 
   /** Close any open panel without touching the camera (ocean click, [X]). */
@@ -133,6 +248,8 @@ export const useSelectionStore = defineStore('selection', () => {
     selectedMunicipio.value = null
     hoveredMunicipio.value = null
     lockedWorld.value = null
+    selectedPartner.value = null
+    clearSubdivisao()
   }
 
   /** ESC / "voltar ao Brasil": close panels and recenter on the country. */
@@ -155,34 +272,10 @@ export const useSelectionStore = defineStore('selection', () => {
     requestCamera('national')
   }
 
-  /** Back to the influence HUD (Esc or the other view buttons). */
-  function exitDemographicView() {
-    if (!demographicView.value) return
-    demographicView.value = false
-    hoveredDemografia.value = null
-    selectedDemografia.value = null
-    demographicUf.value = null
-  }
-
-  /** Focus a state inside the demographic view (`null` = back to Brazil). */
-  function selectDemographicUf(uf: string | null) {
-    if (!demographicView.value || demographicUf.value === uf) return
-    demographicUf.value = uf
-    // The city card belongs to the previous crop — the state card takes over.
-    selectedDemografia.value = null
-  }
-
-  function setDemographicMetric(metric: DemografiaMetric) {
-    demographicMetric.value = metric
-  }
-
-  function setHoveredDemografia(hover: DemografiaHover | null) {
-    hoveredDemografia.value = hover
-  }
-
   /** Open the demographic city card (column or footprint click). */
   function selectDemografia(municipio: DemografiaHover, point?: ScreenPoint) {
     if (!demographicView.value) return
+    if (selectedDemografia.value?.codigo !== municipio.codigo) clearSubdivisao()
     selectedDemografia.value = municipio
     lastPing.value = point ?? null
     pingSeq.value += 1
@@ -191,6 +284,34 @@ export const useSelectionStore = defineStore('selection', () => {
   /** Close the demographic city card ([X] or Esc). */
   function clearDemografia() {
     selectedDemografia.value = null
+    clearSubdivisao()
+  }
+
+  /** Back to the influence HUD (Esc or the other view buttons). */
+  function exitDemographicView() {
+    if (!demographicView.value) return
+    demographicView.value = false
+    hoveredDemografia.value = null
+    selectedDemografia.value = null
+    demographicUf.value = null
+    clearSubdivisao()
+  }
+
+  /** Focus a state inside the demographic view (`null` = back to Brazil). */
+  function selectDemographicUf(uf: string | null) {
+    if (!demographicView.value || demographicUf.value === uf) return
+    demographicUf.value = uf
+    // The city card belongs to the previous crop, the state card takes over.
+    selectedDemografia.value = null
+    clearSubdivisao()
+  }
+
+  function setDemographicMetric(metric: DemografiaMetric) {
+    demographicMetric.value = metric
+  }
+
+  function setHoveredDemografia(hover: DemografiaHover | null) {
+    hoveredDemografia.value = hover
   }
 
   /** Toggle one fiscal segment (right-panel switch). */
@@ -264,6 +385,8 @@ export const useSelectionStore = defineStore('selection', () => {
     selectedId,
     selectedName,
     selectedMunicipio,
+    selectedSubdivisao,
+    hoveredSubdivisao,
     hoveredId,
     hoveredName,
     hoveredMunicipio,
@@ -282,14 +405,21 @@ export const useSelectionStore = defineStore('selection', () => {
     demographicUf,
     selectedDemografia,
     fiscalSegments,
+    tradeVisible,
+    tradeDirs,
+    selectedPartner,
     mapPitch,
     pitchOverride,
     pitchRequest,
     hasSelection,
     hasPanel,
+    drilledMunicipioCodigo,
     select,
     selectMunicipio,
     clearMunicipio,
+    selectSubdivisao,
+    clearSubdivisao,
+    setHoveredSubdivisao,
     lockWorld,
     closePanels,
     goHome,
@@ -303,6 +433,10 @@ export const useSelectionStore = defineStore('selection', () => {
     clearDemografia,
     toggleFiscalSegment,
     setFiscalGroup,
+    toggleTrade,
+    toggleTradeDirection,
+    selectTradePartner,
+    clearTradePartner,
     requestPitch,
     setMapPitch,
     setPitchOverride,

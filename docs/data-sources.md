@@ -57,6 +57,71 @@ state/world meshes. Sizes: largest MG (853 municipalities, **569 KB**), then
 SP (645, **347 KB**); every file is under the 900 KB budget and the 27 files
 total **3.7 MB**, fetched one state at a time.
 
+## Intramunicipal boundaries (`apps/web/public/geo/subdivisoes/{codigo}.geojson`)
+
+**Coverage: 2,587 of the 5,570 municipalities (76.2% of the population),** in
+two levels, because IBGE does not cut every city the same way:
+
+| Level | Municipalities | Units | Why |
+| --- | --- | --- | --- |
+| `bairro` | 895 | 17,575 | The finer cut, wherever IBGE draws it |
+| `distrito` | 1,692 | 5,110 | Fallback where no bairros exist |
+
+The fallback is not universal on purpose. Every município has at least one
+distrito, but in 3,332 of them that single distrito **is** the município: an
+identical polygon with nothing to drill into. Only municípios with 2 or more
+distritos get a file. That still leaves 2,983 municípios (23.8% of the
+population) where the drill-down stops at the município, Brasília and São Luís
+among them, and the panel says so instead of failing silently. São Paulo is
+the headline case the fallback rescues: no bairros, but 96 distritos.
+
+**Why not the Malhas API:** it stops at the município. Asking a município for
+an intramunicipal cut answers HTTP 400 (`"Quando a malha for um município do
+Brasil, o parâmetro intrarregiao NÃO aceita valores"`), so both levels come
+from geoftp shapefiles instead.
+
+**Sources (downloaded 2026-07-28),** where `{nivel}` is `bairros` or
+`distritos` and `{Nivel}` is `Bairro` or `Distrito`:
+
+```
+malha:      https://geoftp.ibge.gov.br/organizacao_do_territorio/malhas_territoriais/malhas_de_setores_censitarios__divisoes_intramunicipais/censo_2022/{nivel}/shp/BR/BR_{nivel}_CD2022.zip
+agregados:  https://ftp.ibge.gov.br/Censos/Censo_Demografico_2022/Agregados_por_Setores_Censitarios/Agregados_por_{Nivel}_csv/Agregados_por_{nivel}_basico_BR_20260520.zip
+```
+
+The bairro mesh is 26 MB zipped, the distrito one 226 MB. Both carry `CD_MUN`
+(the same 7-digit code the municipal mesh uses, so the join is direct) plus
+their own code and name field.
+
+**Processing** (`apps/web/scripts/fetch-subdivisoes.mjs`, `pnpm subdivisoes`):
+mapshaper reads each shapefile straight out of its zip, `-simplify 20%
+keep-shapes -clean`, then `-split CD_MUN` writes one file per município.
+Looser than the municipal 25% on purpose: bairro polygons are made of
+street-level notches that heavier simplification turns to mush at the zoom the
+drill-down flies to. Bairros run first, so a município that has them never
+gets a distrito file. The wanted-município filter goes through a joined CSV
+rather than an inline expression, because the distrito list runs past the
+command-line length limit. Properties are rewritten to `{ codigo, name,
+population, households, areaKm2, density }`. `--pilot` builds only the 27
+capitals; `--level=bairro|distrito` rebuilds one level.
+
+**Why the aggregates ride inside the GeoJSON:** one lazy fetch per city
+instead of two. Median 8 KB (bairros) and 18 KB (distritos); largest Belo
+Horizonte at **363 KB** (budget 400 KB), fetched one município at a time.
+Total **53.6 MB** across 2,587 files. `index.json` maps each município to
+`{count, level}`, so the app can tell "not loaded yet" from "this city has no
+subdivision" without firing a request that 404s, **and** name the division
+correctly instead of calling a distrito a bairro.
+
+**The Censo 2022 figures are real**, and they reconcile: summing `v0001`
+(resident population) over Rio de Janeiro's 162 bairros gives exactly
+6,211,223, the município's Censo 2022 total. `v0002` is households and
+`AREA_KM2` the area, from which density is precomputed.
+
+**No PIB at this level.** The PIB dos Municípios does not break down below the
+município, so the readouts show `N/D` for PIB and the fiscal overlay stays a
+municipal layer. The UI says so explicitly rather than dividing a municipal
+number by anything.
+
 ## World countries backdrop (`apps/web/public/geo/world-countries.geojson`)
 
 **Source:** Natural Earth, 1:110m Cultural Vectors — Admin 0 Countries
@@ -194,6 +259,70 @@ dataset. 2025 totals for the committed file: arrecadação R$ 2,757.1 bi
 **Role:** factual context, like the IBGE indicators. These are public figures
 about territories, not claims about power holders, so the content-safety rule
 (ARCHITECTURE.md section 5) is untouched.
+
+## Foreign-trade flows (`apps/web/public/data/comercio/mundo.json`)
+
+Real Brazilian exports/imports per partner country and economic sector,
+powering the world trade arrows of the Visão Global (Brazil -> partner links,
+one per partner by default, exploded into per-sector arrows when a country is
+clicked). Reference year **2025**, values in whole **US$ FOB**.
+
+**Source (public, open data, no API key):** Comex Stat / MDIC, "Base de dados
+bruta" by NCM. Docs:
+<https://www.gov.br/mdic/pt-br/assuntos/comercio-exterior/estatisticas/base-de-dados-bruta>
+
+**Endpoints used (downloaded 2026-08-01):**
+
+```
+exp:     https://balanca.economia.gov.br/balanca/bd/comexstat-bd/ncm/EXP_2025.csv
+imp:     https://balanca.economia.gov.br/balanca/bd/comexstat-bd/ncm/IMP_2025.csv
+paises:  https://balanca.economia.gov.br/balanca/bd/tabelas/PAIS.csv
+setores: https://balanca.economia.gov.br/balanca/bd/tabelas/NCM_SH.csv
+```
+
+The two annual files are NCM-detailed (`;`-separated, latin1, layout
+`CO_ANO;CO_MES;CO_NCM;CO_UNID;CO_PAIS;SG_UF_NCM;CO_VIA;CO_URF;QT_ESTAT;`
+`KG_LIQUIDO;VL_FOB`, `VL_FOB` in US$). `PAIS.csv` maps `CO_PAIS` to the ISO
+alpha-3 code (`CO_PAIS_ISOA3`); `NCM_SH.csv` maps `CO_SH6` to the HS chapter
+(`CO_SH2` + `NO_SH2_POR`), which is the "sector".
+
+**Processing** (`apps/web/scripts/fetch-comercio.mjs`, `pnpm comercio`;
+downloads cached in `apps/web/scripts/.cache-comercio`, gitignored): both files
+are streamed line by line and `VL_FOB` is summed by partner (ISO) × sector (the
+NCM's first two digits = HS chapter). Partners are joined to the world backdrop
+by ISO alpha-3 and anchored at the country centroid (vertex average of the
+largest ring, like `build-demografia.mjs`). Output tuples:
+
+```
+{ referenceYear, currency: 'USD', source, totals: { exp, imp },
+  sectors: { <chapter>: <label> },
+  partners: [[iso, name, lon, lat, exp, imp,
+              [[chapter, exp, imp], ...]], ...] }
+```
+
+Each partner keeps its top 12 sectors; the rest fold into an "Outros" bucket
+('ZZ') so the sector list reconciles to the partner total. **171 partners, 84
+sectors, ~55 KB**, fetched once when the trade arrows first show.
+
+**2025 totals for the committed file:** exportações **US$ 348.3 bi**,
+importações **US$ 280.2 bi**. Country coverage is 99.3% (exp) / 99.7% (imp);
+the remainder is trade booked to codes with no ISO ("não definido", consumo de
+bordo) or to partners without a polygon in the 1:110m world mesh. A short
+manual-centroid override (Singapura, Hong Kong) keeps a few notable small
+partners on the map.
+
+**Caveats worth knowing:**
+
+- **Sector = HS chapter (2-digit).** "Soja e oleaginosas" is chapter 12, so
+  soybean meal (ch. 23) and soy oil (ch. 15) count as separate sectors; the
+  labels name the chapter, not a marketing "complexo soja".
+- **balanca.economia.gov.br ships an incomplete TLS chain**, so the build
+  script relaxes certificate verification for its own downloads only — never in
+  the shipped app.
+
+**Role:** factual context, like the IBGE indicators and the fiscal flows. These
+are public figures about trade between countries, not claims about power
+holders, so the content-safety rule (ARCHITECTURE.md section 5) is untouched.
 
 ## Rankings / entities (`apps/web/src/data/mock/*.json`)
 

@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
-import { formatGdpThousands, formatPeopleCompact } from '@/lib/format'
+import { formatDensity, formatGdpThousands, formatPeopleCompact, formatUsd } from '@/lib/format'
+import { SUBDIVISAO_LABEL } from '@/lib/labels'
+import { useComercioStore } from '@/stores/comercio'
 import { useIndicatorsStore } from '@/stores/indicators'
 import { useSelectionStore } from '@/stores/selection'
 
@@ -12,6 +14,7 @@ import { useSelectionStore } from '@/stores/selection'
  */
 const selection = useSelectionStore()
 const indicators = useIndicatorsStore()
+const comercio = useComercioStore()
 
 interface TooltipModel {
   title: string
@@ -20,6 +23,20 @@ interface TooltipModel {
 }
 
 const model = computed<TooltipModel | null>(() => {
+  // Deepest level first: a subdivision hover outranks the município under it.
+  // No PIB row — the PIB dos Municípios does not break down this far, and the
+  // tag names the actual division (bairro or distrito) rather than assuming.
+  const subdivisao = selection.hoveredSubdivisao
+  if (subdivisao) {
+    return {
+      title: subdivisao.name,
+      tag: `${SUBDIVISAO_LABEL[subdivisao.level]} · ${subdivisao.codigo}`,
+      lines: [
+        { label: 'POP', value: formatPeopleCompact(subdivisao.population) },
+        { label: 'DENS', value: formatDensity(subdivisao.density) },
+      ],
+    }
+  }
   const demografia = selection.hoveredDemografia
   if (demografia) {
     return {
@@ -59,6 +76,22 @@ const model = computed<TooltipModel | null>(() => {
     }
   }
   if (selection.hoveredWorld) {
+    // With the trade arrows on, a partner country shows its real 2025 flows;
+    // otherwise it stays the "não mapeado" backdrop hint.
+    const partner =
+      selection.tradeVisible && !selection.demographicView
+        ? comercio.byIso.get(selection.hoveredWorld.iso)
+        : undefined
+    if (partner) {
+      return {
+        title: partner.name,
+        tag: `COMÉRCIO · COMEX STAT ${comercio.referenceYear ?? ''}`,
+        lines: [
+          { label: 'EXPORTA', value: formatUsd(partner.exp) },
+          { label: 'IMPORTA', value: formatUsd(partner.imp) },
+        ],
+      }
+    }
     return {
       title: selection.hoveredWorld.name,
       tag: 'NÃO MAPEADO',

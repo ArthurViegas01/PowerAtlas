@@ -14,7 +14,8 @@
     "subdivisoes": "node scripts/fetch-subdivisoes.mjs",
     "indicators": "node scripts/fetch-indicators.mjs",
     "demografia": "node scripts/build-demografia.mjs",
-    "fiscal": "node scripts/build-fiscal.mjs"
+    "fiscal": "node scripts/build-fiscal.mjs",
+    "comercio": "node scripts/fetch-comercio.mjs"
   },
   "dependencies": {
     "@deck.gl/aggregation-layers": "^9.1.0",

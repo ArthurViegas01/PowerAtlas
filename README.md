@@ -132,6 +132,20 @@ persists into an isolated `datasets` namespace, gated by `PA_ALLOW_WRITES` and
 provably unable to touch the served power data
 ([docs/data-console.md](docs/data-console.md)).
 
+**Subdivision drill-down.** The zoom now goes one level below the município:
+closing the camera on a city loads its IBGE intramunicipal mesh (Censo 2022)
+and opens a panel with real população, domicílios, área and densidade. It works
+from both views, and Esc walks back out through it. Coverage follows what IBGE
+publishes, in two levels: **895 municípios are cut into bairros** and **1,692
+more into distritos** where no bairros exist (São Paulo among them, with 96),
+reaching **2,587 municípios and 76,2% of the population**. The remaining 2,983
+have no division worth drilling into and the panel says so. The UI always names
+the level it is showing instead of calling a distrito a bairro. PIB shows `N/D`
+here on purpose: the PIB dos Municípios has no breakdown this far down. In the
+demographic view, opening a município also clears the columns within 60 km so
+the mesh underneath is visible. Rebuild with `pnpm subdivisoes`
+([docs/data-sources.md](docs/data-sources.md)).
+
 Deviations from the original plans: [ARCHITECTURE.md](ARCHITECTURE.md) §3
 and [docs/data-sources.md](docs/data-sources.md). Next phases (scoring
 pipeline, review workflow): ARCHITECTURE.md §6.
@@ -163,12 +177,13 @@ pnpm build      # vue-tsc type-check + production build
 pnpm preview    # serve the production build on http://localhost:4173
 pnpm test       # vitest (stores, composables, layer factory)
 pnpm geo        # re-fetch + simplify IBGE boundaries (needs network)
+pnpm subdivisoes # rebuild the IBGE bairro/distrito meshes (needs network)
 pnpm indicators # re-fetch IBGE factual indicators (needs network)
 pnpm demografia # rebuild the demographic-view dataset (offline join)
 pnpm fiscal     # rebuild the fiscal-flow dataset (needs network; cached)
 ```
 
-The four data scripts commit their output, so a fresh clone runs with no
+The five data scripts commit their output, so a fresh clone runs with no
 network. Re-run `demografia` after `geo` or `indicators` changes its inputs.
 
 Every script has an equivalent Makefile target (`make help` lists them) for

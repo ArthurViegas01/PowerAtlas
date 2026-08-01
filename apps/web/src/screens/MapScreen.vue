@@ -14,16 +14,20 @@ import MapLegend from '@/components/map/MapLegend.vue'
 import MapScanEffect from '@/components/map/MapScanEffect.vue'
 import MapTooltip from '@/components/map/MapTooltip.vue'
 import MapView from '@/components/map/MapView.vue'
+import TradePartnerCard from '@/components/map/TradePartnerCard.vue'
 import ScanBand from '@/components/hud/ScanBand.vue'
 import RankingColumn from '@/components/rankings/RankingColumn.vue'
 import IndicatorGrid from '@/components/shared/IndicatorGrid.vue'
 import { HIDDEN_INFLUENCE_ENABLED } from '@/lib/features'
+import { SUBDIVISAO_LABEL, SUBDIVISAO_LABEL_PLURAL } from '@/lib/labels'
+import { useComercioStore } from '@/stores/comercio'
 import { useDemografiaStore } from '@/stores/demografia'
 import { useFiscalStore } from '@/stores/fiscal'
 import { useIndicatorsStore } from '@/stores/indicators'
 import { useMapLayersStore } from '@/stores/mapLayers'
 import { useRankingsStore } from '@/stores/rankings'
 import { useSelectionStore } from '@/stores/selection'
+import type { RegionIndicators } from '@/types/indicators'
 
 const selection = useSelectionStore()
 const rankings = useRankingsStore()
@@ -31,19 +35,48 @@ const mapLayers = useMapLayersStore()
 const indicators = useIndicatorsStore()
 const demografia = useDemografiaStore()
 const fiscal = useFiscalStore()
+const comercio = useComercioStore()
 
 const region = computed(() => rankings.regionById(selection.selectedId))
 const regionIndicators = computed(() => indicators.forRegion(selection.selectedId))
 const municipioIndicators = computed(() =>
   indicators.forMunicipio(selection.selectedId, selection.selectedMunicipio?.codigo ?? null),
 )
+
+/**
+ * The open subdivision as IndicatorGrid input. PIB is deliberately null: the
+ * PIB dos Municípios has no breakdown this far down, so the grid shows N/D
+ * instead of a number nobody published.
+ */
+const subdivisaoIndicators = computed<RegionIndicators | null>(() => {
+  const subdivisao = selection.selectedSubdivisao
+  if (!subdivisao) return null
+  return {
+    population: subdivisao.population,
+    areaKm2: subdivisao.areaKm2,
+    density: subdivisao.density,
+    gdpBrlThousands: null,
+  }
+})
+
+/**
+ * How the open município is subdivided. A zero count means IBGE gives it no
+ * division worth drilling into (2.983 of the 5.570, São Paulo's bairros among
+ * the gaps — it is cut into distritos instead); `null` means the coverage
+ * index has not landed yet, so the panel stays quiet.
+ */
+const subdivisaoInfo = computed(() =>
+  mapLayers.subdivisaoInfoFor(selection.selectedMunicipio?.codigo ?? null),
+)
 const booting = computed(() => !rankings.ready || !mapLayers.layerModel.ready)
 const bootError = computed(() => rankings.error ?? mapLayers.error)
 
 const panelTitle = computed(() =>
   (
+    selection.selectedSubdivisao?.name ??
     selection.selectedMunicipio?.name ??
     selection.selectedName ??
+    selection.selectedPartner?.name ??
     selection.lockedWorld?.name ??
     selection.selectedId ??
     ''
@@ -51,6 +84,10 @@ const panelTitle = computed(() =>
 )
 
 const panelSubtitle = computed(() => {
+  if (selection.selectedPartner)
+    return `PARCEIRO COMERCIAL · COMEX STAT ${comercio.referenceYear ?? ''}`
+  if (selection.selectedSubdivisao)
+    return `${SUBDIVISAO_LABEL[selection.selectedSubdivisao.level]} · ${selection.selectedSubdivisao.codigo} · ${selection.selectedMunicipio?.name ?? ''}`
   if (selection.selectedMunicipio)
     return `MUNICÍPIO · ${selection.selectedMunicipio.codigo} · ${selection.selectedId}`
   if (selection.lockedWorld) return 'REGIÃO NÃO MAPEADA · COBERTURA FUTURA'
@@ -66,6 +103,9 @@ function selectNational() {
 
 function viewGlobal() {
   selection.exitDemographicView()
+  // Close any open panel (the Brasil card, a state, a partner) so the global
+  // trade view can take over — it only shows with nothing selected.
+  selection.closePanels()
   selection.requestCamera('global')
 }
 
@@ -88,9 +128,12 @@ function reload() {
 
 function onKeydown(event: KeyboardEvent) {
   if (event.key !== 'Escape') return
-  // Step out one level at a time: demographic city card -> UF crop ->
-  // demographic view -> municipality -> state -> national.
-  if (selection.demographicView && selection.selectedDemografia) {
+  // Step out one level at a time: bairro -> demographic city card -> UF crop
+  // -> demographic view -> municipality -> state -> national. The bairro sits
+  // at the top because it is the deepest level in either view.
+  if (selection.selectedSubdivisao) {
+    selection.clearSubdivisao()
+  } else if (selection.demographicView && selection.selectedDemografia) {
     selection.clearDemografia()
   } else if (selection.demographicView && selection.demographicUf) {
     selection.selectDemographicUf(null)
@@ -98,6 +141,8 @@ function onKeydown(event: KeyboardEvent) {
     selection.exitDemographicView()
   } else if (selection.selectedMunicipio) {
     selection.clearMunicipio()
+  } else if (selection.selectedPartner) {
+    selection.clearTradePartner()
   } else {
     selection.goHome()
   }
@@ -137,6 +182,9 @@ onMounted(() => {
   // context lines in every view now, so stream them in right after boot.
   void mapLayers.loadGeo().then(() => mapLayers.loadAllMunicipios())
   void indicators.loadUf()
+  // World trade arrows are on by default in the global view — stream the
+  // (small) dataset right after boot so the arcs appear without a click.
+  void comercio.load()
   window.addEventListener('keydown', onKeydown)
 })
 
@@ -174,7 +222,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
     <transition name="pa-panel" mode="out-in">
       <aside
         v-if="selection.hasPanel"
-        :key="selection.selectedId ?? selection.lockedWorld?.iso ?? 'none'"
+        :key="selection.selectedId ?? selection.selectedPartner?.iso ?? selection.lockedWorld?.iso ?? 'none'"
         class="panel-slot"
       >
         <HudPanel :title="panelTitle" :subtitle="panelSubtitle">
@@ -189,13 +237,39 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
             </button>
           </template>
 
-          <div v-if="selection.selectedMunicipio" class="no-data" data-reveal>
+          <div v-if="selection.selectedSubdivisao" class="no-data" data-reveal>
+            <p class="no-data-title pa-data">
+              ◫ {{ SUBDIVISAO_LABEL[selection.selectedSubdivisao.level] }}
+            </p>
+            <IndicatorGrid
+              v-if="subdivisaoIndicators"
+              :indicators="subdivisaoIndicators"
+              :source-label="`IBGE · CENSO 2022 · MALHA DE ${SUBDIVISAO_LABEL_PLURAL[selection.selectedSubdivisao.level].toUpperCase()}`"
+            />
+            <p class="no-data-sub">
+              PIB aparece como N/D de propósito: o PIB dos Municípios não desce
+              abaixo do município. Neste nível o Censo publica população,
+              domicílios e área.
+            </p>
+            <button class="back-home pa-data" type="button" @click="selection.clearSubdivisao()">
+              ◄ VOLTAR AO MUNICÍPIO
+            </button>
+          </div>
+
+          <div v-else-if="selection.selectedMunicipio" class="no-data" data-reveal>
             <p class="no-data-title pa-data">◫ MUNICÍPIO</p>
             <IndicatorGrid
               v-if="municipioIndicators"
               :indicators="municipioIndicators"
               :source-label="indicators.sourceLabel"
             />
+            <p v-if="subdivisaoInfo !== null" class="no-data-sub bairro-note">
+              {{
+                subdivisaoInfo.count > 0
+                  ? `▸ ${subdivisaoInfo.count} ${SUBDIVISAO_LABEL_PLURAL[subdivisaoInfo.level]} na malha do IBGE: aproxime e clique em um deles.`
+                  : '▸ Sem subdivisão oficial do IBGE para este município.'
+              }}
+            </p>
             <p class="no-data-sub">
               Ranking de influência municipal ainda não disponível: os índices por
               município chegam com o pipeline de dados das próximas fases.
@@ -235,6 +309,8 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
               </div>
             </div>
           </div>
+
+          <TradePartnerCard v-else-if="selection.selectedPartner" />
 
           <div v-else-if="selection.lockedWorld" class="no-data" data-reveal>
             <p class="no-data-title pa-data">◫ ÁREA BLOQUEADA — NÃO MAPEADA</p>
@@ -424,6 +500,13 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
   font-size: var(--pa-text-sm);
   line-height: 1.5;
   color: var(--pa-text-dim);
+}
+
+/* Bairro availability sits between the indicator grid and the ranking note. */
+.bairro-note {
+  margin-bottom: 10px;
+  font-size: var(--pa-text-xs);
+  color: var(--pa-series-official);
 }
 
 .back-home {

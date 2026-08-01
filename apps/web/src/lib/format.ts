@@ -21,6 +21,12 @@ const brlFmt = new Intl.NumberFormat('pt-BR', {
   notation: 'compact',
   maximumFractionDigits: 1,
 })
+const usdFmt = new Intl.NumberFormat('pt-BR', {
+  style: 'currency',
+  currency: 'USD',
+  notation: 'compact',
+  maximumFractionDigits: 1,
+})
 
 export function formatInt(value: number | null): string {
   return value == null ? NOT_AVAILABLE : intFmt.format(value)
@@ -57,4 +63,9 @@ export function formatBrl(value: number | null): string {
 /** Compact count ("5,57 mil", "1,2 mi") for headline tiles. */
 export function formatCompact(value: number | null): string {
   return value == null ? NOT_AVAILABLE : compactFmt.format(value)
+}
+
+/** Compact USD for whole-dollar trade values ("US$ 34,8 bi"). */
+export function formatUsd(value: number | null): string {
+  return value == null ? NOT_AVAILABLE : usdFmt.format(value)
 }

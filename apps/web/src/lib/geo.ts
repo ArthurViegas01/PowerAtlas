@@ -32,6 +32,48 @@ export interface MunicipioProps {
 export type MunicipioFeature = Feature<Polygon | MultiPolygon, MunicipioProps>
 export type MunicipioCollection = FeatureCollection<Polygon | MultiPolygon, MunicipioProps>
 
+/**
+ * Which intramunicipal division a município's mesh actually holds. IBGE draws
+ * bairros for only 895 of the 5.570; the rest fall back to distritos, and the
+ * two are different cuts, so the level travels with the data and the UI names
+ * it instead of calling every subdivision a "bairro".
+ */
+export type SubdivisaoLevel = 'bairro' | 'distrito'
+
+/**
+ * Subdivision mesh properties (scripts/fetch-subdivisoes.mjs,
+ * subdivisoes/{codigo}.geojson). The Censo 2022 aggregates ride along in the
+ * properties — one lazy fetch per city serves both the geometry and its
+ * readouts. `null` marks a value IBGE suppressed. There is no PIB here: the
+ * PIB dos Municípios does not go below the município.
+ */
+export interface SubdivisaoProps {
+  /** IBGE code of the bairro (CD_BAIRRO) or distrito (CD_DIST). */
+  codigo: string
+  name: string
+  population: number | null
+  households: number | null
+  areaKm2: number | null
+  /** hab/km², precomputed from the two above. */
+  density: number | null
+}
+
+export type SubdivisaoFeature = Feature<Polygon | MultiPolygon, SubdivisaoProps>
+export type SubdivisaoCollection = FeatureCollection<Polygon | MultiPolygon, SubdivisaoProps>
+
+/** One município's entry in the coverage index. */
+export interface SubdivisaoInfo {
+  count: number
+  level: SubdivisaoLevel
+}
+
+/** public/geo/subdivisoes/index.json — coverage and level per município. */
+export interface SubdivisaoIndex {
+  censusYear: number
+  /** Keyed by 7-digit município code; absent = no subdivision to drill into. */
+  municipios: Record<string, SubdivisaoInfo>
+}
+
 /** [[west, south], [east, north]] — the shape maplibre's fitBounds accepts. */
 export type Bounds = [[number, number], [number, number]]
 
@@ -136,6 +178,82 @@ export function boundaryCrestPaths(
   }
   for (const feature of collection.features) walkRings(feature.geometry.coordinates)
 
+  byHeight.set(height, paths)
+  return paths
+}
+
+const featureWallCache = new WeakMap<object, Map<number, WallQuad[]>>()
+
+/**
+ * Wall quads for a SINGLE feature (one world country), cached per feature and
+ * height. Same vertical-quad-per-edge geometry as boundaryWallQuads, but kept
+ * separate so each country's walls can be colored on their own.
+ */
+export function featureWallQuads(
+  feature: Feature<Polygon | MultiPolygon, unknown>,
+  top: number,
+): WallQuad[] {
+  let byTop = featureWallCache.get(feature)
+  if (!byTop) {
+    byTop = new Map()
+    featureWallCache.set(feature, byTop)
+  }
+  const cached = byTop.get(top)
+  if (cached) return cached
+
+  const quads: WallQuad[] = []
+  const walkRings = (coords: unknown): void => {
+    if (!Array.isArray(coords) || coords.length === 0) return
+    const first = coords[0] as unknown[]
+    if (Array.isArray(first) && typeof first[0] === 'number') {
+      const ring = coords as [number, number][]
+      for (let i = 0; i < ring.length - 1; i++) {
+        const [x1, y1] = ring[i]
+        const [x2, y2] = ring[i + 1]
+        if (x1 === x2 && y1 === y2) continue
+        quads.push([
+          [x1, y1, 0],
+          [x2, y2, 0],
+          [x2, y2, top],
+          [x1, y1, top],
+          [x1, y1, 0],
+        ])
+      }
+      return
+    }
+    for (const child of coords) walkRings(child)
+  }
+  walkRings(feature.geometry.coordinates)
+  byTop.set(top, quads)
+  return quads
+}
+
+const featureCrestCache = new WeakMap<object, Map<number, CrestPath[]>>()
+
+/** Top edges of a single feature's walls, as 3D paths for a bright crest line. */
+export function featureCrestPaths(
+  feature: Feature<Polygon | MultiPolygon, unknown>,
+  height: number,
+): CrestPath[] {
+  let byHeight = featureCrestCache.get(feature)
+  if (!byHeight) {
+    byHeight = new Map()
+    featureCrestCache.set(feature, byHeight)
+  }
+  const cached = byHeight.get(height)
+  if (cached) return cached
+
+  const paths: CrestPath[] = []
+  const walkRings = (coords: unknown): void => {
+    if (!Array.isArray(coords) || coords.length === 0) return
+    const first = coords[0] as unknown[]
+    if (Array.isArray(first) && typeof first[0] === 'number') {
+      paths.push((coords as [number, number][]).map(([x, y]) => [x, y, height]))
+      return
+    }
+    for (const child of coords) walkRings(child)
+  }
+  walkRings(feature.geometry.coordinates)
   byHeight.set(height, paths)
   return paths
 }

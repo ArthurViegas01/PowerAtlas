@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 
 import DecryptedText from '@/components/shared/DecryptedText.vue'
+import { SUBDIVISAO_LABEL } from '@/lib/labels'
 import { useDemografiaStore } from '@/stores/demografia'
 import { useFiscalStore } from '@/stores/fiscal'
 import { useMapLayersStore } from '@/stores/mapLayers'
@@ -21,6 +22,9 @@ const fiscal = useFiscalStore()
 const municipio = computed(() =>
   selection.demographicView ? selection.selectedDemografia : null,
 )
+
+/** Third level: a bairro or distrito of the open município (deepest card). */
+const subdivisao = computed(() => (selection.demographicView ? selection.selectedSubdivisao : null))
 
 /** Cropped state feature — drives the state card while no city is picked. */
 const stateFeature = computed(() => {
@@ -96,10 +100,19 @@ const currency = new Intl.NumberFormat('pt-BR', {
 })
 
 const title = computed(() =>
-  (municipio.value?.name ?? stateFeature.value?.properties.name ?? '').toUpperCase(),
+  (
+    subdivisao.value?.name ??
+    municipio.value?.name ??
+    stateFeature.value?.properties.name ??
+    ''
+  ).toUpperCase(),
 )
 
 const subtitle = computed(() => {
+  if (subdivisao.value) {
+    const city = municipio.value ? ` · ${municipio.value.name}` : ''
+    return `${SUBDIVISAO_LABEL[subdivisao.value.level]} · ${subdivisao.value.codigo}${city}`
+  }
   if (municipio.value) {
     const uf = municipioUf.value ? ` · ${municipioUf.value}` : ''
     return `MUNICÍPIO · ${municipio.value.codigo}${uf}`
@@ -167,7 +180,39 @@ function demographicRows(
   ]
 }
 
+const oneDecimal = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 })
+
+/**
+ * Subdivision readouts. Everything the Censo 2022 publishes at this level and
+ * nothing more: no PIB row, because the PIB dos Municípios stops at the
+ * município and inventing a share of it would be fiction.
+ */
+function subdivisaoRows(current: NonNullable<typeof subdivisao.value>): CardRow[] {
+  const census = demografia.censusYear ? `CENSO ${demografia.censusYear}` : undefined
+  return [
+    {
+      label: 'POPULAÇÃO',
+      value: current.population == null ? 'N/D' : integer.format(current.population),
+      note: census,
+    },
+    {
+      label: 'DOMICÍLIOS',
+      value: current.households == null ? 'N/D' : integer.format(current.households),
+    },
+    {
+      label: 'ÁREA',
+      value: current.areaKm2 == null ? 'N/D' : `${oneDecimal.format(current.areaKm2)} km²`,
+    },
+    {
+      label: 'DENSIDADE',
+      value: current.density == null ? 'N/D' : `${oneDecimal.format(current.density)} hab/km²`,
+    },
+    { label: 'PIB', value: 'N/D', note: 'NÃO PUBLICADO NESTE NÍVEL' },
+  ]
+}
+
 const rows = computed<CardRow[]>(() => {
+  if (subdivisao.value) return subdivisaoRows(subdivisao.value)
   const current = municipio.value
   if (current) {
     const list = demographicRows(current.population, current.gdpBrlThousands)
@@ -219,16 +264,22 @@ const rows = computed<CardRow[]>(() => {
   return list
 })
 
-const visible = computed(() => municipio.value !== null || stateFeature.value !== null)
+const visible = computed(
+  () => subdivisao.value !== null || municipio.value !== null || stateFeature.value !== null,
+)
 
 /** Transition key: remounting restarts the decrypt animation per subject. */
 const cardKey = computed(
-  () => municipio.value?.codigo ?? `uf-${stateFeature.value?.properties.UF ?? ''}`,
+  () =>
+    subdivisao.value?.codigo ??
+    municipio.value?.codigo ??
+    `uf-${stateFeature.value?.properties.UF ?? ''}`,
 )
 
-/** City card steps back to the state card; the state card leaves the crop. */
+/** One step out per click: subdivision -> city -> state -> no crop. */
 function closeCard() {
-  if (municipio.value) selection.clearDemografia()
+  if (subdivisao.value) selection.clearSubdivisao()
+  else if (municipio.value) selection.clearDemografia()
   else selection.selectDemographicUf(null)
 }
 </script>
@@ -239,7 +290,13 @@ function closeCard() {
       v-if="visible"
       :key="cardKey"
       class="city-card"
-      :aria-label="municipio ? 'Ficha do município' : 'Ficha do estado'"
+      :aria-label="
+        subdivisao
+          ? 'Ficha da subdivisão'
+          : municipio
+            ? 'Ficha do município'
+            : 'Ficha do estado'
+      "
     >
       <header class="head">
         <div class="head-text">
