@@ -14,6 +14,16 @@ export interface ScreenPoint {
 export interface WorldRegionRef {
   iso: string
   name: string
+  /** Set when `name` is a province: the pt-BR country it belongs to. */
+  country?: string
+}
+
+/** A foreign province under the cursor (admin-1 border of a big country). */
+export interface WorldStateRef {
+  iso: string
+  /** Province / state name. */
+  name: string
+  country: string
 }
 
 export type CameraTarget = 'national' | 'global'
@@ -61,6 +71,8 @@ export const useSelectionStore = defineStore('selection', () => {
   const hoveredSubdivisao = ref<SubdivisaoRef | null>(null)
   /** World-country hover on the backdrop layer. */
   const hoveredWorld = ref<WorldRegionRef | null>(null)
+  /** Foreign province hover (admin-1 layer over the big countries). */
+  const hoveredWorldState = ref<WorldStateRef | null>(null)
   /** Screen position of the last hover pick — anchors the map tooltip. */
   const hoverPoint = ref<ScreenPoint | null>(null)
   /** World country clicked — opens the "região não mapeada" panel. */
@@ -203,6 +215,20 @@ export const useSelectionStore = defineStore('selection', () => {
     selectedName.value = null
     selectedPartner.value = null
     lockedWorld.value = region
+    lastPing.value = point ?? null
+    pingSeq.value += 1
+  }
+
+  /**
+   * Click on a not-yet-mapped foreign province: like lockWorld, but the panel
+   * names the province and carries its country. Reuses lockedWorld so the
+   * "região não mapeada" panel and Esc/close flow work unchanged.
+   */
+  function lockWorldState(region: WorldStateRef, point?: ScreenPoint) {
+    selectedId.value = null
+    selectedName.value = null
+    selectedPartner.value = null
+    lockedWorld.value = { iso: region.iso, name: region.name, country: region.country }
     lastPing.value = point ?? null
     pingSeq.value += 1
   }
@@ -388,6 +414,10 @@ export const useSelectionStore = defineStore('selection', () => {
     hoveredWorld.value = region
   }
 
+  function setHoveredWorldState(region: WorldStateRef | null) {
+    hoveredWorldState.value = region
+  }
+
   function setHoverPoint(point: ScreenPoint | null) {
     hoverPoint.value = point
   }
@@ -402,6 +432,7 @@ export const useSelectionStore = defineStore('selection', () => {
     hoveredName,
     hoveredMunicipio,
     hoveredWorld,
+    hoveredWorldState,
     hoverPoint,
     lockedWorld,
     lastPing,
@@ -433,6 +464,7 @@ export const useSelectionStore = defineStore('selection', () => {
     clearSubdivisao,
     setHoveredSubdivisao,
     lockWorld,
+    lockWorldState,
     closePanels,
     goHome,
     requestCamera,
@@ -461,6 +493,7 @@ export const useSelectionStore = defineStore('selection', () => {
     setHovered,
     setHoveredMunicipio,
     setHoveredWorld,
+    setHoveredWorldState,
     setHoverPoint,
   }
 })

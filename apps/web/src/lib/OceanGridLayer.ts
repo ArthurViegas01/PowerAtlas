@@ -38,6 +38,30 @@ const ZOOM_REF = 3.7
 const WORLD_SPAN_M = 20_000_000
 const MAX_RIPPLES = 4
 
+// ── Click ripple ────────────────────────────────────────────────────────────
+// A small, local splash around the clicked point, NOT a wave crossing the whole
+// sea. Radii are in view-radius units (1 = half the screen width), so the ring
+// stays the same on-screen size at any zoom. The front expands only out to
+// RIPPLE_MAX_R and everything past ~1.5× that is cut, keeping it a tight circle.
+const RIPPLE_MAX_R = 0.13 // how far the front travels (small radius around cursor)
+const RIPPLE_RING_W = 0.045 // gaussian thickness of the ring
+const RIPPLE_LIFE_S = 1.8 // seconds from click to fully faded (matches MapView)
+
+// ── Scan sweep ──────────────────────────────────────────────────────────────
+// A screen-space band that travels top→bottom over the sea, brightening the
+// grid seams as it passes — the OceanGrid twin of the HUD's ScanBand.vue. The
+// phase is derived from `time` (loop units) so it shares the map's clock and
+// freezes with it under reduced motion (`time` held at 0). The band runs from
+// -0.15 to 1.15 of the screen height, so there is an off-screen pause between
+// passes just like the CSS band's -20vh→115vh travel.
+const SCAN_PERIOD_UNITS = 9000 / 4200 // ≈ 9s, matching ScanBand's 9s sweep
+const SCAN_HALF_WIDTH = 0.05 // gaussian half-width, fraction of screen height
+const SCAN_SEAM_BOOST = 1.15 // how hard the band lights the grid seams
+const SCAN_FILL = 0.08 // faint wash so the band reads over open cells
+const SCAN_TINT = 0.9 // how far seams shift toward the cyan scan color
+// Cyan of the HUD scan (--pa-series-official), so the sweep matches ScanBand.
+const SCAN_COLOR: [number, number, number] = [61, 225, 255]
+
 const R_EARTH = 6378137
 const D2R = Math.PI / 180
 
@@ -70,7 +94,14 @@ layout(std140) uniform oceanGridUniforms {
   float mouseActive;
   float mouseRadius;
   float mouseStrength;
+  float scanPos;
+  float scanWidth;
+  float scanBoost;
+  float scanFill;
+  float scanTint;
+  float screenH;
   vec3 color;
+  vec3 scanColor;
   vec2 center;
   vec2 mouse;
   vec4 ripple0;
@@ -96,7 +127,14 @@ type OceanGridUniforms = {
   mouseActive: number
   mouseRadius: number
   mouseStrength: number
+  scanPos: number
+  scanWidth: number
+  scanBoost: number
+  scanFill: number
+  scanTint: number
+  screenH: number
   color: [number, number, number]
+  scanColor: [number, number, number]
   center: [number, number]
   mouse: [number, number]
   ripple0: [number, number, number, number]
@@ -125,7 +163,14 @@ const oceanGridUniforms = {
     mouseActive: 'f32',
     mouseRadius: 'f32',
     mouseStrength: 'f32',
+    scanPos: 'f32',
+    scanWidth: 'f32',
+    scanBoost: 'f32',
+    scanFill: 'f32',
+    scanTint: 'f32',
+    screenH: 'f32',
     color: 'vec3<f32>',
+    scanColor: 'vec3<f32>',
     center: 'vec2<f32>',
     mouse: 'vec2<f32>',
     ripple0: 'vec4<f32>',
@@ -199,7 +244,9 @@ void main(void) {
   vec2 warp = vMerc + vec2(wA + wC, wB - wD) * ws * oceanGrid.rippleIntensity * 0.5;
   float shine = crest * 0.5;
 
-  // Click ripples: expanding wave fronts pinned to the clicked sea point.
+  // Click ripples: a small local splash around the clicked point. The front
+  // expands only out to RIPPLE_MAX_R and is cut past ~1.5× that, so it stays a
+  // tight ring near the cursor instead of a wave sweeping the whole sea.
   vec4 rs[4] = vec4[4](oceanGrid.ripple0, oceanGrid.ripple1, oceanGrid.ripple2, oceanGrid.ripple3);
   float cellPreview = oceanGrid.baseCell / exp2(floor(oceanGrid.zoom - ZOOM_REF));
   for (int i = 0; i < 4; i++) {
@@ -207,9 +254,12 @@ void main(void) {
     if (r.w < 0.5) continue;
     vec2 dr = vMerc - r.xy;
     float d = length(dr) / oceanGrid.viewRadius;
-    float front = r.z * 0.6;
-    float fade = max(0.0, 1.0 - r.z / 3.4);
-    float bump = exp(-pow((d - front) / 0.1, 2.0)) * fade;
+    float t01 = clamp(r.z / ${RIPPLE_LIFE_S.toFixed(2)}, 0.0, 1.0);
+    float fade = 1.0 - t01;
+    float front = ${RIPPLE_MAX_R.toFixed(3)} * t01;
+    float bump = exp(-pow((d - front) / ${RIPPLE_RING_W.toFixed(3)}, 2.0)) * fade;
+    // Hard spatial envelope: nothing beyond the small radius, whatever the front.
+    bump *= 1.0 - smoothstep(${RIPPLE_MAX_R.toFixed(3)}, ${(RIPPLE_MAX_R * 1.5).toFixed(3)}, d);
     warp += normalize(dr + 1.0) * bump * cellPreview * oceanGrid.rippleIntensity * 6.0;
     shine += bump;
   }
@@ -240,12 +290,28 @@ void main(void) {
     + shine * 0.3,
     0.0, 1.0);
 
+  // ── Scan sweep: a screen-space band gliding top→bottom over the sea ───────
+  // gl_FragCoord is bottom-origin, so distance-from-top = 1 - y/height. The
+  // band lights the seams it crosses and washes a faint fill over open cells,
+  // then the seams under it shift toward the cyan scan color. scanPos < -0.5
+  // means the sweep is disabled (reduced motion holds the clock, and thus the
+  // phase, at a sentinel).
+  float scanMix = 0.0;
+  if (oceanGrid.scanPos > -0.5) {
+    float fromTop = 1.0 - gl_FragCoord.y / max(oceanGrid.screenH, 1.0);
+    float sd = (fromTop - oceanGrid.scanPos) / max(oceanGrid.scanWidth, 1e-3);
+    float band = exp(-sd * sd);
+    lit = clamp(lit + seams * band * oceanGrid.scanBoost + band * oceanGrid.scanFill, 0.0, 1.0);
+    scanMix = clamp(seams * band * oceanGrid.scanTint, 0.0, 1.0);
+  }
+
   float vig = 1.0 - smoothstep(oceanGrid.fadeDistance * 0.5, oceanGrid.fadeDistance, dist);
   vig = mix(1.0, vig, oceanGrid.vignette);
 
   float alpha = lit * vig * oceanGrid.opacity;
   if (alpha < 0.003) discard;
-  fragColor = vec4(oceanGrid.color, alpha);
+  vec3 col = mix(oceanGrid.color, oceanGrid.scanColor, scanMix);
+  fragColor = vec4(col, alpha);
 }
 `
 
@@ -368,6 +434,19 @@ export class OceanGridLayer extends Layer<OceanGridLayerProps> {
       mouseMerc = mercMeters(mlng, mlat)
     }
 
+    // Scan phase: `time` (loop units) folded into a 0..1 sweep, then remapped
+    // to -0.15..1.15 so the band pauses off-screen between passes. When `time`
+    // is 0 (reduced motion holds the clock), the sweep is disabled (-1).
+    const t = time ?? 0
+    const scanFrac = (((t / SCAN_PERIOD_UNITS) % 1) + 1) % 1 // 0..1, always positive
+    const scanPos = t > 0 ? -0.15 + 1.3 * scanFrac : -1
+    // Framebuffer height (device px) to normalize gl_FragCoord.y; fall back to
+    // CSS height × dpr when the raw GL context is not reachable.
+    const glCtx = (this.context.device as { gl?: WebGL2RenderingContext }).gl
+    const screenH =
+      glCtx?.drawingBufferHeight ??
+      height * (typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1)
+
     const uniforms: OceanGridUniforms = {
       time: time ?? 0,
       zoom,
@@ -385,7 +464,14 @@ export class OceanGridLayer extends Layer<OceanGridLayerProps> {
       mouseActive: 0,
       mouseRadius: 0.32,
       mouseStrength: 0,
+      scanPos,
+      scanWidth: SCAN_HALF_WIDTH,
+      scanBoost: SCAN_SEAM_BOOST,
+      scanFill: SCAN_FILL,
+      scanTint: SCAN_TINT,
+      screenH,
       color: [(color?.[0] ?? 61) / 255, (color?.[1] ?? 225) / 255, (color?.[2] ?? 255) / 255],
+      scanColor: [SCAN_COLOR[0] / 255, SCAN_COLOR[1] / 255, SCAN_COLOR[2] / 255],
       center,
       mouse: mouseMerc,
       ripple0: slots[0],

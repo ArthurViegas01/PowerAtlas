@@ -36,9 +36,11 @@ function model(overrides: Partial<MapLayerModel> = {}): MapLayerModel {
     states: emptyFc,
     national: emptyFc,
     world: null,
+    worldStates: null,
     selectedId: 'SP',
     hoveredId: null,
     hoveredWorldIso: null,
+    hoveredWorldStateKey: null,
     dataRegionIds: ['SP', 'RJ'],
     columns: [],
     arcs: [],
@@ -132,6 +134,7 @@ function build(
     onHoverMunicipio: noop,
     onHoverSubdivisao: noop,
     onHoverWorld: noop,
+    onHoverWorldState: noop,
     onHoverDemografia: noop,
     onHoverDemografiaBase: noop,
     pulse,
@@ -153,6 +156,46 @@ describe('buildDeckLayers', () => {
   it('omits the labels layer when there are no labels', () => {
     const layers = build(model({ labels: [] }))
     expect(layers.find((l) => l.id === 'state-labels')).toBeUndefined()
+  })
+
+  const worldStatesFc = {
+    type: 'FeatureCollection',
+    features: [
+      {
+        type: 'Feature',
+        properties: { iso: 'USA', name: 'California', country: 'Estados Unidos', code: 'US-CA' },
+        geometry: { type: 'Polygon', coordinates: [[[0, 0], [0, 1], [1, 1], [0, 0]]] },
+      },
+    ],
+  } as unknown as MapLayerModel['worldStates']
+
+  it('adds the world-states layer only when its mesh is loaded, above world-countries', () => {
+    expect(build(model()).find((l) => l.id === 'world-states')).toBeUndefined()
+    const emptyWorld = emptyFc as unknown as MapLayerModel['world']
+    const layers = build(model({ world: emptyWorld, worldStates: worldStatesFc }))
+    const states = layers.find((l) => l.id === 'world-states')
+    expect(states).toBeDefined()
+    // Pickable so provinces catch hover/click.
+    expect((states!.props as { pickable: boolean }).pickable).toBe(true)
+    // Drawn after the country backdrop so its borders sit on top.
+    const ids = layers.map((l) => l.id)
+    expect(ids.indexOf('world-states')).toBeGreaterThan(ids.indexOf('world-countries'))
+  })
+
+  it('brightens the hovered foreign province border, dims the rest', () => {
+    const layer = build(
+      model({ worldStates: worldStatesFc, hoveredWorldStateKey: 'USA|California' }),
+    ).find((l) => l.id === 'world-states')
+    const getLineColor = (
+      layer!.props as unknown as {
+        getLineColor: (f: { properties: { iso: string; name: string } }) => number[]
+      }
+    ).getLineColor
+    const hovered = getLineColor({ properties: { iso: 'USA', name: 'California' } })
+    const other = getLineColor({ properties: { iso: 'USA', name: 'Nevada' } })
+    // Hovered border goes bright cyan (alpha 235); the rest stay dim.
+    expect(hovered[3]).toBe(235)
+    expect(other[3]).toBeLessThan(hovered[3])
   })
 
   it('adds the municipios layer only when a municipal mesh is loaded', () => {
