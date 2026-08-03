@@ -14,6 +14,7 @@ import type {
   BoundaryFeature,
   MunicipioFeature,
   WorldFeature,
+  WorldStateFeature,
 } from '@/lib/geo'
 import { baseMapStyle } from '@/lib/mapStyle'
 import { useComercioStore } from '@/stores/comercio'
@@ -60,7 +61,7 @@ function triggerRipple(event: maplibregl.MapMouseEvent) {
 // the shader expands and fades. Kept to the few most recent (fixed shader
 // slots); the ambient breathing wave is stateless, so it needs nothing here.
 const oceanRipples = ref<{ epicenter: [number, number]; start: number }[]>([])
-const OCEAN_RIPPLE_LIFETIME_MS = 3400
+const OCEAN_RIPPLE_LIFETIME_MS = 1800
 const MAX_OCEAN_RIPPLES = 4
 // Cursor position as screen UV (0–1, y up) driving the grid's mouse bulge.
 const oceanMouse = ref<[number, number] | null>(null)
@@ -314,6 +315,20 @@ function handleWorldHover(info: PickingInfo<WorldFeature>) {
   if (feature) selection.setHoverPoint({ x: info.x, y: info.y })
 }
 
+function handleWorldStateHover(info: PickingInfo<WorldStateFeature>) {
+  const feature = info.object
+  selection.setHoveredWorldState(
+    feature
+      ? {
+          iso: feature.properties.iso,
+          name: feature.properties.name,
+          country: feature.properties.country,
+        }
+      : null,
+  )
+  if (feature) selection.setHoverPoint({ x: info.x, y: info.y })
+}
+
 /** Open a subdivision from a picking hit (same move in both views). */
 function selectSubdivisaoFrom(info: PickingInfo<SubdivisaoFeature>, point: { x: number; y: number }) {
   selection.selectSubdivisao(subdivisaoRefFrom(info.object!), point)
@@ -377,7 +392,9 @@ function handleClick(event: maplibregl.MapMouseEvent) {
   const info = overlay.pickObject({
     ...point,
     radius: 4,
-    layerIds: ['subdivisoes', 'municipios', 'states-choropleth', 'world-countries'],
+    // 'world-states' before 'world-countries': over the big countries the
+    // province owns the click, but a trade partner still opens its trade panel.
+    layerIds: ['subdivisoes', 'municipios', 'states-choropleth', 'world-states', 'world-countries'],
   })
   if (info?.layer?.id === 'subdivisoes') {
     selectSubdivisaoFrom(info as PickingInfo<SubdivisaoFeature>, point)
@@ -388,6 +405,15 @@ function handleClick(event: maplibregl.MapMouseEvent) {
     const { UF, name } = (info as PickingInfo<BoundaryFeature>).object!.properties
     selection.select(UF, name, point)
     emit('region-selected', UF)
+  } else if (info?.layer?.id === 'world-states') {
+    const { iso, name, country } = (info as PickingInfo<WorldStateFeature>).object!.properties
+    // Trade partner with arrows on still explodes into its sectors (country
+    // panel); otherwise the province opens its own "não mapeada" lock panel.
+    if (selection.tradeVisible && !selection.demographicView && comercio.byIso.get(iso)) {
+      selection.selectTradePartner({ iso, name: country }, point)
+    } else {
+      selection.lockWorldState({ iso, name, country }, point)
+    }
   } else if (info?.layer?.id === 'world-countries') {
     const { iso, name } = (info as PickingInfo<WorldFeature>).object!.properties
     // With the trade arrows on, a country with trade data opens its trade
@@ -652,6 +678,7 @@ watchEffect(() => {
       onHoverMunicipio: handleMunicipioHover,
       onHoverSubdivisao: handleSubdivisaoHover,
       onHoverWorld: handleWorldHover,
+      onHoverWorldState: handleWorldStateHover,
       onHoverDemografia: handleDemografiaHover,
       onHoverDemografiaBase: handleDemografiaBaseHover,
       pulse: pulse.value,
@@ -687,6 +714,7 @@ watchEffect(() => {
     selection.hoveredMunicipio ||
     selection.hoveredSubdivisao ||
     selection.hoveredWorld ||
+    selection.hoveredWorldState ||
     selection.hoveredDemografia
       ? 'pointer'
       : ''

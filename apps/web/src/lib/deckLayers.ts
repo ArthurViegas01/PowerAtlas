@@ -28,6 +28,8 @@ import {
   type WorldCollection,
   type WorldFeature,
   type WorldProps,
+  type WorldStateFeature,
+  type WorldStateProps,
 } from '@/lib/geo'
 import {
   INFLOW_SEGMENTS,
@@ -52,6 +54,7 @@ export interface BuildLayersOptions {
   onHoverMunicipio: (info: PickingInfo<MunicipioFeature>) => void
   onHoverSubdivisao: (info: PickingInfo<SubdivisaoFeature>) => void
   onHoverWorld: (info: PickingInfo<WorldFeature>) => void
+  onHoverWorldState: (info: PickingInfo<WorldStateFeature>) => void
   onHoverDemografia: (info: PickingInfo<DemografiaMunicipio>) => void
   /** Hover on a município footprint (demographic view's borders layer). */
   onHoverDemografiaBase: (info: PickingInfo<MunicipioFeature>) => void
@@ -597,6 +600,7 @@ export function buildDeckLayers({
   onHoverMunicipio,
   onHoverSubdivisao,
   onHoverWorld,
+  onHoverWorldState,
   onHoverDemografia,
   onHoverDemografiaBase,
   pulse = 1,
@@ -713,6 +717,51 @@ export function buildDeckLayers({
           getFillColor: [model.hoveredWorldIso, tradeSig, model.globalIdle],
           getLineColor: [tradeSig, model.globalIdle],
           getLineWidth: [tradeSig],
+        },
+      }),
+    )
+  }
+
+  // Admin-1 borders of the big countries, drawn OVER the world backdrop so
+  // those nations read as detailed as Brazil. Invisible fill (alpha 0) keeps
+  // the country's own wash showing through while still catching picks; the
+  // dashed province lines wear the country's identity color, brightening to
+  // cyan under the cursor. Still "não mapeado" — geography only, no data.
+  if (model.worldStates) {
+    layers.push(
+      new GeoJsonLayer<WorldStateProps, PathStyleExtensionProps<WorldStateFeature>>({
+        id: 'world-states',
+        data: model.worldStates,
+        pickable: !demo.active,
+        stroked: true,
+        filled: true,
+        getFillColor: (feature) => {
+          const key = `${feature.properties.iso}|${feature.properties.name}`
+          if (key === model.hoveredWorldStateKey) {
+            const [r, g, b] = countryColorAny(feature.properties.iso)
+            return overVoid([r, g, b, 46])
+          }
+          return [0, 0, 0, 0]
+        },
+        getLineColor: (feature) => {
+          const key = `${feature.properties.iso}|${feature.properties.name}`
+          if (key === model.hoveredWorldStateKey) return [61, 225, 255, 235]
+          const [r, g, b] = countryColorAny(feature.properties.iso)
+          return [r, g, b, 120]
+        },
+        getLineWidth: (feature) =>
+          `${feature.properties.iso}|${feature.properties.name}` === model.hoveredWorldStateKey
+            ? 1.4
+            : 0.6,
+        lineWidthUnits: 'pixels',
+        lineWidthMinPixels: 0.5,
+        extensions: [new PathStyleExtension({ dash: true })],
+        getDashArray: [3, 3],
+        onHover: (info) => onHoverWorldState(info as PickingInfo<WorldStateFeature>),
+        updateTriggers: {
+          getFillColor: [model.hoveredWorldStateKey],
+          getLineColor: [model.hoveredWorldStateKey],
+          getLineWidth: [model.hoveredWorldStateKey],
         },
       }),
     )
