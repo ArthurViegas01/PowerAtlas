@@ -21,7 +21,7 @@
  * scripts/.cache (gitignored). Provenance: docs/data-sources.md.
  */
 import { execSync } from 'node:child_process'
-import { mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -53,9 +53,54 @@ const municipioNamesUrl = (code) =>
 const WORLD_URL =
   'https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_admin_0_countries.geojson'
 
+// Natural Earth 1:10m admin-1 states/provinces (public domain). The whole
+// American continent gets its internal divisions drawn (minus Brazil, which
+// the IBGE layers already own), plus a few other large countries, so the world
+// backdrop reads as detailed as Brazil where it matters. 10m is used (not 50m)
+// because the reduced 50m file omits several countries entirely, Argentina
+// among them. Keyed by ADM0_A3; the value is the pt-BR country name. Heavy raw
+// download, but filtered to this set and simplified hard before it ships.
+const WORLD_STATES_URL =
+  'https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_10m_admin_1_states_provinces.geojson'
+const WORLD_STATES_COUNTRIES = {
+  // Américas (Brasil fica de fora — malha IBGE própria).
+  CAN: 'Canadá',
+  USA: 'Estados Unidos',
+  MEX: 'México',
+  GTM: 'Guatemala',
+  BLZ: 'Belize',
+  HND: 'Honduras',
+  SLV: 'El Salvador',
+  NIC: 'Nicarágua',
+  CRI: 'Costa Rica',
+  PAN: 'Panamá',
+  CUB: 'Cuba',
+  DOM: 'República Dominicana',
+  HTI: 'Haiti',
+  JAM: 'Jamaica',
+  TTO: 'Trinidad e Tobago',
+  BHS: 'Bahamas',
+  ARG: 'Argentina',
+  BOL: 'Bolívia',
+  CHL: 'Chile',
+  COL: 'Colômbia',
+  ECU: 'Equador',
+  GUY: 'Guiana',
+  PRY: 'Paraguai',
+  PER: 'Peru',
+  SUR: 'Suriname',
+  URY: 'Uruguai',
+  VEN: 'Venezuela',
+  // Outros grandes países fora das Américas.
+  CHN: 'China',
+  AUS: 'Austrália',
+  RUS: 'Rússia',
+}
+
 // keep-shapes prevents small polygons (islands) from collapsing entirely.
 const SIMPLIFY = '30%'
-const BUDGET_KB = { national: 200, states: 500, world: 400, municipios: 900 }
+const WORLD_STATES_SIMPLIFY = '7%'
+const BUDGET_KB = { national: 200, states: 500, world: 400, worldStates: 1800, municipios: 900 }
 
 // [sigla, code] for every UF: the municipal pipeline covers the whole country.
 // (UF_BY_CODE lives in uf-codes.mjs, shared with fetch-indicators.mjs.)
@@ -124,6 +169,58 @@ function decorateWorld(file) {
   writeFileSync(file, JSON.stringify(fc))
 }
 
+/**
+ * Slim the Natural Earth admin-1 file to the handful of big countries we draw
+ * internal divisions for, and strip properties to { iso, name, country, code }:
+ * `iso` is the country's ADM0_A3 (join key to world-countries), `name` the
+ * province name, `country` the pt-BR country label, `code` the ISO 3166-2 tag.
+ */
+function decorateWorldStates(file) {
+  const fc = JSON.parse(readFileSync(file, 'utf8'))
+  const kept = {}
+  fc.features = fc.features.flatMap((feature) => {
+    const props = feature.properties ?? {}
+    const iso = props.adm0_a3 ?? props.ADM0_A3
+    const country = WORLD_STATES_COUNTRIES[iso]
+    if (!country) return []
+    const name =
+      props.name ?? props.name_en ?? props.gn_name ?? props.woe_name ?? props.iso_3166_2 ?? iso
+    feature.properties = {
+      iso,
+      name,
+      country,
+      code: props.iso_3166_2 ?? props.code_hasc ?? '',
+    }
+    kept[iso] = (kept[iso] ?? 0) + 1
+    return [feature]
+  })
+  const missing = Object.keys(WORLD_STATES_COUNTRIES).filter((iso) => !kept[iso])
+  if (missing.length) throw new Error(`World-states: no provinces for ${missing.join(', ')}`)
+  console.log(`[geo] world-states kept: ${JSON.stringify(kept)}`)
+  writeFileSync(file, JSON.stringify(fc))
+}
+
+async function buildWorldStates() {
+  const rawWorldStates = join(CACHE, 'ne-admin1-raw.geojson')
+  const outWorldStates = join(OUT, 'world-states.geojson')
+  // The admin-1 raw is ~40 MB; reuse the cached copy when present (it never
+  // changes between runs) so re-tuning the country set does not re-download it.
+  if (existsSync(rawWorldStates) && kb(rawWorldStates) > 10_000) {
+    console.log(`[geo] reusing cached ${rawWorldStates} (${kb(rawWorldStates)} KB)`)
+  } else {
+    await download(WORLD_STATES_URL, rawWorldStates)
+  }
+  // Filter to the target countries BEFORE simplifying, so mapshaper only chews
+  // through this set's provinces instead of the whole planet's.
+  const filtered = join(CACHE, 'ne-admin1-filtered.geojson')
+  writeFileSync(filtered, readFileSync(rawWorldStates, 'utf8'))
+  decorateWorldStates(filtered)
+  // mapshaper preserves feature properties through -simplify, so the clean
+  // {iso,name,country,code} shape survives to the output as-is.
+  simplify(filtered, outWorldStates, WORLD_STATES_SIMPLIFY)
+  report(outWorldStates, BUDGET_KB.worldStates)
+}
+
 /** Fetch + simplify one state's municipal mesh, joining in municipality names. */
 async function buildMunicipios([uf, code], outDir) {
   const rawMalha = join(CACHE, `ibge-mun-${uf}-raw.geojson`)
@@ -160,6 +257,15 @@ mkdirSync(OUT, { recursive: true })
 // `--municipios-only` skips the state/world rebuild: useful when only the
 // municipal coverage changes, so the other outputs do not churn.
 const MUNICIPIOS_ONLY = process.argv.includes('--municipios-only')
+// `--world-states-only` builds just public/geo/world-states.geojson (the big
+// countries' admin-1 divisions), leaving every other output untouched.
+const WORLD_STATES_ONLY = process.argv.includes('--world-states-only')
+
+if (WORLD_STATES_ONLY) {
+  await buildWorldStates()
+  console.log('[geo] done (world-states only).')
+  process.exit(0)
+}
 
 if (!MUNICIPIOS_ONLY) {
   const rawStates = join(CACHE, 'ibge-states-raw.geojson')
@@ -181,6 +287,8 @@ if (!MUNICIPIOS_ONLY) {
   report(outStates, BUDGET_KB.states)
   report(outNational, BUDGET_KB.national)
   report(outWorld, BUDGET_KB.world)
+
+  await buildWorldStates()
 }
 
 const munOut = join(OUT, 'municipios')

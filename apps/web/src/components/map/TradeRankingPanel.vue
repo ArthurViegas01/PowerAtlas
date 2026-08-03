@@ -98,14 +98,10 @@ function onSelect(iso: string) {
 </template>
 
 <style scoped>
+/* Flows inside the left dock (MapScreen), stacked just above the legend. */
 .ranking {
-  position: absolute;
-  left: 22px;
-  top: 50%;
-  z-index: 18;
   width: 260px;
   max-width: calc(100vw - 44px);
-  transform: translateY(-50%);
   padding: 10px 12px;
   background: rgba(3, 6, 8, 0.72);
   border: 1px solid var(--pa-border-faint);
@@ -151,7 +147,7 @@ function onSelect(iso: string) {
 }
 
 .rows-scroll {
-  max-height: 52vh;
+  max-height: 46vh;
   overflow-y: auto;
 }
 

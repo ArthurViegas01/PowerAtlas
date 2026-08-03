@@ -12,6 +12,7 @@ import type {
   Bounds,
   MunicipioCollection,
   WorldCollection,
+  WorldStateCollection,
 } from '@/lib/geo'
 import type { FiscalSegmentKey } from '@/lib/fiscalSegments'
 import type { DemografiaMetric, DemografiaMunicipio } from '@/types/demografia'
@@ -92,9 +93,13 @@ export interface MapLayerModel {
   national: BoundaryCollection | null
   /** "Em breve" backdrop (world minus Brazil). */
   world: WorldCollection | null
+  /** Admin-1 divisions of a few large countries (borders only, não mapeado). */
+  worldStates: WorldStateCollection | null
   selectedId: string | null
   hoveredId: string | null
   hoveredWorldIso: string | null
+  /** iso|name of the foreign province under the cursor (border highlight). */
+  hoveredWorldStateKey: string | null
   dataRegionIds: string[]
   columns: ColumnDatum[]
   arcs: ArcDatum[]
@@ -159,6 +164,7 @@ export const useMapLayersStore = defineStore('mapLayers', () => {
   const states = shallowRef<BoundaryCollection | null>(null)
   const national = shallowRef<BoundaryCollection | null>(null)
   const world = shallowRef<WorldCollection | null>(null)
+  const worldStates = shallowRef<WorldStateCollection | null>(null)
   const municipiosByUf = shallowRef<Map<string, MunicipioCollection>>(new Map())
   // Non-reactive: UFs already fetched (successes and 404s) so we never retry.
   const municipioAttempts = new Set<string>()
@@ -414,9 +420,13 @@ export const useMapLayersStore = defineStore('mapLayers', () => {
     states: states.value,
     national: national.value,
     world: world.value,
+    worldStates: worldStates.value,
     selectedId: selection.selectedId,
     hoveredId: selection.hoveredId,
     hoveredWorldIso: selection.hoveredWorld?.iso ?? null,
+    hoveredWorldStateKey: selection.hoveredWorldState
+      ? `${selection.hoveredWorldState.iso}|${selection.hoveredWorldState.name}`
+      : null,
     dataRegionIds: rankings.dataRegionIds,
     columns: columns.value,
     arcs: arcs.value,
@@ -465,14 +475,18 @@ export const useMapLayersStore = defineStore('mapLayers', () => {
     loading.value = true
     error.value = null
     try {
-      const [statesFc, nationalFc, worldFc] = await Promise.all([
+      const [statesFc, nationalFc, worldFc, worldStatesFc] = await Promise.all([
         fetchGeoFile<BoundaryCollection>('brazil-states.geojson'),
         fetchGeoFile<BoundaryCollection>('brazil-national.geojson'),
         fetchGeoFile<WorldCollection>('world-countries.geojson'),
+        // Admin-1 borders of a few big countries; a missing file is non-fatal
+        // (the backdrop simply loses its province lines), so it never blocks boot.
+        fetchGeoFile<WorldStateCollection>('world-states.geojson').catch(() => null),
       ])
       states.value = statesFc
       national.value = nationalFc
       world.value = worldFc
+      worldStates.value = worldStatesFc
     } catch (cause) {
       error.value = cause instanceof Error ? cause.message : String(cause)
     } finally {
@@ -613,6 +627,7 @@ export const useMapLayersStore = defineStore('mapLayers', () => {
     states,
     national,
     world,
+    worldStates,
     loading,
     error,
     layerModel,

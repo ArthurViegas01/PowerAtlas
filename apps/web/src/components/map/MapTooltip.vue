@@ -75,6 +75,28 @@ const model = computed<TooltipModel | null>(() => {
         : [],
     }
   }
+  // A foreign province (admin-1 border of a big country). Shows the state and
+  // its country; when that country is a trade partner with arrows on, its real
+  // flows ride along, otherwise the "em breve" hint.
+  const worldState = selection.hoveredWorldState
+  if (worldState) {
+    const partner =
+      selection.tradeVisible && !selection.demographicView
+        ? comercio.byIso.get(worldState.iso)
+        : undefined
+    return {
+      title: worldState.name,
+      tag: partner
+        ? `${worldState.country} · COMEX STAT ${comercio.referenceYear ?? ''}`
+        : `${worldState.country} · NÃO MAPEADO`,
+      lines: partner
+        ? [
+            { label: 'EXPORTA', value: formatUsd(partner.exp) },
+            { label: 'IMPORTA', value: formatUsd(partner.imp) },
+          ]
+        : [{ label: 'STATUS', value: 'EM BREVE' }],
+    }
+  }
   if (selection.hoveredWorld) {
     // With the trade arrows on, a partner country shows its real 2025 flows;
     // otherwise it stays the "não mapeado" backdrop hint.

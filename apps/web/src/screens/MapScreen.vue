@@ -16,7 +16,6 @@ import MapTooltip from '@/components/map/MapTooltip.vue'
 import MapView from '@/components/map/MapView.vue'
 import TradePartnerCard from '@/components/map/TradePartnerCard.vue'
 import TradeRankingPanel from '@/components/map/TradeRankingPanel.vue'
-import ScanBand from '@/components/hud/ScanBand.vue'
 import RankingColumn from '@/components/rankings/RankingColumn.vue'
 import IndicatorGrid from '@/components/shared/IndicatorGrid.vue'
 import { HIDDEN_INFLUENCE_ENABLED } from '@/lib/features'
@@ -91,7 +90,10 @@ const panelSubtitle = computed(() => {
     return `${SUBDIVISAO_LABEL[selection.selectedSubdivisao.level]} · ${selection.selectedSubdivisao.codigo} · ${selection.selectedMunicipio?.name ?? ''}`
   if (selection.selectedMunicipio)
     return `MUNICÍPIO · ${selection.selectedMunicipio.codigo} · ${selection.selectedId}`
-  if (selection.lockedWorld) return 'REGIÃO NÃO MAPEADA · COBERTURA FUTURA'
+  if (selection.lockedWorld)
+    return selection.lockedWorld.country
+      ? `${selection.lockedWorld.country.toUpperCase()} · REGIÃO NÃO MAPEADA`
+      : 'REGIÃO NÃO MAPEADA · COBERTURA FUTURA'
   if (!region.value) return 'SEM COBERTURA NESTA FASE'
   const updated = new Date(region.value.updatedAt).toLocaleDateString('pt-BR')
   return `ATUALIZADO ${updated} · STATUS: SIMULAÇÃO`
@@ -194,7 +196,6 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 
 <template>
   <div class="app-shell">
-    <ScanBand />
     <MapView />
     <MapTooltip />
     <MapScanEffect />
@@ -337,8 +338,12 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
       </aside>
     </transition>
 
-    <MapLegend />
-    <TradeRankingPanel />
+    <!-- Left dock: the trade ranking stacks directly above the legend card
+         (collapsed, it sits glued just above it), both anchored bottom-left. -->
+    <div class="left-dock">
+      <TradeRankingPanel />
+      <MapLegend />
+    </div>
     <MapCompass />
     <MonitoringPanel v-if="!selection.demographicView" />
     <DemografiaCard />
@@ -387,6 +392,21 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
   z-index: 20;
   display: flex;
   width: min(520px, 44vw);
+}
+
+/* The trade ranking and the legend share one bottom-left column: the legend
+   sits on the floor (same height as the disclaimer), the ranking rides above
+   it with a gap, growing upward when expanded. */
+.left-dock {
+  position: absolute;
+  left: 22px;
+  bottom: 16px;
+  z-index: 18;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  max-height: calc(100vh - 96px);
 }
 
 .panel-slot > * {

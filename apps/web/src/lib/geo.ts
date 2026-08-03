@@ -22,6 +22,26 @@ export interface WorldProps {
 export type WorldFeature = Feature<Polygon | MultiPolygon, WorldProps>
 export type WorldCollection = FeatureCollection<Polygon | MultiPolygon, WorldProps>
 
+/**
+ * Admin-1 divisions of a few large countries (scripts/fetch-geo.mjs,
+ * world-states.geojson) — internal borders drawn over the world backdrop so
+ * big nations (EUA, China, Austrália, Rússia, Argentina) read as detailed as
+ * Brazil. Still "não mapeado": there is no data behind them, only geography.
+ */
+export interface WorldStateProps {
+  /** Country ADM0_A3 — the join key back to WorldProps.iso. */
+  iso: string
+  /** Province / state name. */
+  name: string
+  /** pt-BR country label. */
+  country: string
+  /** ISO 3166-2 tag (may be empty). */
+  code: string
+}
+
+export type WorldStateFeature = Feature<Polygon | MultiPolygon, WorldStateProps>
+export type WorldStateCollection = FeatureCollection<Polygon | MultiPolygon, WorldStateProps>
+
 /** Municipal mesh properties (scripts/fetch-geo.mjs, municipios/{UF}.geojson). */
 export interface MunicipioProps {
   /** 7-digit IBGE municipality code. */
