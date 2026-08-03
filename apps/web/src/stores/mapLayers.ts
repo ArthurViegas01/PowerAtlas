@@ -132,6 +132,8 @@ export interface MapLayerModel {
   trade: {
     /** Arrows should render (global context + toggle on + data loaded). */
     active: boolean
+    /** Whether the animated arrows draw (colors/labels stay regardless). */
+    arrowsVisible: boolean
     direction: TradeDirection
     /** One arc per top partner, or one per sector when a partner is exploded. */
     arcs: TradeArcDatum[]
@@ -277,6 +279,7 @@ export const useMapLayersStore = defineStore('mapLayers', () => {
     if (!active)
       return {
         active: false,
+        arrowsVisible: selection.tradeArrowsVisible,
         direction: primary,
         arcs: [] as TradeArcDatum[],
         exploded: false,
@@ -327,7 +330,14 @@ export const useMapLayersStore = defineStore('mapLayers', () => {
           selected: true,
         },
       ]
-      return { active: true, direction: primary, arcs, exploded: true, highlights }
+      return {
+        active: true,
+        arrowsVisible: selection.tradeArrowsVisible,
+        direction: primary,
+        arcs,
+        exploded: true,
+        highlights,
+      }
     }
 
     // Default: top partners ranked by their combined enabled flow, each in its
@@ -375,7 +385,14 @@ export const useMapLayersStore = defineStore('mapLayers', () => {
         selected: false,
       })
     }
-    return { active: true, direction: primary, arcs, exploded: false, highlights }
+    return {
+      active: true,
+      arrowsVisible: selection.tradeArrowsVisible,
+      direction: primary,
+      arcs,
+      exploded: false,
+      highlights,
+    }
   })
 
   /**

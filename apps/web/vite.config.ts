@@ -20,6 +20,11 @@ export default defineConfig({
       '@deck.gl/core > @luma.gl/core',
       '@deck.gl/core > @luma.gl/engine',
       '@deck.gl/core > @luma.gl/webgl',
+      // OceanGridLayer imports Model/Geometry straight from @luma.gl/engine.
+      // It MUST pre-bundle in this same pass (routed through deck's luma core),
+      // or the direct import gets its own luma core copy and dev logs the
+      // "@luma.gl/core has already been initialized" error.
+      '@luma.gl/engine',
       'maplibre-gl',
     ],
   },

@@ -64,7 +64,14 @@ function model(overrides: Partial<MapLayerModel> = {}): MapLayerModel {
       uf: null,
       fiscal: { segments: noSegments(), byCodigo: null },
     },
-    trade: { active: false, direction: 'export', arcs: [], exploded: false, highlights: [] },
+    trade: {
+      active: false,
+      arrowsVisible: true,
+      direction: 'export',
+      arcs: [],
+      exploded: false,
+      highlights: [],
+    },
     globalIdle: false,
     ...overrides,
   }
@@ -255,13 +262,15 @@ describe('buildDeckLayers', () => {
     expect(crestPaths).toHaveLength(1)
     expect(crestPaths[0][0][2]).toBe(nationalQuads[0][2][2])
     // Walls and crests come last so earlier layers blend under them
-    // instead of clipping.
-    const tail = layers.slice(-4).map((l) => l.id)
+    // instead of clipping; the pixel snow rides on top of the walls it pours
+    // down, so it is the very last layer.
+    const tail = layers.slice(-5).map((l) => l.id)
     expect(tail).toEqual([
       'state-walls',
       'national-wall',
       'state-wall-crests',
       'national-wall-crest',
+      'wall-snow',
     ])
   })
 

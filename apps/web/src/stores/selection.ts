@@ -122,6 +122,12 @@ export const useSelectionStore = defineStore('selection', () => {
    * the partner panel — whichever was turned on later sits below.
    */
   const tradeDirs = ref<TradeDirection[]>(['export'])
+  /**
+   * Whether the animated Brazil -> partner arrows draw. Independent of
+   * `tradeVisible`: the operator can keep the colored countries and labels but
+   * silence the moving arrows.
+   */
+  const tradeArrowsVisible = ref(true)
   /** Partner country opened in the trade panel — explodes its sector arrows. */
   const selectedPartner = ref<WorldRegionRef | null>(null)
 
@@ -205,6 +211,11 @@ export const useSelectionStore = defineStore('selection', () => {
   function toggleTrade() {
     tradeVisible.value = !tradeVisible.value
     if (!tradeVisible.value) selectedPartner.value = null
+  }
+
+  /** Toggle just the animated arrows, keeping the colored countries/labels. */
+  function toggleTradeArrows() {
+    tradeArrowsVisible.value = !tradeArrowsVisible.value
   }
 
   /** Toggle one direction on/off, keeping at least one active. */
@@ -407,6 +418,7 @@ export const useSelectionStore = defineStore('selection', () => {
     fiscalSegments,
     tradeVisible,
     tradeDirs,
+    tradeArrowsVisible,
     selectedPartner,
     mapPitch,
     pitchOverride,
@@ -434,6 +446,7 @@ export const useSelectionStore = defineStore('selection', () => {
     toggleFiscalSegment,
     setFiscalGroup,
     toggleTrade,
+    toggleTradeArrows,
     toggleTradeDirection,
     selectTradePartner,
     clearTradePartner,

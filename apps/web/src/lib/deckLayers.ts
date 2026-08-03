@@ -1,11 +1,12 @@
 import { HeatmapLayer } from '@deck.gl/aggregation-layers'
-import type { Color, Layer, PickingInfo } from '@deck.gl/core'
+import { COORDINATE_SYSTEM, type Color, type Layer, type PickingInfo } from '@deck.gl/core'
 import { PathStyleExtension, type PathStyleExtensionProps } from '@deck.gl/extensions'
 import {
   ArcLayer,
   ColumnLayer,
   GeoJsonLayer,
   PathLayer,
+  PointCloudLayer,
   SolidPolygonLayer,
   TextLayer,
 } from '@deck.gl/layers'
@@ -35,6 +36,8 @@ import {
   segmentValue,
   type FiscalSegmentDef,
 } from '@/lib/fiscalSegments'
+import { countryColorAny, countryRgb, DEFAULT_COUNTRY_RGB, type RGB } from '@/lib/countryColors'
+import { OceanGridLayer, type OceanRipple } from '@/lib/OceanGridLayer'
 import { over, overVoid, paColor, shade, type RGBA } from '@/lib/palette'
 import { sectorColor } from '@/lib/tradeSectors'
 import type { ArcDatum, ColumnDatum, LabelDatum, MapLayerModel, TradeArcDatum } from '@/stores/mapLayers'
@@ -56,12 +59,22 @@ export interface BuildLayersOptions {
   pulse?: number
   /** Continuous time (in loop units) driving the fiscal flow stripes. */
   flowTime?: number
+  /** Current map zoom — scales the wall-snow pixel size so it never outgrows
+   *  a thin border when the camera pulls back. */
+  zoom?: number
   /**
    * Active click ripple across the demographic columns: a bounce wave
    * expanding from `epicenter` (lon/lat), `elapsed` seconds after the click.
    * Null when no ripple is playing.
    */
   ripple?: { epicenter: [number, number]; elapsed: number } | null
+  /**
+   * Active ripples on the ocean grid, spawned by clicks over open sea. The
+   * ambient breathing wave needs no state; these are the transient fronts.
+   */
+  oceanRipples?: OceanRipple[]
+  /** Cursor position as screen UV (0–1, y up) for the grid's mouse bulge. */
+  oceanMouse?: [number, number] | null
 }
 
 function seriesColor(dimension: PowerDimension, alpha: number): RGBA {
@@ -245,8 +258,8 @@ interface TradeFlowPath {
 // shoot off the map, and the stripes march the way the goods move (out for
 // exports, in for imports).
 const TRADE_RAIL_SAMPLES = 30
-const TRADE_STRIPE_COUNT = 4
-const TRADE_STRIPE_LEN = 0.14
+const TRADE_STRIPE_COUNT = 16
+const TRADE_STRIPE_LEN = 0.056
 const TRADE_STRIPE_SEG = 6
 const TRADE_MAX_BUMP_DEG = 70 // cap the arc-height distance term
 
@@ -290,7 +303,7 @@ function tradeFlowPaths(
       color: [rgb[0], rgb[1], rgb[2], Math.round(46 * focus)],
       width: Math.max(1, width * 0.55),
     })
-    const speed = 0.3 + arc.weight
+    const speed = 0.15 + 0.35 * arc.weight
     for (let s = 0; s < TRADE_STRIPE_COUNT; s++) {
       const phase = (((flowTime * speed + s / TRADE_STRIPE_COUNT) % 1) + 1) % 1
       const head = phase * (1 + TRADE_STRIPE_LEN)
@@ -344,6 +357,236 @@ function tradeCountryWalls(
   return tradeWallCache
 }
 
+/** Raised platform for the gray "em breve" countries — a modest wall so the
+ *  backdrop reads as terrain under the tilted camera. Lower than the partner
+ *  parapets (TRADE_WALL_ELEVATION) so highlighted countries still stand out. */
+const WORLD_WALL_ELEVATION = 2600
+
+// Same memoization as the partner walls: the backdrop geometry is static, only
+// the excluded (highlighted) set changes, so rebuild on the trade signature.
+let worldWallCache: { sig: string; walls: WallQuad[]; crests: CrestPath[] } | null = null
+
+function worldBackdropWalls(
+  world: WorldCollection,
+  excludeIsos: Set<string>,
+  sig: string,
+): { walls: WallQuad[]; crests: CrestPath[] } {
+  if (worldWallCache && worldWallCache.sig === sig) return worldWallCache
+  const walls: WallQuad[] = []
+  const crests: CrestPath[] = []
+  for (const feature of world.features) {
+    if (excludeIsos.has(feature.properties.iso)) continue
+    for (const quad of featureWallQuads(feature, WORLD_WALL_ELEVATION)) walls.push(quad)
+    for (const path of featureCrestPaths(feature, WORLD_WALL_ELEVATION)) crests.push(path)
+  }
+  worldWallCache = { sig, walls, crests }
+  return worldWallCache
+}
+
+// ── Wall snow ───────────────────────────────────────────────────────────────
+// Pixel snow that pours down the country walls: square-ish points pinned to the
+// boundary polyline, each descending its wall from crest (top) to ground (z=0)
+// and looping. Because every anchor sits ON the border line, the falling stream
+// traces the wall's curves and corners. Anchors are static (cached); only each
+// point's z changes per frame, so the per-frame cost is a couple of typed-array
+// writes over a few thousand points.
+
+/** Snow tint for the Brazilian walls (national outline + state divisas). */
+const BR_SNOW_RGB: RGB = [70, 190, 120]
+/** World outlines carry no solid wall, so give their snow a curtain height. */
+const WORLD_SNOW_ELEVATION = 3500
+/** Nudge each point this many degrees off the wall plane (kills z-fighting and
+ *  parks the snow just in front of the wall's outward face). */
+const SNOW_OFFSET_DEG = 0.004
+/** Peak alpha of a point at full brightness, mid-fall. */
+const SNOW_MAX_ALPHA = 235
+
+type WallFeature = {
+  geometry: { coordinates: unknown }
+  properties?: unknown
+}
+
+interface SnowAnchor {
+  lng: number
+  lat: number
+  top: number
+  /** 0..1 start offset down the wall. */
+  phase: number
+  /** Fall-speed multiplier so the stream is not uniform. */
+  speed: number
+  /** Static per-point brightness (skewed dim: many faint, a few bright). */
+  bright: number
+  /** Country identity color. */
+  r: number
+  g: number
+  b: number
+}
+
+function fract(x: number): number {
+  return x - Math.floor(x)
+}
+
+/** Deterministic pseudo-random in [0,1) — keeps the stream stable across frames. */
+function unitHash(n: number): number {
+  return fract(Math.sin(n * 12.9898) * 43758.5453)
+}
+
+const snowAnchorCache = new WeakMap<object, Map<string, SnowAnchor[]>>()
+
+/**
+ * Evenly-spaced anchor points along every boundary edge of a collection, each
+ * tagged with the wall top height, a phase/speed, a per-point brightness and
+ * the feature's country color. `spacingDeg` sets the along-edge density; points
+ * are pushed slightly outward (edge normal) so they sit in front of the wall
+ * face instead of z-fighting the coplanar quad. `color` is either a fixed RGB
+ * or a per-feature resolver (world countries wear their own identity hue).
+ */
+function wallSnowAnchors(
+  collection: { features: readonly WallFeature[] },
+  top: number,
+  spacingDeg: number,
+  color: RGB | ((feature: WallFeature) => RGB),
+): SnowAnchor[] {
+  let byKey = snowAnchorCache.get(collection)
+  if (!byKey) {
+    byKey = new Map()
+    snowAnchorCache.set(collection, byKey)
+  }
+  const key = `${top}:${spacingDeg}`
+  const cached = byKey.get(key)
+  if (cached) return cached
+
+  const anchors: SnowAnchor[] = []
+  let seed = 1
+  const walkRings = (coords: unknown, rgb: RGB): void => {
+    if (!Array.isArray(coords) || coords.length === 0) return
+    const first = coords[0] as unknown[]
+    if (Array.isArray(first) && typeof first[0] === 'number') {
+      const ring = coords as [number, number][]
+      for (let i = 0; i < ring.length - 1; i++) {
+        const [x1, y1] = ring[i]
+        const [x2, y2] = ring[i + 1]
+        const dx = x2 - x1
+        const dy = y2 - y1
+        const len = Math.hypot(dx, dy)
+        if (len === 0) continue
+        // Outward normal (right of travel; exterior for CCW GeoJSON rings).
+        const nx = (dy / len) * SNOW_OFFSET_DEG
+        const ny = (-dx / len) * SNOW_OFFSET_DEG
+        const steps = Math.max(1, Math.round(len / spacingDeg))
+        for (let s = 0; s < steps; s++) {
+          const f = (s + 0.5) / steps
+          // Brightness skewed toward the dim end (pow > 1) so most points are
+          // faint and only a handful flare, like the reference's pixel field.
+          const bright = 0.12 + 0.88 * Math.pow(unitHash(seed++), 2.2)
+          anchors.push({
+            lng: x1 + dx * f + nx,
+            lat: y1 + dy * f + ny,
+            top,
+            phase: unitHash(seed++),
+            speed: 0.6 + 0.7 * unitHash(seed++),
+            bright,
+            r: rgb[0],
+            g: rgb[1],
+            b: rgb[2],
+          })
+        }
+      }
+      return
+    }
+    for (const child of coords) walkRings(child, rgb)
+  }
+  for (const feature of collection.features) {
+    const rgb = typeof color === 'function' ? color(feature) : color
+    walkRings(feature.geometry.coordinates, rgb)
+  }
+
+  byKey.set(key, anchors)
+  return anchors
+}
+
+/** A world country's identity hue, or a neutral icy fallback. */
+function worldSnowColor(feature: WallFeature): RGB {
+  const iso = (feature.properties as { iso?: string } | undefined)?.iso
+  return (iso ? countryRgb(iso) : null) ?? DEFAULT_COUNTRY_RGB
+}
+
+// The three wall sources merge into one particle set; the merge is memoized by
+// the (cached, stable) input references so it only reruns when geometry loads.
+let snowMergeCache: { inputs: [SnowAnchor[], SnowAnchor[], SnowAnchor[]]; all: SnowAnchor[] } | null =
+  null
+
+function mergedSnowAnchors(
+  national: { features: readonly WallFeature[] },
+  states: { features: readonly WallFeature[] },
+  world: { features: readonly WallFeature[] } | null,
+): SnowAnchor[] {
+  const n = wallSnowAnchors(national, NATIONAL_WALL_ELEVATION, 0.22, BR_SNOW_RGB)
+  const s = wallSnowAnchors(states, STATE_WALL_ELEVATION, 0.3, BR_SNOW_RGB)
+  const w = world ? wallSnowAnchors(world, WORLD_SNOW_ELEVATION, 0.45, worldSnowColor) : []
+  if (
+    snowMergeCache &&
+    snowMergeCache.inputs[0] === n &&
+    snowMergeCache.inputs[1] === s &&
+    snowMergeCache.inputs[2] === w
+  ) {
+    return snowMergeCache.all
+  }
+  const all = n.concat(s, w)
+  snowMergeCache = { inputs: [n, s, w], all }
+  return all
+}
+
+/**
+ * Point size in screen pixels for the current zoom. Kept sub-pixel when zoomed
+ * out (so the snow never looks fatter than the thin border) and grown as the
+ * camera closes in on a wall.
+ */
+function snowPointSize(zoom: number): number {
+  return Math.min(3.2, Math.max(0.8, 0.6 + (zoom - 1.5) * 0.5))
+}
+
+/**
+ * The descending-snow layer for the current frame. `flowTime` advances ~1 per
+ * FLOW_LOOP_MS (~4.2s), so one full top→ground fall takes roughly that long,
+ * scaled per point. Each point carries its country color and a static
+ * brightness; a short fade at both ends of the fall stops it popping in/out.
+ */
+function wallSnowLayer(anchors: SnowAnchor[], flowTime: number, zoom: number): PointCloudLayer {
+  const n = anchors.length
+  const positions = new Float32Array(n * 3)
+  const colors = new Uint8Array(n * 4)
+  for (let i = 0; i < n; i++) {
+    const a = anchors[i]
+    const p = fract(a.phase + flowTime * a.speed)
+    positions[i * 3] = a.lng
+    positions[i * 3 + 1] = a.lat
+    positions[i * 3 + 2] = a.top * (1 - p)
+    // Fade in over the first tenth of the fall and out over the last tenth so
+    // the loop's wrap is invisible; multiply by the point's own brightness.
+    const endFade = Math.min(1, Math.min(p, 1 - p) / 0.1)
+    const alpha = (SNOW_MAX_ALPHA * a.bright * endFade) | 0
+    colors[i * 4] = a.r
+    colors[i * 4 + 1] = a.g
+    colors[i * 4 + 2] = a.b
+    colors[i * 4 + 3] = alpha
+  }
+  return new PointCloudLayer({
+    id: 'wall-snow',
+    coordinateSystem: COORDINATE_SYSTEM.LNGLAT,
+    data: {
+      length: n,
+      attributes: {
+        getPosition: { value: positions, size: 3 },
+        getColor: { value: colors, size: 4 },
+      },
+    },
+    pointSize: snowPointSize(zoom),
+    material: false,
+    pickable: false,
+  })
+}
+
 /**
  * Pure factory: MapLayerModel (plain data from the mapLayers store) in,
  * deck.gl layer instances out. MapView feeds the result to MapboxOverlay.
@@ -358,13 +601,30 @@ export function buildDeckLayers({
   onHoverDemografiaBase,
   pulse = 1,
   flowTime = 0,
+  zoom = 3,
   ripple = null,
+  oceanRipples = [],
+  oceanMouse = null,
 }: BuildLayersOptions): Layer[] {
   if (!model.ready || !model.states || !model.national) return []
 
   const dataRegions = new Set(model.dataRegionIds)
   const demo = model.demographic
   const layers: Layer[] = []
+
+  // Ocean ripple grid: the holographic naval mesh under everything. Pushed
+  // FIRST so the opaque land fills (overVoid) paint over it and crop it to the
+  // open sea. Present in every view — it is part of the map, not a toggle.
+  // Dark neon blue, distinct from the cyan HUD series color.
+  layers.push(
+    new OceanGridLayer({
+      id: 'ocean-grid',
+      time: flowTime,
+      color: [46, 104, 240],
+      ripples: oceanRipples,
+      mouse: oceanMouse,
+    }),
+  )
 
   // Trade partners to fill + label in their national colors, and a signature
   // of that set for the deck.gl updateTriggers.
@@ -417,19 +677,31 @@ export function buildDeckLayers({
         stroked: true,
         filled: true,
         getFillColor: (feature) => {
-          const highlight = tradeHighlights.get(feature.properties.iso)
+          const iso = feature.properties.iso
+          const highlight = tradeHighlights.get(iso)
           if (highlight) {
-            const hovered = feature.properties.iso === model.hoveredWorldIso
+            const hovered = iso === model.hoveredWorldIso
             const alpha = highlight.selected ? 165 : hovered ? 135 : 82
             return overVoid([highlight.color[0], highlight.color[1], highlight.color[2], alpha])
           }
-          return feature.properties.iso === model.hoveredWorldIso ? fills.worldHover : fills.world
+          const hovered = iso === model.hoveredWorldIso
+          // Global context: every country wears its own identity color (a faint
+          // wash); the focused Brazilian views keep the neutral gray backdrop.
+          if (model.globalIdle) {
+            const [r, g, b] = countryColorAny(iso)
+            return overVoid([r, g, b, hovered ? 68 : 34])
+          }
+          return hovered ? fills.worldHover : fills.world
         },
         getLineColor: (feature) => {
-          const highlight = tradeHighlights.get(feature.properties.iso)
-          return highlight
-            ? [highlight.color[0], highlight.color[1], highlight.color[2], 235]
-            : paColor.faint(160)
+          const iso = feature.properties.iso
+          const highlight = tradeHighlights.get(iso)
+          if (highlight) return [highlight.color[0], highlight.color[1], highlight.color[2], 235]
+          if (model.globalIdle) {
+            const [r, g, b] = countryColorAny(iso)
+            return [r, g, b, 150]
+          }
+          return paColor.faint(160)
         },
         getLineWidth: (feature) => (tradeHighlights.has(feature.properties.iso) ? 1.4 : 0.9),
         lineWidthUnits: 'pixels',
@@ -438,8 +710,8 @@ export function buildDeckLayers({
         getDashArray: [5, 4],
         onHover: (info) => onHoverWorld(info as PickingInfo<WorldFeature>),
         updateTriggers: {
-          getFillColor: [model.hoveredWorldIso, tradeSig],
-          getLineColor: [tradeSig],
+          getFillColor: [model.hoveredWorldIso, tradeSig, model.globalIdle],
+          getLineColor: [tradeSig, model.globalIdle],
           getLineWidth: [tradeSig],
         },
       }),
@@ -1064,7 +1336,7 @@ export function buildDeckLayers({
   // per top partner by default, or one per sector when a partner is exploded.
   // Same marching-stripe motor as the fiscal flows, so exports/imports read as
   // moving packets. Drawn above the land fills, below the boundary walls.
-  if (model.trade.active && model.trade.arcs.length > 0) {
+  if (model.trade.active && model.trade.arrowsVisible && model.trade.arcs.length > 0) {
     const { rails, stripes } = tradeFlowPaths(model.trade.arcs, flowTime)
     const tradePathLayer = (id: string, data: TradeFlowPath[]) =>
       new PathLayer<TradeFlowPath>({
@@ -1082,6 +1354,38 @@ export function buildDeckLayers({
     if (stripes.length > 0) layers.push(tradePathLayer('trade-flow-stripes', stripes))
     // Partner names ride in a crisp HTML overlay (MapView) instead of a deck
     // TextLayer: sharper, and never clipped by the horizon fade when tilted.
+  }
+
+  // Gray parapets around the "em breve" backdrop countries — a low wall so the
+  // unmapped world reads as terrain under the tilted camera instead of a flat
+  // cutout. Highlighted partners are skipped here; they wear their taller,
+  // colored parapet below so they still stand out.
+  if (model.world && !demo.active && (model.trade.active || model.globalIdle)) {
+    const excludeIsos = new Set(model.trade.highlights.map((h) => h.iso))
+    const { walls, crests } = worldBackdropWalls(model.world, excludeIsos, tradeSig)
+    if (walls.length > 0) {
+      layers.push(
+        new SolidPolygonLayer<WallQuad>({
+          id: 'world-backdrop-walls',
+          data: walls,
+          getPolygon: (d) => d,
+          pickable: false,
+          _full3d: true,
+          material: false,
+          getFillColor: paColor.faint(52),
+        }),
+        new PathLayer<CrestPath>({
+          id: 'world-backdrop-crests',
+          data: crests,
+          getPath: (d) => d,
+          getColor: paColor.faint(150),
+          getWidth: 1,
+          widthUnits: 'pixels',
+          widthMinPixels: 0.6,
+          pickable: false,
+        }),
+      )
+    }
   }
 
   // Colored parapets around the highlighted partners — the same wall + crest
@@ -1177,6 +1481,14 @@ export function buildDeckLayers({
       },
     }),
   )
+
+  // Pixel snow pouring down every wall (national + states + all world outlines).
+  // Kept out of the demographic view, which has its own quiet look.
+  if (!demo.active) {
+    layers.push(
+      wallSnowLayer(mergedSnowAnchors(model.national, model.states, model.world), flowTime, zoom),
+    )
+  }
 
   return layers
 }

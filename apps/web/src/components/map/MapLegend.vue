@@ -39,25 +39,6 @@ const showTrade = computed(
       </li>
     </ul>
 
-    <ul v-else class="m-0 flex list-none flex-col gap-1.5 p-0">
-      <li class="flex items-center gap-2">
-        <span class="swatch swatch--official"></span>
-        <span class="row-label pa-data">INFLUÊNCIA OFICIAL</span>
-      </li>
-      <li class="flex items-center gap-2">
-        <span class="swatch swatch--hidden"></span>
-        <span class="row-label pa-data">INFLUÊNCIA OCULTA · EM BREVE</span>
-      </li>
-      <li class="flex items-center gap-2">
-        <span class="swatch swatch--intl"></span>
-        <span class="row-label pa-data">INTERNACIONAL · EM BREVE</span>
-      </li>
-      <li class="flex items-center gap-2">
-        <span class="swatch swatch--heat"></span>
-        <span class="row-label pa-data">ATIVIDADE AMBIENTE · SIMULADA</span>
-      </li>
-    </ul>
-
     <div v-if="showTrade" class="trade">
       <button
         class="trade-toggle pa-data"
@@ -86,13 +67,20 @@ const showTrade = computed(
           ◂ IMPORTA
         </button>
       </div>
-      <p v-if="selection.tradeVisible" class="trade-hint pa-label">
-        COR = IDENTIDADE DO PAÍS · CLIQUE PARA VER SETORES
-      </p>
+      <button
+        v-if="selection.tradeVisible"
+        class="trade-toggle trade-toggle--sub pa-data"
+        type="button"
+        :aria-pressed="selection.tradeArrowsVisible"
+        @click="selection.toggleTradeArrows()"
+      >
+        <span class="chk">{{ selection.tradeArrowsVisible ? '[x]' : '[ ]' }}</span>
+        SETAS DE FLUXO
+      </button>
     </div>
 
     <p class="credit pa-label">
-      {{ selection.demographicView ? 'DADOS: IBGE · MALHAS SIMPLIFICADAS' : 'MALHAS: IBGE · SIMPLIFICADAS' }}
+      {{ selection.demographicView ? 'DADOS: IBGE · MALHAS SIMPLIFICADAS' : 'FONTE: IBGE · COMEX STAT/MDIC' }}
     </p>
   </div>
 </template>
@@ -124,26 +112,6 @@ const showTrade = computed(
   width: 14px;
   height: 8px;
   flex: none;
-}
-
-.swatch--official {
-  background: var(--pa-series-official);
-  box-shadow: var(--pa-glow-cyan);
-}
-
-/* Locked dimension: dashed, no glow, like the international "em breve" row. */
-.swatch--hidden {
-  background: color-mix(in srgb, var(--pa-series-hidden) 14%, transparent);
-  border: 1px dashed color-mix(in srgb, var(--pa-series-hidden) 55%, transparent);
-}
-
-.swatch--intl {
-  background: rgba(61, 88, 101, 0.12);
-  border: 1px dashed var(--pa-text-faint);
-}
-
-.swatch--heat {
-  background: linear-gradient(to right, rgba(61, 225, 255, 0.1), rgba(61, 225, 255, 0.85));
 }
 
 .swatch--metric {
@@ -193,6 +161,10 @@ const showTrade = computed(
   margin-top: 8px;
 }
 
+.trade-toggle--sub {
+  margin-top: 8px;
+}
+
 .dir {
   display: flex;
   align-items: center;
@@ -213,20 +185,6 @@ const showTrade = computed(
 .dir--on {
   color: var(--pa-text-primary);
   border-color: var(--pa-border-cyan);
-}
-
-.swatch--exp {
-  background: var(--pa-series-official);
-  box-shadow: var(--pa-glow-cyan);
-}
-
-.swatch--imp {
-  background: var(--pa-series-hidden);
-}
-
-.trade-hint {
-  margin: 8px 0 0;
-  color: var(--pa-text-faint);
 }
 
 .credit {

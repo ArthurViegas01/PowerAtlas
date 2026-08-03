@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
-import { formatUsd } from '@/lib/format'
+import BarTable, { type BarTableRow } from '@/components/shared/BarTable.vue'
+import { formatUsd, formatUsdParts } from '@/lib/format'
 import { sectorCss } from '@/lib/tradeSectors'
 import { useComercioStore } from '@/stores/comercio'
 import { useSelectionStore } from '@/stores/selection'
@@ -29,18 +30,25 @@ function totalFor(direction: TradeDirection): number {
   return partner.value ? directionValue(partner.value, direction) : 0
 }
 
-/** Sectors of `direction`, largest first; `index` keeps the arc/swatch color. */
-function sectorsFor(direction: TradeDirection) {
+/** Sectors of `direction` as BarTable rows, largest first; bars read as share
+ *  of the direction's total, so `index` keeps the arc/swatch color. */
+function sectorRows(direction: TradeDirection): BarTableRow[] {
   if (!partner.value) return []
   return partner.value.sectors
     .map((sector, index) => ({ ...sector, index, value: directionValue(sector, direction) }))
     .filter((sector) => sector.value > 0)
     .sort((a, b) => b.value - a.value)
-}
-
-function pct(value: number, direction: TradeDirection): number {
-  const total = totalFor(direction)
-  return total ? Math.round((value / total) * 100) : 0
+    .map((sector) => {
+      const { currency, amount } = formatUsdParts(sector.value)
+      return {
+        key: sector.code,
+        label: sector.label,
+        value: sector.value,
+        display: amount,
+        prefix: currency,
+        color: sectorCss(sector.index, sector.code),
+      }
+    })
 }
 
 const dirTitle = (d: TradeDirection) =>
@@ -54,14 +62,26 @@ const dirRole = (d: TradeDirection) =>
     <p class="tag pa-label">COMÉRCIO BRASIL ↔ {{ partner.name.toUpperCase() }} · {{ comercio.referenceYear }}</p>
 
     <div class="summary">
-      <div class="chip" :class="{ 'chip--on': dirs.includes('export') }">
+      <button
+        class="chip"
+        type="button"
+        :class="{ 'chip--on': dirs.includes('export') }"
+        :aria-pressed="dirs.includes('export')"
+        @click="selection.toggleTradeDirection('export')"
+      >
         <span class="chip-k pa-label"><span class="dot dot--exp"></span>EXPORTA</span>
         <span class="chip-v pa-data">{{ formatUsd(partner.exp) }}</span>
-      </div>
-      <div class="chip" :class="{ 'chip--on': dirs.includes('import') }">
+      </button>
+      <button
+        class="chip"
+        type="button"
+        :class="{ 'chip--on': dirs.includes('import') }"
+        :aria-pressed="dirs.includes('import')"
+        @click="selection.toggleTradeDirection('import')"
+      >
         <span class="chip-k pa-label"><span class="dot dot--imp"></span>IMPORTA</span>
         <span class="chip-v pa-data">{{ formatUsd(partner.imp) }}</span>
-      </div>
+      </button>
     </div>
     <p class="saldo pa-data">
       SALDO {{ saldo >= 0 ? '+' : '-' }}{{ formatUsd(Math.abs(saldo)) }}
@@ -76,19 +96,7 @@ const dirRole = (d: TradeDirection) =>
       <p v-if="rankFor(direction)" class="dir-rank pa-label">
         {{ rankFor(direction) }}º {{ dirRole(direction) }} do Brasil
       </p>
-      <ul class="rows">
-        <li v-for="sector in sectorsFor(direction)" :key="sector.code" class="row">
-          <span class="sw" :style="{ background: sectorCss(sector.index, sector.code) }"></span>
-          <span class="lbl pa-data">{{ sector.label }}</span>
-          <span class="bar">
-            <span
-              class="fill"
-              :style="{ width: pct(sector.value, direction) + '%', background: sectorCss(sector.index, sector.code) }"
-            ></span>
-          </span>
-          <span class="val pa-data">{{ formatUsd(sector.value) }}</span>
-        </li>
-      </ul>
+      <BarTable :rows="sectorRows(direction)" :max="totalFor(direction)" />
     </section>
 
     <p class="src pa-label">FONTE: {{ comercio.source }} · VALORES FOB EM US$</p>
@@ -121,8 +129,15 @@ const dirRole = (d: TradeDirection) =>
   flex-direction: column;
   gap: 3px;
   padding: 7px 9px;
+  font: inherit;
+  text-align: left;
   background: rgba(3, 6, 8, 0.5);
   border: 1px solid var(--pa-border-faint);
+  cursor: pointer;
+}
+
+.chip:hover {
+  border-color: var(--pa-border-cyan);
 }
 
 .chip--on {
@@ -205,61 +220,6 @@ const dirRole = (d: TradeDirection) =>
 .dir-rank {
   margin: 6px 0 8px;
   color: var(--pa-series-official);
-}
-
-.rows {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.row {
-  display: grid;
-  grid-template-columns: 10px minmax(80px, 1.1fr) 0.9fr auto;
-  align-items: center;
-  gap: 9px;
-  padding: 2px 0;
-}
-
-.row:hover {
-  background: color-mix(in srgb, var(--pa-series-official) 5%, transparent);
-}
-
-.sw {
-  width: 10px;
-  height: 10px;
-  flex: none;
-}
-
-.lbl {
-  font-size: var(--pa-text-2xs);
-  letter-spacing: 0.03em;
-  color: var(--pa-text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.bar {
-  height: 5px;
-  background: rgba(61, 88, 101, 0.2);
-  overflow: hidden;
-}
-
-.fill {
-  display: block;
-  height: 100%;
-  opacity: 0.85;
-}
-
-.val {
-  font-size: var(--pa-text-2xs);
-  color: var(--pa-text-dim);
-  white-space: nowrap;
-  text-align: right;
 }
 
 .src {

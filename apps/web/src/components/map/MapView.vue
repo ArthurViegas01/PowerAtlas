@@ -5,7 +5,9 @@ import maplibregl from 'maplibre-gl'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, watchEffect } from 'vue'
 
 import { useReducedMotion } from '@/composables/useReducedMotion'
+import { countryColorAny } from '@/lib/countryColors'
 import { buildDeckLayers } from '@/lib/deckLayers'
+import { featureBounds } from '@/lib/geo'
 import type {
   SubdivisaoFeature,
   Bounds,
@@ -54,6 +56,20 @@ function triggerRipple(event: maplibregl.MapMouseEvent) {
   ripple.value = { epicenter: [event.lngLat.lng, event.lngLat.lat], start: performance.now() }
 }
 
+// Click ripples on the ocean grid: a click over open sea drops a wavefront that
+// the shader expands and fades. Kept to the few most recent (fixed shader
+// slots); the ambient breathing wave is stateless, so it needs nothing here.
+const oceanRipples = ref<{ epicenter: [number, number]; start: number }[]>([])
+const OCEAN_RIPPLE_LIFETIME_MS = 3400
+const MAX_OCEAN_RIPPLES = 4
+// Cursor position as screen UV (0–1, y up) driving the grid's mouse bulge.
+const oceanMouse = ref<[number, number] | null>(null)
+function spawnOceanRipple(event: maplibregl.MapMouseEvent) {
+  if (reduced.value) return
+  const next = { epicenter: [event.lngLat.lng, event.lngLat.lat] as [number, number], start: performance.now() }
+  oceanRipples.value = [...oceanRipples.value, next].slice(-MAX_OCEAN_RIPPLES)
+}
+
 // Horizon fade: darkens the far edge of the map as the camera tilts, so the
 // distant clutter recedes instead of competing with the foreground. Purely
 // cosmetic, driven by pitch (flat view = invisible).
@@ -77,30 +93,62 @@ interface TradeLabel {
   lon: number
   lat: number
   selected: boolean
-  brasil: boolean
+  /** 'brasil' = the gold home tag, 'name' = a top-50 partner, 'sigla' = the rest. */
+  kind: 'brasil' | 'name' | 'sigla'
 }
 const tradeLabels = ref<TradeLabel[]>([])
 const labelsContainer = ref<HTMLDivElement | null>(null)
 const BRASIL_LABEL_RGB: [number, number, number] = [235, 200, 75]
 
+/** Center of a country's mainland bounds — the fallback label anchor. */
+function labelCentroid(feature: WorldFeature): [number, number] {
+  const [[w, s], [e, n]] = featureBounds(feature)
+  return [(w + e) / 2, (s + n) / 2]
+}
+
 function rebuildTradeLabels() {
   const model = mapLayers.layerModel
   const out: TradeLabel[] = []
-  if (model.globalIdle) {
+  // Country labels belong to the world (global) context only.
+  if (model.globalIdle && model.world) {
     const [r, g, b] = BRASIL_LABEL_RGB
-    out.push({ key: 'BR', text: 'BRASIL', color: `rgb(${r}, ${g}, ${b})`, lon: -52.5, lat: -10.5, selected: false, brasil: true })
-  }
-  for (const highlight of model.trade.highlights) {
-    const [r, g, b] = highlight.color
     out.push({
-      key: highlight.iso,
-      text: highlight.name.toUpperCase(),
+      key: 'BR',
+      text: 'BRASIL',
       color: `rgb(${r}, ${g}, ${b})`,
-      lon: highlight.coordinates[0],
-      lat: highlight.coordinates[1],
-      selected: highlight.selected,
-      brasil: false,
+      lon: -52.5,
+      lat: -10.5,
+      selected: false,
+      kind: 'brasil',
     })
+
+    // Top 50 partners by combined flow get their full name in front; every
+    // other country shows only its ISO sigla.
+    const top50 = new Set(
+      [...comercio.partners]
+        .map((p) => ({ iso: p.iso, value: p.exp + p.imp }))
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 50)
+        .map((p) => p.iso),
+    )
+    const selectedIso = model.trade.highlights.find((h) => h.selected)?.iso ?? null
+    for (const feature of model.world.features) {
+      const iso = feature.properties.iso
+      if (iso === 'BRA') continue
+      const partner = comercio.byIso.get(iso)
+      const [lon, lat] = partner ? partner.coordinates : labelCentroid(feature)
+      const [cr, cg, cb] = countryColorAny(iso)
+      const named = top50.has(iso)
+      out.push({
+        key: iso,
+        text: named ? (partner?.name ?? feature.properties.name).toUpperCase() : iso,
+        color: `rgb(${cr}, ${cg}, ${cb})`,
+        lon,
+        lat,
+        selected: iso === selectedIso,
+        kind: named ? 'name' : 'sigla',
+      })
+    }
   }
   tradeLabels.value = out
   // Position the freshly-rendered spans once Vue has committed them.
@@ -319,6 +367,9 @@ function handleClick(event: maplibregl.MapMouseEvent) {
       const { UF } = (info as PickingInfo<BoundaryFeature>).object!.properties
       selection.selectDemographicUf(UF)
       triggerRipple(event)
+    } else {
+      // Missed every layer: the click landed on open sea.
+      spawnOceanRipple(event)
     }
     return
   }
@@ -348,6 +399,9 @@ function handleClick(event: maplibregl.MapMouseEvent) {
       selection.lockWorld({ iso, name }, point)
     }
   } else {
+    // Nothing under the cursor: the click hit open sea. Ripple the grid and
+    // close any open panel.
+    spawnOceanRipple(event)
     selection.closePanels()
   }
 }
@@ -497,7 +551,10 @@ onMounted(() => {
     zoom: NATIONAL_CAMERA.zoom,
     pitch: NATIONAL_CAMERA.pitch,
     bearing: NATIONAL_CAMERA.bearing,
-    minZoom: 1.5,
+    // Floor the zoom-out so the world can't shrink to a tiny rectangle floating
+    // in the void — that broke the immersion. At 2.2 the extended ocean grid
+    // still fills the frame.
+    minZoom: 2.2,
     maxZoom: MAX_ZOOM,
     maxPitch: MAX_PITCH,
     // deck.gl draws layers on world copy 0 only — don't render wrapped
@@ -513,6 +570,16 @@ onMounted(() => {
   overlay = new MapboxOverlay({ interleaved: false, layers: [] })
   map.addControl(overlay as unknown as maplibregl.IControl)
   map.on('click', handleClick)
+  // Cursor feeds the ocean grid's mouse bulge (screen UV, y up).
+  map.on('mousemove', (event) => {
+    if (!map) return
+    const w = map.getContainer().clientWidth
+    const h = map.getContainer().clientHeight
+    oceanMouse.value = [event.point.x / w, 1 - event.point.y / h]
+  })
+  map.on('mouseout', () => {
+    oceanMouse.value = null
+  })
   // Country labels track the camera imperatively, in sync with the map's own
   // frames — no reactivity round-trip, so a drag never leaves them lagging.
   map.on('render', positionTradeLabels)
@@ -570,6 +637,14 @@ watchEffect(() => {
       ripple.value = null // decayed: let columns settle
     }
   }
+  // Ocean grid ripples: drop the decayed ones, hand the rest their elapsed time.
+  const nowMs = performance.now()
+  const liveOcean = oceanRipples.value.filter((r) => nowMs - r.start <= OCEAN_RIPPLE_LIFETIME_MS)
+  if (liveOcean.length !== oceanRipples.value.length) oceanRipples.value = liveOcean
+  const oceanRippleArg = liveOcean.map((r) => ({
+    epicenter: r.epicenter,
+    elapsed: (nowMs - r.start) / 1000,
+  }))
   overlay.setProps({
     layers: buildDeckLayers({
       model: mapLayers.layerModel,
@@ -581,7 +656,10 @@ watchEffect(() => {
       onHoverDemografiaBase: handleDemografiaBaseHover,
       pulse: pulse.value,
       flowTime: flowTime.value,
+      zoom: map?.getZoom() ?? 3,
       ripple: rippleArg,
+      oceanRipples: oceanRippleArg,
+      oceanMouse: oceanMouse.value,
     }),
   })
 })
@@ -591,8 +669,11 @@ watchEffect(() => {
 // positioning place the spans.
 watch(
   () => {
-    const { globalIdle, trade } = mapLayers.layerModel
-    return `${globalIdle}|${trade.highlights.map((h) => `${h.iso}${h.selected ? '*' : ''}`).join(',')}`
+    const model = mapLayers.layerModel
+    const selectedIso = model.trade.highlights.find((h) => h.selected)?.iso ?? ''
+    // Rebuild when the context flips, the world/partner data lands, or the
+    // exploded partner changes (its label brightens).
+    return `${model.globalIdle}|${model.world?.features.length ?? 0}|${comercio.partners.length}|${selectedIso}`
   },
   () => rebuildTradeLabels(),
   { immediate: true },
@@ -727,7 +808,11 @@ watch(
       v-for="label in tradeLabels"
       :key="label.key"
       class="clabel"
-      :class="{ 'clabel--sel': label.selected, 'clabel--br': label.brasil }"
+      :class="{
+        'clabel--sel': label.selected,
+        'clabel--br': label.kind === 'brasil',
+        'clabel--sigla': label.kind === 'sigla',
+      }"
       :style="{ color: label.color }"
       :data-lon="label.lon"
       :data-lat="label.lat"
@@ -795,6 +880,14 @@ watch(
 
 .clabel--sel {
   font-size: 11px;
+}
+
+/* The non-top-50 countries: just their sigla, smaller and dimmer so the named
+   partners still stand out. */
+.clabel--sigla {
+  font-size: 8px;
+  letter-spacing: 0.05em;
+  opacity: 0.62;
 }
 
 .clabel--br {

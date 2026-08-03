@@ -71,3 +71,38 @@ export const DEFAULT_COUNTRY_RGB: RGB = [120, 205, 225]
 export function countryRgb(iso: string): RGB | null {
   return COUNTRY_RGB[iso] ?? null
 }
+
+/** Deterministic hue (0–360) from an ISO code, stable across sessions. */
+function isoHue(iso: string): number {
+  let h = 0
+  for (let i = 0; i < iso.length; i++) h = (h * 31 + iso.charCodeAt(i)) >>> 0
+  return h % 360
+}
+
+function hslToRgb(h: number, s: number, l: number): RGB {
+  const c = (1 - Math.abs(2 * l - 1)) * s
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1))
+  const m = l - c / 2
+  const [r, g, b] =
+    h < 60
+      ? [c, x, 0]
+      : h < 120
+        ? [x, c, 0]
+        : h < 180
+          ? [0, c, x]
+          : h < 240
+            ? [0, x, c]
+            : h < 300
+              ? [x, 0, c]
+              : [c, 0, x]
+  return [Math.round((r + m) * 255), Math.round((g + m) * 255), Math.round((b + m) * 255)]
+}
+
+/**
+ * A color for ANY country: the curated identity hue when there is one, else a
+ * deterministic hash-derived color tuned (muted saturation, mid lightness) to
+ * read on the dark map. Used to paint the whole world, not just partners.
+ */
+export function countryColorAny(iso: string): RGB {
+  return COUNTRY_RGB[iso] ?? hslToRgb(isoHue(iso), 0.5, 0.62)
+}

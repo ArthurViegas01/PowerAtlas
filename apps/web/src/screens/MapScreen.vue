@@ -15,6 +15,7 @@ import MapScanEffect from '@/components/map/MapScanEffect.vue'
 import MapTooltip from '@/components/map/MapTooltip.vue'
 import MapView from '@/components/map/MapView.vue'
 import TradePartnerCard from '@/components/map/TradePartnerCard.vue'
+import TradeRankingPanel from '@/components/map/TradeRankingPanel.vue'
 import ScanBand from '@/components/hud/ScanBand.vue'
 import RankingColumn from '@/components/rankings/RankingColumn.vue'
 import IndicatorGrid from '@/components/shared/IndicatorGrid.vue'
@@ -337,6 +338,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
     </transition>
 
     <MapLegend />
+    <TradeRankingPanel />
     <MapCompass />
     <MonitoringPanel v-if="!selection.demographicView" />
     <DemografiaCard />

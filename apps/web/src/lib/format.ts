@@ -69,3 +69,19 @@ export function formatCompact(value: number | null): string {
 export function formatUsd(value: number | null): string {
   return value == null ? NOT_AVAILABLE : usdFmt.format(value)
 }
+
+/**
+ * Compact USD split into its currency symbol and the amount ("US$" + "34,8
+ * bi"), so a table can pin the symbol left and right-align the number.
+ */
+export function formatUsdParts(value: number | null): { currency: string; amount: string } {
+  if (value == null) return { currency: '', amount: NOT_AVAILABLE }
+  const parts = usdFmt.formatToParts(value)
+  const currency = parts.find((part) => part.type === 'currency')?.value ?? ''
+  const amount = parts
+    .filter((part) => part.type !== 'currency')
+    .map((part) => part.value)
+    .join('')
+    .trim()
+  return { currency, amount }
+}
