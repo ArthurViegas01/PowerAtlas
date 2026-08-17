@@ -190,7 +190,6 @@ compasso, cabecalho do monitoramento. Componentes novos nascem com ela.
 - `Modal`/`Popover`/`Toast` (PROD): `--pa-z-modal`/`--pa-z-toast`, overlay
   void a 40% sem blur.
 - `HudIconButton` (compasso): normaliza os chips fora da escala.
-- Styleguide vivo `/estilo` (ID-6): rota lazy fora do bundle principal.
 
 ## 7. Estado da migracao (2026-08-16)
 
@@ -219,6 +218,14 @@ de camera. O listener global roda em fase de captura para o Esc fechar a
 paleta antes da cascata de Esc do MapScreen. Nucleo de ranking puro e
 testado em `lib/paletteIndex.ts` (normalize sem acentos, score por
 prefixo/palavra/substring/keyword, cap por grupo).
+
+ID-6 (2026-08-17): styleguide vivo em `/estilo`
+(`screens/StyleGuideScreen.vue`, rota lazy fora do nav de producao). Le os
+valores dos tokens do :root computado em runtime, entao a pagina nao
+diverge do tokens.css; mostra cores, tipografia, espacamento, raio,
+controles, icones, escada de z, motion/glow e os componentes ui/ em todos
+os estados (o focus-visible aparece simulado; o real continua so por
+teclado).
 
 IA-3 (2026-08-17): estado da analise na URL e analises salvas. Serializador
 puro em `lib/analysisUrl.ts` (region, parceiro, view demografica com
