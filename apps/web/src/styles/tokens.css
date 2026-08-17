@@ -56,4 +56,64 @@
   /* glow */
   --pa-glow-cyan: 0 0 14px rgba(61, 225, 255, 0.33);
   --pa-glow-amber: 0 0 14px rgba(255, 179, 71, 0.33);
+
+  /* spacing: 4px base with 2px half-steps (05/15/25/35/45) because the HUD
+     runs dense. Tailwind's default 4px scale lines up (gap-4 in a template
+     equals --pa-space-4), so utilities and tokens cannot drift. */
+  --pa-space-05: 2px;
+  --pa-space-1: 4px;
+  --pa-space-15: 6px;
+  --pa-space-2: 8px;
+  --pa-space-25: 10px;
+  --pa-space-3: 12px;
+  --pa-space-35: 14px;
+  --pa-space-4: 16px;
+  --pa-space-45: 18px;
+  --pa-space-5: 20px;
+  --pa-space-6: 24px;
+  --pa-space-8: 32px;
+  --pa-space-10: 40px;
+
+  /* radius: the HUD is angular. Small radii only; pill is reserved for
+     chips/badges and round pings. */
+  --pa-radius-none: 0;
+  --pa-radius-sm: 2px;
+  --pa-radius-md: 4px;
+  --pa-radius-pill: 999px;
+
+  /* stacking ladder (z-index). Values mirror the live stack exactly: the
+     CRT texture intentionally sits ABOVE the header. Renumber only if the
+     whole ladder moves together. Consumers: docs/design-system.md. */
+  --pa-z-map-hint: 15;
+  --pa-z-map-overlay: 16;
+  --pa-z-hud: 18;
+  --pa-z-panel: 20;
+  --pa-z-footer: 25;
+  --pa-z-frame: 30;
+  --pa-z-header: 32;
+  --pa-z-scan-fx: 35;
+  --pa-z-scanline: 40;
+  --pa-z-boot: 50;
+  --pa-z-modal: 60;
+  --pa-z-command: 70; /* reserved: command palette (IA-2) */
+  --pa-z-toast: 80; /* reserved: toasts */
+
+  /* layout */
+  --pa-inset-edge: 10px; /* HUD breathing room against the viewport edge */
+  --pa-panel-width: min(520px, 44vw); /* right panel slot (MapScreen) */
+  --pa-rail-width: 56px; /* reserved: nav rail (IA-1) */
+
+  /* control heights: md is the compass ctrl today; sm/lg reserved */
+  --pa-control-h-sm: 26px;
+  --pa-control-h-md: 32px;
+  --pa-control-h-lg: 40px;
+  --pa-hit-min: 44px; /* minimum touch target on mobile */
+
+  /* icon sizes (ID-4): sm dense lists, md standalone UI, lg headers */
+  --pa-icon-sm: 16px;
+  --pa-icon-md: 20px;
+  --pa-icon-lg: 24px;
+
+  /* keyboard focus ring, applied via .pa-focusable (main.css) */
+  --pa-focus-ring: 0 0 0 2px var(--pa-bg-void), 0 0 0 4px var(--pa-series-official);
 }
