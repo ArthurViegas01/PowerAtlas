@@ -80,6 +80,11 @@ Regras de espacamento:
 Numeros sempre em `--pa-font-data` com `tabular-nums` (classe `.pa-data`).
 Labels de HUD sempre `.pa-label` (2xs, tracking 0.18em, uppercase, mono).
 
+O selo de proveniencia (`ui/DataProvenanceChip`, PROD-1) mapeia esses
+papeis sem cor nova, porque proveniencia E status de dado: `REAL` usa
+`confidence-high`, `EM REVISAO` usa `confidence-medium`, e `SIMULADO` usa
+`series-hidden` com borda tracejada (a assinatura do mundo placeholder).
+
 ## 4. Tipografia e iconografia
 
 Papeis da escala tipografica:
@@ -143,11 +148,12 @@ Primitivos existentes e estados:
 | Componente | Papel | Estados faltantes |
 | --- | --- | --- |
 | `ui/HudButton` | botao canonico do HUD | completo (esta fase) |
+| `ui/DataProvenanceChip` | selo REAL/SIMULADO/EM REVISAO | completo (PROD-1); EM REVISAO sem consumidor ate a F6 |
 | `hud/HudPanel` + `CornerBracket` | superficie canonica | ok |
 | `hud/HudFrame`, `HudClock`, `MonitoringPanel` | chrome do HUD | ok |
 | `map/MapCompass` | controle de camera | normalizar chips no futuro HudIconButton |
 | `rankings/RankingBarItem/List/Column` | rankings | focus-visible quando virarem alvo de teclado |
-| `rankings/ConfidenceBadge`, `shared/SourceCitationTag` | proveniencia | unificar sob chip na PROD-1 |
+| `rankings/ConfidenceBadge`, `shared/SourceCitationTag` | proveniencia | familia de chip alinhada (radius-sm); fusao total so se a PROD-2 pedir |
 | `shared/KpiTile`, `BarTable`, `IndicatorGrid`, `AnimatedCounter`, `DecryptedText` | leitura de dado | ok |
 | `dashboard/*` (console) | segunda ferramenta, acento ambar | herdara HudInput/Modal/Toast |
 
@@ -174,8 +180,8 @@ compasso, cabecalho do monitoramento. Componentes novos nascem com ela.
 ### Pendentes (fases seguintes do PLAN-IDENTIDADE)
 
 - `HudInput` (IA-2, paleta Ctrl-K): mesma borda ciano + `.pa-focusable`.
-- Chip unico de proveniencia (PROD-1): `ConfidenceBadge` +
-  `SourceCitationTag` + selo REAL/SIMULADO/EM REVISAO; pill permitido aqui.
+- Legenda de confianca no painel de camadas (PROD-1 restante): entra quando
+  `MapLegend.vue` fechar o trabalho em andamento nao commitado.
 - `Modal`/`Popover`/`Toast` (PROD): `--pa-z-modal`/`--pa-z-toast`, overlay
   void a 40% sem blur.
 - `HudIconButton` (compasso): normaliza os chips fora da escala.
@@ -192,3 +198,10 @@ Verificacao desta fase: snapshot de `getComputedStyle` (38 propriedades por
 elemento, header/botoes/moldura/relogio/compasso/scanlines/painel) antes e
 depois do refactor, em `/` e `/?region=SP`: zero diferencas. Anel de foco
 validado com Tab real no browser. `pnpm build` e `pnpm test` verdes.
+
+PROD-1 (mesma data): `DataProvenanceChip` consumido por `IndicatorGrid`
+(REAL, indicadores IBGE), `DemografiaMenu` (REAL, fonte da visao
+demografica), `TradePartnerCard` (REAL, Comex + ano) e `RankingColumn`
+(SIMULADO, entidades ficticias). O estado EM REVISAO fica sem consumidor
+ate a F6. O banner global de dados simulados permanece; a regra de conteudo
+nao muda.
