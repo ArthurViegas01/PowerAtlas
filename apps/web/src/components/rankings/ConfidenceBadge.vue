@@ -21,17 +21,17 @@ defineProps<{ level: ConfidenceLevel }>()
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 1px 6px;
+  padding: 1px 6px; /* chip fine-tune, off the spacing scale */
   font-size: var(--pa-text-2xs);
   letter-spacing: 0.08em;
   border: 1px solid;
-  border-radius: 2px;
+  border-radius: var(--pa-radius-sm);
 }
 
 .dot {
   width: 5px;
   height: 5px;
-  border-radius: 999px;
+  border-radius: var(--pa-radius-pill);
   background: currentColor;
   box-shadow: 0 0 6px currentColor;
 }
