@@ -130,7 +130,7 @@ inteira se mover junta.
 | `--pa-z-scanline` | 40 | textura CRT + vinheta (ScanlineOverlay) |
 | `--pa-z-boot` | 50 | overlay de boot (MapScreen, pendente) |
 | `--pa-z-modal` | 60 | ImportDialog; AdminLoginDialog pendente |
-| `--pa-z-command` | 70 | reservado: paleta Ctrl-K (IA-2) |
+| `--pa-z-command` | 70 | paleta Ctrl-K (`ui/CommandPalette`) |
 | `--pa-z-toast` | 80 | reservado: toasts |
 
 Notas:
@@ -149,6 +149,8 @@ Primitivos existentes e estados:
 | --- | --- | --- |
 | `ui/HudButton` | botao canonico do HUD | completo (esta fase) |
 | `ui/DataProvenanceChip` | selo REAL/SIMULADO/EM REVISAO | completo (PROD-1); EM REVISAO sem consumidor ate a F6 |
+| `ui/HudInput` | input canonico (busca) | completo (IA-2) |
+| `ui/CommandPalette` | busca e comandos via Ctrl-K | completo (IA-2); nucleo puro em `lib/paletteIndex.ts` |
 | `hud/HudPanel` + `CornerBracket` | superficie canonica | ok |
 | `hud/HudFrame`, `HudClock`, `MonitoringPanel` | chrome do HUD | ok |
 | `map/MapCompass` | controle de camera | normalizar chips no futuro HudIconButton |
@@ -179,9 +181,12 @@ compasso, cabecalho do monitoramento. Componentes novos nascem com ela.
 
 ### Pendentes (fases seguintes do PLAN-IDENTIDADE)
 
-- `HudInput` (IA-2, paleta Ctrl-K): mesma borda ciano + `.pa-focusable`.
 - Legenda de confianca no painel de camadas (PROD-1 restante): entra quando
   `MapLegend.vue` fechar o trabalho em andamento nao commitado.
+- Affordance de busca no header (botao BUSCA): entra com o redesenho do
+  header na IA-1; ate la a paleta abre so por Ctrl-K.
+- Busca de municipios na paleta: espera o indice unico
+  (`indicators/municipios-all.json`) fechar na outra frente.
 - `Modal`/`Popover`/`Toast` (PROD): `--pa-z-modal`/`--pa-z-toast`, overlay
   void a 40% sem blur.
 - `HudIconButton` (compasso): normaliza os chips fora da escala.
@@ -205,3 +210,12 @@ demografica), `TradePartnerCard` (REAL, Comex + ano) e `RankingColumn`
 (SIMULADO, entidades ficticias). O estado EM REVISAO fica sem consumidor
 ate a F6. O banner global de dados simulados permanece; a regra de conteudo
 nao muda.
+
+IA-2 (2026-08-17): paleta Ctrl-K montada no `App.vue` acima do router.
+Busca regioes (BR + 27 UFs), parceiros comerciais, entidades ficticias dos
+rankings (grupo rotulado SIMULADO) e comandos; cada acao espelha um fluxo
+existente do MapScreen/MapCompass via selection store, nada de logica nova
+de camera. O listener global roda em fase de captura para o Esc fechar a
+paleta antes da cascata de Esc do MapScreen. Nucleo de ranking puro e
+testado em `lib/paletteIndex.ts` (normalize sem acentos, score por
+prefixo/palavra/substring/keyword, cap por grupo).
