@@ -4,13 +4,16 @@ import { useRoute, useRouter } from 'vue-router'
 
 import CornerBracket from '@/components/hud/CornerBracket.vue'
 import HudInput from '@/components/ui/HudInput.vue'
+import { fromQuery, toQuery } from '@/lib/analysisUrl'
 import { rankEntries, type PaletteEntry } from '@/lib/paletteIndex'
+import { useAnalysisStore } from '@/stores/analysis'
 import { useComercioStore } from '@/stores/comercio'
 import { useDemografiaStore } from '@/stores/demografia'
 import { useFiscalStore } from '@/stores/fiscal'
 import { useMapLayersStore } from '@/stores/mapLayers'
 import { usePaletteStore } from '@/stores/palette'
 import { useRankingsStore } from '@/stores/rankings'
+import { useSavedViewsStore } from '@/stores/savedViews'
 import { useSelectionStore } from '@/stores/selection'
 
 /**
@@ -26,11 +29,16 @@ const comercio = useComercioStore()
 const demografia = useDemografiaStore()
 const fiscal = useFiscalStore()
 const mapLayers = useMapLayersStore()
+const analysis = useAnalysisStore()
+const savedViews = useSavedViewsStore()
 const route = useRoute()
 const router = useRouter()
 
 const query = ref('')
 const activeIndex = ref(0)
+/** 'salvar' repurposes the input as the name field of the analysis. */
+const mode = ref<'search' | 'salvar'>('search')
+const hintOverride = ref<string | null>(null)
 const inputRef = ref<InstanceType<typeof HudInput> | null>(null)
 const listRef = ref<HTMLElement | null>(null)
 
@@ -72,6 +80,21 @@ const commandEntries = computed<PaletteEntry[]>(() => [
         action: { kind: 'command', command: 'console' },
       },
   {
+    key: 'cmd-salvar',
+    group: 'command',
+    label: 'SALVAR ANÁLISE',
+    sublabel: 'GUARDA O ESTADO ATUAL COM NOME',
+    action: { kind: 'command', command: 'salvar' },
+  },
+  {
+    key: 'cmd-copiar',
+    group: 'command',
+    label: 'COPIAR LINK DA ANÁLISE',
+    sublabel: 'URL QUE RECONSTRÓI ESTA TELA',
+    keywords: ['compartilhar', 'share'],
+    action: { kind: 'command', command: 'copiar' },
+  },
+  {
     key: 'cmd-home',
     group: 'command',
     label: 'VOLTAR AO BRASIL',
@@ -94,6 +117,16 @@ const commandEntries = computed<PaletteEntry[]>(() => [
     action: { kind: 'command', command: 'auto' },
   },
 ])
+
+const savedEntries = computed<PaletteEntry[]>(() =>
+  savedViews.views.map((view) => ({
+    key: `saved-${view.id}`,
+    group: 'saved' as const,
+    label: view.name.toUpperCase(),
+    sublabel: `${new Date(view.savedAt).toLocaleDateString('pt-BR')} · DEL REMOVE`,
+    action: { kind: 'saved' as const, id: view.id },
+  })),
+)
 
 const regionEntries = computed<PaletteEntry[]>(() =>
   [...rankings.regionsById.values()]
@@ -142,11 +175,14 @@ const groups = computed(() =>
   rankEntries(
     [
       ...commandEntries.value,
+      ...savedEntries.value,
       ...regionEntries.value,
       ...countryEntries.value,
       ...entityEntries.value,
     ],
     query.value,
+    // Empty query reads as a menu: show every command; searches stay capped.
+    query.value.trim() ? 6 : 12,
   ),
 )
 
@@ -170,12 +206,41 @@ watch(
   async (open) => {
     if (!open) return
     query.value = ''
+    mode.value = 'search'
+    hintOverride.value = null
     void rankings.load()
     void comercio.load()
     await nextTick()
     inputRef.value?.focus()
   },
 )
+
+/** Share URL for the current analysis (the sync keeps location in step). */
+function shareUrl(): string {
+  const params = new URLSearchParams(toQuery(analysis.snapshot())).toString()
+  return `${location.origin}/${params ? `?${params}` : ''}`
+}
+
+async function copyLink() {
+  try {
+    await navigator.clipboard.writeText(shareUrl())
+    hintOverride.value = 'LINK COPIADO'
+  } catch {
+    hintOverride.value = 'FALHA AO COPIAR'
+  }
+  window.setTimeout(() => {
+    hintOverride.value = null
+    palette.close()
+  }, 900)
+}
+
+function saveCurrent() {
+  const name =
+    query.value.trim() || `ANÁLISE ${new Date().toLocaleString('pt-BR')}`
+  savedViews.save(name, new URLSearchParams(toQuery(analysis.snapshot())).toString())
+  mode.value = 'search'
+  palette.close()
+}
 
 function move(delta: number) {
   const count = flat.value.length
@@ -190,8 +255,25 @@ function move(delta: number) {
 
 /** Every branch mirrors an existing MapScreen/MapCompass flow, on purpose. */
 async function run(entry: PaletteEntry) {
-  palette.close()
   const action = entry.action
+  if (action.kind === 'command' && action.command === 'salvar') {
+    mode.value = 'salvar'
+    query.value = ''
+    inputRef.value?.focus()
+    return
+  }
+  if (action.kind === 'command' && action.command === 'copiar') {
+    void copyLink()
+    return
+  }
+  palette.close()
+  if (action.kind === 'saved') {
+    const view = savedViews.views.find((candidate) => candidate.id === action.id)
+    if (!view) return
+    if (route.path !== '/') await router.push('/')
+    void analysis.apply(fromQuery(Object.fromEntries(new URLSearchParams(view.query))))
+    return
+  }
   if (action.kind === 'command' && action.command === 'console') {
     void router.push('/dados')
     return
@@ -238,11 +320,20 @@ async function run(entry: PaletteEntry) {
       selection.requestAutoBearing()
       break
     case 'mapa':
-      break // the router.push above already landed on the map
+    case 'salvar':
+    case 'copiar':
+      break // salvar/copiar returned earlier; mapa already landed home
   }
 }
 
 function onInputKeydown(event: KeyboardEvent) {
+  if (mode.value === 'salvar') {
+    if (event.key === 'Enter') {
+      event.preventDefault()
+      saveCurrent()
+    }
+    return
+  }
   if (event.key === 'ArrowDown') {
     event.preventDefault()
     move(1)
@@ -253,6 +344,15 @@ function onInputKeydown(event: KeyboardEvent) {
     event.preventDefault()
     const entry = flat.value[activeIndex.value]
     if (entry) void run(entry)
+  } else if (event.key === 'Delete') {
+    const entry = flat.value[activeIndex.value]
+    if (entry?.action.kind === 'saved') {
+      event.preventDefault()
+      savedViews.remove(entry.action.id)
+      void nextTick(() => {
+        activeIndex.value = Math.min(activeIndex.value, Math.max(0, flat.value.length - 1))
+      })
+    }
   }
 }
 
@@ -270,6 +370,11 @@ function onGlobalKeydown(event: KeyboardEvent) {
   if (palette.isOpen && event.key === 'Escape') {
     event.preventDefault()
     event.stopPropagation()
+    if (mode.value === 'salvar') {
+      mode.value = 'search'
+      query.value = ''
+      return
+    }
     palette.close()
   }
 }
@@ -289,12 +394,25 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onGlobalKeydown, tru
         <HudInput
           ref="inputRef"
           v-model="query"
-          placeholder="Buscar região, país, entidade ou comando"
+          :placeholder="mode === 'salvar' ? 'Nome da análise' : 'Buscar região, país, entidade ou comando'"
           aria-controls="palette-results"
           @keydown="onInputKeydown"
         />
-        <p class="hint pa-label">SETAS NAVEGAM · ENTER EXECUTA · ESC FECHA</p>
-        <div v-if="flat.length" id="palette-results" ref="listRef" class="results" role="listbox">
+        <p class="hint pa-label">
+          {{
+            hintOverride ??
+            (mode === 'salvar'
+              ? 'ENTER SALVA · ESC VOLTA'
+              : 'SETAS NAVEGAM · ENTER EXECUTA · ESC FECHA')
+          }}
+        </p>
+        <div
+          v-if="mode === 'search' && flat.length"
+          id="palette-results"
+          ref="listRef"
+          class="results"
+          role="listbox"
+        >
           <template v-for="group in indexed" :key="group.group">
             <p class="group pa-label">{{ group.label }}</p>
             <button
@@ -314,7 +432,9 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onGlobalKeydown, tru
             </button>
           </template>
         </div>
-        <p v-else class="empty pa-label">SEM RESULTADOS PARA "{{ query.toUpperCase() }}"</p>
+        <p v-else-if="mode === 'search'" class="empty pa-label">
+          SEM RESULTADOS PARA "{{ query.toUpperCase() }}"
+        </p>
       </div>
     </div>
   </transition>

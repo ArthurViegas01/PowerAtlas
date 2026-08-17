@@ -4,7 +4,7 @@
  * to normalize, score and rank entries, so it stays unit-testable.
  */
 
-export type PaletteGroup = 'command' | 'region' | 'country' | 'entity'
+export type PaletteGroup = 'command' | 'saved' | 'region' | 'country' | 'entity'
 
 export type PaletteCommand =
   | 'national'
@@ -15,11 +15,14 @@ export type PaletteCommand =
   | 'norte'
   | 'auto'
   | 'home'
+  | 'salvar'
+  | 'copiar'
 
 export type PaletteAction =
   | { kind: 'command'; command: PaletteCommand }
   | { kind: 'region'; id: string; name: string }
   | { kind: 'country'; iso: string; name: string }
+  | { kind: 'saved'; id: string }
 
 export interface PaletteEntry {
   /** Stable key for v-for and the active-row bookkeeping. */
@@ -33,10 +36,11 @@ export interface PaletteEntry {
 }
 
 /** Display order of the groups in the result list. */
-export const GROUP_ORDER: PaletteGroup[] = ['command', 'region', 'country', 'entity']
+export const GROUP_ORDER: PaletteGroup[] = ['command', 'saved', 'region', 'country', 'entity']
 
 export const GROUP_LABEL: Record<PaletteGroup, string> = {
   command: 'COMANDOS',
+  saved: 'ANÁLISES SALVAS',
   region: 'REGIÕES',
   country: 'PAÍSES · COMÉRCIO',
   entity: 'ENTIDADES · SIMULADO',

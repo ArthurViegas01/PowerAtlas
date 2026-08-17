@@ -7,6 +7,10 @@
 import { RouterView } from 'vue-router'
 
 import CommandPalette from '@/components/ui/CommandPalette.vue'
+import { useAnalysisSync } from '@/composables/useAnalysisSync'
+
+// Keeps the URL and the analysis state in step, both ways (IA-3).
+useAnalysisSync()
 </script>
 
 <template>
