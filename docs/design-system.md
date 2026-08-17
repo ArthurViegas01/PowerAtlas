@@ -150,7 +150,7 @@ Primitivos existentes e estados:
 | `ui/HudButton` | botao canonico do HUD | completo (esta fase) |
 | `ui/DataProvenanceChip` | selo REAL/SIMULADO/EM REVISAO | completo (PROD-1); EM REVISAO sem consumidor ate a F6 |
 | `ui/HudInput` | input canonico (busca) | completo (IA-2) |
-| `ui/CommandPalette` | busca e comandos via Ctrl-K | completo (IA-2); nucleo puro em `lib/paletteIndex.ts` |
+| `ui/CommandPalette` | busca e comandos via Ctrl-K | completo (IA-2/IA-3); nucleo puro em `lib/paletteIndex.ts` |
 | `hud/HudPanel` + `CornerBracket` | superficie canonica | ok |
 | `hud/HudFrame`, `HudClock`, `MonitoringPanel` | chrome do HUD | ok |
 | `map/MapCompass` | controle de camera | normalizar chips no futuro HudIconButton |
@@ -219,3 +219,15 @@ de camera. O listener global roda em fase de captura para o Esc fechar a
 paleta antes da cascata de Esc do MapScreen. Nucleo de ranking puro e
 testado em `lib/paletteIndex.ts` (normalize sem acentos, score por
 prefixo/palavra/substring/keyword, cap por grupo).
+
+IA-3 (2026-08-17): estado da analise na URL e analises salvas. Serializador
+puro em `lib/analysisUrl.ts` (region, parceiro, view demografica com
+metrica e recorte, direcoes de comercio, setas, brg/pit dos overrides;
+round-trip testado). O store `analysis` faz snapshot/apply espelhando os
+mesmos fluxos da paleta; `useAnalysisSync` (chamado no App.vue) aplica a
+query no boot e reescreve a URL via `router.replace` com debounce, entao a
+barra de endereco e sempre um link compartilhavel. O deep-link antigo
+`/?region=` continua valendo (mesmo parametro). Views salvas persistem em
+`localStorage` (`stores/savedViews.ts`, semente do SaaS da PROD-7) e
+aparecem na paleta como grupo proprio, com SALVAR ANALISE (o input vira
+campo de nome), COPIAR LINK DA ANALISE e DEL para remover.
