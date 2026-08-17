@@ -7,6 +7,8 @@ import { useFiscalStore } from '@/stores/fiscal'
 import { useSelectionStore } from '@/stores/selection'
 import type { DemografiaMetric } from '@/types/demografia'
 
+import DataProvenanceChip from '@/components/ui/DataProvenanceChip.vue'
+
 /** CSS rgb() string for a segment's swatch (band alpha ignored). */
 function swatch(def: (typeof OUTFLOW_SEGMENTS)[number]): string {
   const [r, g, b] = segmentColor(def, 255)
@@ -137,7 +139,7 @@ const groups = computed(() =>
       {{ demografia.municipios.length }} MUNICÍPIOS · ALTURA ∝ √VALOR
     </p>
 
-    <p class="pa-label demo-source">{{ sourceLabel }}</p>
+    <DataProvenanceChip state="real" :label="sourceLabel" class="demo-source-chip" />
   </aside>
 </template>
 
@@ -331,9 +333,8 @@ const groups = computed(() =>
   color: var(--pa-danger);
 }
 
-.demo-source {
-  margin: 4px 0 0;
-  color: var(--pa-text-faint);
+.demo-source-chip {
+  margin: var(--pa-space-1) 0 0;
 }
 
 .demo-hint {

@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import type { PowerDimension, PowerEntity } from '@/types/power-entity'
 
+import DataProvenanceChip from '@/components/ui/DataProvenanceChip.vue'
+
 import RankingBarList from './RankingBarList.vue'
 
 defineProps<{ variant: PowerDimension; entities: PowerEntity[] }>()
@@ -18,6 +20,7 @@ defineProps<{ variant: PowerDimension; entities: PowerEntity[] }>()
     <p class="sub pa-label">
       {{ variant === 'official' ? 'ESTRUTURA CONSTITUCIONAL' : 'INFLUÊNCIA REAL · MOCK FICTÍCIO' }}
     </p>
+    <DataProvenanceChip state="simulated" class="prov-chip" />
     <RankingBarList :entities="entities" :variant="variant" />
   </div>
 </template>
@@ -82,5 +85,9 @@ defineProps<{ variant: PowerDimension; entities: PowerEntity[] }>()
 
 .sub {
   margin: 5px 0 4px;
+}
+
+.prov-chip {
+  margin: 0 0 var(--pa-space-15);
 }
 </style>
