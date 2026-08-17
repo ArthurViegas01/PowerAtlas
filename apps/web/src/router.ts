@@ -17,6 +17,12 @@ export const router = createRouter({
       name: 'data-console',
       component: () => import('@/screens/DataConsoleScreen.vue'),
     },
+    {
+      // Living styleguide (ID-6): lazy and out of the production nav.
+      path: '/estilo',
+      name: 'styleguide',
+      component: () => import('@/screens/StyleGuideScreen.vue'),
+    },
     { path: '/:pathMatch(.*)*', redirect: '/' },
   ],
 })
