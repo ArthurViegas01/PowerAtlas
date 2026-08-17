@@ -146,7 +146,7 @@ const groups = computed(() =>
   position: absolute;
   top: 96px;
   right: 24px;
-  z-index: 20;
+  z-index: var(--pa-z-panel);
   width: 300px;
   padding: 14px 16px;
   background: rgba(3, 6, 8, 0.82);

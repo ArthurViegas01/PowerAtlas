@@ -29,7 +29,7 @@ const hasOverride = computed(
 <template>
   <div class="compass" role="group" aria-label="Rotação do mapa">
     <button
-      class="ctrl pa-data"
+      class="ctrl pa-data pa-focusable"
       type="button"
       title="Girar à esquerda (anti-horário)"
       aria-label="Girar o mapa 15 graus no sentido anti-horário"
@@ -38,7 +38,7 @@ const hasOverride = computed(
       ◄
     </button>
     <button
-      class="ctrl ctrl--needle"
+      class="ctrl ctrl--needle pa-focusable"
       type="button"
       title="Alinhar ao norte"
       aria-label="Alinhar o mapa ao norte"
@@ -50,7 +50,7 @@ const hasOverride = computed(
       </svg>
     </button>
     <button
-      class="ctrl pa-data"
+      class="ctrl pa-data pa-focusable"
       type="button"
       title="Girar à direita (horário)"
       aria-label="Girar o mapa 15 graus no sentido horário"
@@ -61,7 +61,7 @@ const hasOverride = computed(
     <p class="readout pa-data">BRG {{ bearingLabel }}</p>
 
     <button
-      class="ctrl pa-data"
+      class="ctrl pa-data pa-focusable"
       type="button"
       title="Menos inclinação (visão de cima)"
       aria-label="Inclinar o mapa 10 graus para a visão de cima"
@@ -70,7 +70,7 @@ const hasOverride = computed(
       ▲
     </button>
     <button
-      class="ctrl pa-data"
+      class="ctrl pa-data pa-focusable"
       type="button"
       title="Mais inclinação (visão rasante)"
       aria-label="Inclinar o mapa 10 graus para a visão rasante"
@@ -82,7 +82,7 @@ const hasOverride = computed(
 
     <button
       v-if="hasOverride"
-      class="auto pa-data"
+      class="auto pa-data pa-focusable"
       type="button"
       title="Voltar ao enquadramento automático (rotação e inclinação)"
       @click="selection.requestAutoBearing()"
@@ -97,14 +97,14 @@ const hasOverride = computed(
 .compass {
   position: absolute;
   left: 50%;
-  bottom: 52px;
-  z-index: 18;
+  bottom: 52px; /* anchor: clears the disclaimer footer (geometry, not scale) */
+  z-index: var(--pa-z-hud);
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 6px;
+  gap: var(--pa-space-15);
   transform: translateX(-50%);
-  padding: 5px 10px;
+  padding: 5px 10px; /* off-scale legacy fine-tune, kept pixel-exact */
   background: rgba(3, 6, 8, 0.6);
   border: 1px solid var(--pa-border-faint);
   backdrop-filter: blur(6px);
@@ -113,8 +113,8 @@ const hasOverride = computed(
 .ctrl {
   display: grid;
   place-items: center;
-  width: 32px;
-  height: 32px;
+  width: var(--pa-control-h-md);
+  height: var(--pa-control-h-md);
   padding: 0;
   font-size: var(--pa-text-xs);
   color: var(--pa-series-official);
@@ -133,8 +133,8 @@ const hasOverride = computed(
 }
 
 .needle {
-  width: 20px;
-  height: 20px;
+  width: var(--pa-icon-md);
+  height: var(--pa-icon-md);
   transition: transform 180ms linear;
 }
 
@@ -147,14 +147,14 @@ const hasOverride = computed(
 }
 
 .readout {
-  margin: 0 6px;
+  margin: 0 var(--pa-space-15);
   font-size: var(--pa-text-2xs);
   letter-spacing: 0.1em;
   color: var(--pa-text-dim);
 }
 
 .auto {
-  padding: 3px 8px;
+  padding: 3px 8px; /* chip fine-tune, off the spacing scale */
   font-size: var(--pa-text-2xs);
   letter-spacing: 0.12em;
   color: var(--pa-series-hidden);
@@ -176,7 +176,7 @@ const hasOverride = computed(
 
 @media (max-width: 900px) {
   .compass {
-    bottom: 12px; /* the disclaimer footer is hidden on mobile */
+    bottom: var(--pa-space-3); /* the disclaimer footer is hidden on mobile */
   }
 }
 </style>

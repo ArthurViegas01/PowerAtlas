@@ -53,7 +53,7 @@ watch(
 .scanfx {
   position: fixed;
   inset: 0;
-  z-index: 35;
+  z-index: var(--pa-z-scan-fx);
   pointer-events: none;
   overflow: hidden;
 }
@@ -77,7 +77,7 @@ watch(
   height: 60px;
   opacity: 0;
   border: 1.5px solid var(--pa-series-official);
-  border-radius: 999px;
+  border-radius: var(--pa-radius-pill);
   box-shadow:
     var(--pa-glow-cyan),
     inset 0 0 12px rgba(61, 225, 255, 0.25);
