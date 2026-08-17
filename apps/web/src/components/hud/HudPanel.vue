@@ -50,8 +50,8 @@ useGsapReveal(root)
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
-  padding: 14px 16px 10px;
+  gap: var(--pa-space-3);
+  padding: var(--pa-space-35) var(--pa-space-4) var(--pa-space-25);
   border-bottom: 1px solid var(--pa-border-faint);
 }
 
@@ -68,11 +68,11 @@ useGsapReveal(root)
 }
 
 .panel-subtitle {
-  margin: 4px 0 0;
+  margin: var(--pa-space-1) 0 0;
 }
 
 .panel-body {
-  padding: 12px 16px 16px;
+  padding: var(--pa-space-3) var(--pa-space-4) var(--pa-space-4);
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: var(--pa-border-cyan) transparent;

@@ -155,7 +155,7 @@ const style = computed<Record<string, string> | null>(() => {
 <style scoped>
 .map-tooltip {
   position: absolute;
-  z-index: 18;
+  z-index: var(--pa-z-hud);
   min-width: 150px;
   max-width: 230px;
   padding: 8px 10px;

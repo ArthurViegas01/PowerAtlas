@@ -10,7 +10,7 @@
 .scanlines {
   position: fixed;
   inset: 0;
-  z-index: 40;
+  z-index: var(--pa-z-scanline);
   pointer-events: none;
   background: repeating-linear-gradient(
     to bottom,

@@ -29,9 +29,9 @@ onBeforeUnmount(() => window.clearInterval(timer))
 <style scoped>
 .hud-clock {
   position: absolute;
-  right: 24px;
-  bottom: 16px; /* same height as the disclaimer footer */
-  z-index: 18;
+  right: var(--pa-space-6);
+  bottom: var(--pa-space-4); /* same height as the disclaimer footer */
+  z-index: var(--pa-z-hud);
   text-align: right;
 }
 
@@ -42,7 +42,7 @@ onBeforeUnmount(() => window.clearInterval(timer))
 }
 
 .hud-clock :nth-child(2) {
-  margin: 2px 0 0;
+  margin: var(--pa-space-05) 0 0;
 }
 
 @media (max-width: 900px) {
