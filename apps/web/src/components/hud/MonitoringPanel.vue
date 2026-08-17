@@ -35,7 +35,7 @@ const rows = computed(() =>
 <template>
   <aside v-if="rows.length" class="monitoring" aria-label="Monitoramento de fontes">
     <button
-      class="monitoring-head"
+      class="monitoring-head pa-focusable"
       type="button"
       :title="collapsed ? 'Expandir painel' : 'Recolher painel'"
       :aria-expanded="!collapsed"
@@ -66,13 +66,13 @@ const rows = computed(() =>
 <style scoped>
 .monitoring {
   position: absolute;
-  left: 22px;
-  top: 96px;
-  z-index: 18;
+  left: 22px; /* dock anchor, mirrors MapScreen's .left-dock */
+  top: 96px; /* anchor: clears the header band */
+  z-index: var(--pa-z-hud);
   width: 290px;
   max-height: calc(100vh - 420px);
   overflow-y: auto;
-  padding: 12px 14px;
+  padding: var(--pa-space-3) var(--pa-space-35);
   background: rgba(3, 6, 8, 0.72);
   border: 1px solid var(--pa-border-faint);
   backdrop-filter: blur(6px);
@@ -83,9 +83,9 @@ const rows = computed(() =>
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: var(--pa-space-2);
   width: 100%;
-  margin: 0 0 10px;
+  margin: 0 0 var(--pa-space-25);
   padding: 0;
   text-align: left;
   background: none;
@@ -104,7 +104,7 @@ const rows = computed(() =>
 
 .collapse {
   flex: none;
-  padding: 1px 6px;
+  padding: 1px 6px; /* chip fine-tune, off the spacing scale */
   font-size: var(--pa-text-xs);
   color: var(--pa-series-official);
   border: 1px solid var(--pa-border-cyan);
@@ -115,7 +115,7 @@ const rows = computed(() =>
 }
 
 .doc-meta {
-  margin: 0 0 2px;
+  margin: 0 0 var(--pa-space-05);
   letter-spacing: 0.1em;
 }
 
@@ -140,7 +140,7 @@ const rows = computed(() =>
 }
 
 .credit {
-  margin: 10px 0 0;
+  margin: var(--pa-space-25) 0 0;
   color: var(--pa-text-faint);
 }
 

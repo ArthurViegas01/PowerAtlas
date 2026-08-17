@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 
 import BarTable, { type BarTableRow } from '@/components/shared/BarTable.vue'
+import DataProvenanceChip from '@/components/ui/DataProvenanceChip.vue'
 import { formatUsd, formatUsdParts } from '@/lib/format'
 import { sectorCss } from '@/lib/tradeSectors'
 import { useComercioStore } from '@/stores/comercio'
@@ -99,7 +100,10 @@ const dirRole = (d: TradeDirection) =>
       <BarTable :rows="sectorRows(direction)" :max="totalFor(direction)" />
     </section>
 
-    <p class="src pa-label">FONTE: {{ comercio.source }} · VALORES FOB EM US$</p>
+    <p class="src">
+      <DataProvenanceChip state="real" :label="`${comercio.source} · ${comercio.referenceYear}`" />
+      <span class="pa-label">VALORES FOB EM US$</span>
+    </p>
     <button class="back-home pa-data" type="button" @click="selection.clearTradePartner()">
       ◄ VOLTAR ÀS SETAS DO MUNDO
     </button>
@@ -223,6 +227,10 @@ const dirRole = (d: TradeDirection) =>
 }
 
 .src {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--pa-space-15);
   margin: 12px 0 0;
   color: var(--pa-text-faint);
   line-height: 1.5;

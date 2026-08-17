@@ -16,8 +16,8 @@ import CornerBracket from './CornerBracket.vue'
 <style scoped>
 .hud-frame {
   position: fixed;
-  inset: 10px;
-  z-index: 30;
+  inset: var(--pa-inset-edge);
+  z-index: var(--pa-z-frame);
   border: 1px solid var(--pa-border-faint);
   pointer-events: none;
 }

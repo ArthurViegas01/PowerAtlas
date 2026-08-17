@@ -341,7 +341,7 @@ function closeCard() {
   position: absolute;
   left: 22px;
   top: 96px;
-  z-index: 18;
+  z-index: var(--pa-z-hud);
   width: 290px;
   padding: 12px 14px;
   background: rgba(3, 6, 8, 0.78);

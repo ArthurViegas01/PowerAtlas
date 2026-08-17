@@ -4,6 +4,8 @@ import { computed } from 'vue'
 import { formatAreaKm2, formatDensity, formatGdpThousands, formatInt } from '@/lib/format'
 import type { RegionIndicators } from '@/types/indicators'
 
+import DataProvenanceChip from '@/components/ui/DataProvenanceChip.vue'
+
 const props = defineProps<{ indicators: RegionIndicators; sourceLabel: string }>()
 
 const cells = computed(() => [
@@ -16,7 +18,7 @@ const cells = computed(() => [
 
 <template>
   <section class="indicators" data-reveal aria-label="Indicadores oficiais">
-    <p class="pa-label indicators-source">{{ sourceLabel }}</p>
+    <DataProvenanceChip state="real" :label="sourceLabel" class="src-chip" />
     <dl class="indicators-grid">
       <div v-for="cell in cells" :key="cell.label" class="cell">
         <dt class="pa-label">{{ cell.label }}</dt>
@@ -34,9 +36,8 @@ const cells = computed(() => [
   background: rgba(61, 225, 255, 0.03);
 }
 
-.indicators-source {
-  margin: 0 0 8px;
-  letter-spacing: 0.14em;
+.src-chip {
+  margin: 0 0 var(--pa-space-2);
 }
 
 .indicators-grid {

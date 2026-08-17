@@ -153,7 +153,7 @@ async function submit() {
 .overlay {
   position: fixed;
   inset: 0;
-  z-index: 60;
+  z-index: var(--pa-z-modal);
   display: grid;
   place-items: center;
   padding: 24px;
