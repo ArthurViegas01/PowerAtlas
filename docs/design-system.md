@@ -151,6 +151,7 @@ Primitivos existentes e estados:
 | `ui/DataProvenanceChip` | selo REAL/SIMULADO/EM REVISAO | completo (PROD-1); EM REVISAO sem consumidor ate a F6 |
 | `ui/HudInput` | input canonico (busca) | completo (IA-2) |
 | `ui/CommandPalette` | busca e comandos via Ctrl-K | completo (IA-2/IA-3); nucleo puro em `lib/paletteIndex.ts` |
+| `ui/OnboardingOverlay` | boas-vindas em 4 passos (PROD-5) | completo; reabre por VER INTRODUCAO na paleta |
 | `hud/HudPanel` + `CornerBracket` | superficie canonica | ok |
 | `hud/HudFrame`, `HudClock`, `MonitoringPanel` | chrome do HUD | ok |
 | `map/MapCompass` | controle de camera | normalizar chips no futuro HudIconButton |
@@ -218,6 +219,14 @@ de camera. O listener global roda em fase de captura para o Esc fechar a
 paleta antes da cascata de Esc do MapScreen. Nucleo de ranking puro e
 testado em `lib/paletteIndex.ts` (normalize sem acentos, score por
 prefixo/palavra/substring/keyword, cap por grupo).
+
+PROD-5 (2026-08-17): onboarding de primeiro acesso
+(`ui/OnboardingOverlay`, montado no App.vue e restrito a rota do mapa).
+Quatro passos com DecryptedText no titulo e os selos da PROD-1
+demonstrados ao vivo; dispensa lembrada em `localStorage`
+(`stores/onboarding.ts`) e nunca volta a bloquear o mapa; Esc dispensa em
+fase de captura (a paleta, montada antes, vence o Esc quando aberta via
+stopImmediatePropagation); reabre pela paleta com VER INTRODUCAO.
 
 ID-6 (2026-08-17): styleguide vivo em `/estilo`
 (`screens/StyleGuideScreen.vue`, rota lazy fora do nav de producao). Le os
