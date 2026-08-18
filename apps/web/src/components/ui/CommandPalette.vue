@@ -5,12 +5,22 @@ import { useRoute, useRouter } from 'vue-router'
 import CornerBracket from '@/components/hud/CornerBracket.vue'
 import HudInput from '@/components/ui/HudInput.vue'
 import { fromQuery, toQuery } from '@/lib/analysisUrl'
+import { downloadText } from '@/lib/csv'
+import {
+  buildAnalysisCsv,
+  buildAnalysisJson,
+  captureMapPng,
+  downloadBlob,
+  exportFileName,
+  type RegionExportInput,
+} from '@/lib/exportAnalysis'
 import { rankEntries, type PaletteEntry } from '@/lib/paletteIndex'
 import { useAnalysisStore } from '@/stores/analysis'
 import { useComercioStore } from '@/stores/comercio'
 import { useCompareStore } from '@/stores/compare'
 import { useDemografiaStore } from '@/stores/demografia'
 import { useFiscalStore } from '@/stores/fiscal'
+import { useIndicatorsStore } from '@/stores/indicators'
 import { useMapLayersStore } from '@/stores/mapLayers'
 import { useOnboardingStore } from '@/stores/onboarding'
 import { usePaletteStore } from '@/stores/palette'
@@ -35,6 +45,7 @@ const analysis = useAnalysisStore()
 const savedViews = useSavedViewsStore()
 const onboarding = useOnboardingStore()
 const compare = useCompareStore()
+const indicators = useIndicatorsStore()
 const route = useRoute()
 const router = useRouter()
 
@@ -125,6 +136,32 @@ const commandEntries = computed<PaletteEntry[]>(() => [
             : 'FIXAR NA COMPARAÇÃO',
           sublabel: `${selection.selectedId} · ATÉ 4 REGIÕES`,
           action: { kind: 'command' as const, command: 'comparar' as const },
+        },
+        {
+          key: 'cmd-exportar-csv',
+          group: 'command' as const,
+          label: 'EXPORTAR REGIÃO · CSV',
+          sublabel: `${selection.selectedId} · INDICADORES + RANKING`,
+          action: { kind: 'command' as const, command: 'exportar-csv' as const },
+        },
+        {
+          key: 'cmd-exportar-json',
+          group: 'command' as const,
+          label: 'EXPORTAR REGIÃO · JSON',
+          sublabel: `${selection.selectedId} · INDICADORES + RANKING`,
+          action: { kind: 'command' as const, command: 'exportar-json' as const },
+        },
+      ]
+    : []),
+  ...(route.path === '/'
+    ? [
+        {
+          key: 'cmd-exportar-png',
+          group: 'command' as const,
+          label: 'EXPORTAR PNG DO MAPA',
+          sublabel: 'SNAPSHOT DO PALCO + DISCLAIMER',
+          keywords: ['imagem', 'screenshot'],
+          action: { kind: 'command' as const, command: 'exportar-png' as const },
         },
       ]
     : []),
@@ -401,6 +438,37 @@ async function run(entry: PaletteEntry) {
       if (!selection.powerScaleVisible) selection.setLens('influence')
       selection.togglePowerScale()
       break
+    case 'exportar-csv':
+    case 'exportar-json': {
+      if (!selection.selectedId || !selection.selectedName) break
+      const item: RegionExportInput = {
+        id: selection.selectedId,
+        name: selection.selectedName,
+        indicators: indicators.forRegion(selection.selectedId),
+        region: rankings.regionById(selection.selectedId),
+      }
+      if (action.command === 'exportar-csv') {
+        downloadText(exportFileName(item.name, 'csv'), 'text/csv', buildAnalysisCsv([item]))
+      } else {
+        downloadText(
+          exportFileName(item.name, 'json'),
+          'application/json',
+          buildAnalysisJson([item]),
+        )
+      }
+      break
+    }
+    case 'exportar-png': {
+      const map = mapLayers.mapInstance
+      if (!map) break
+      const subtitle = (
+        selection.selectedName ??
+        (selection.lens === 'trade' ? 'COMÉRCIO GLOBAL' : 'BRASIL')
+      ).toUpperCase()
+      const blob = await captureMapPng(map, subtitle)
+      if (blob) downloadBlob(exportFileName(`mapa-${subtitle}`, 'png'), blob)
+      break
+    }
     case 'mapa':
     case 'salvar':
     case 'copiar':

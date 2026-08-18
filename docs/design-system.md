@@ -253,6 +253,18 @@ pendente da PROD-1: a chave de ORIGEM DO DADO embutida no painel, com os
 tres selos de proveniencia decodificados e os tres pontos de confianca.
 Com isso a Trilha IA-1 (rail + lentes + camadas) esta completa.
 
+PROD-6 (2026-08-18): exportar a analise. `lib/exportAnalysis` monta CSV
+(dois blocos: indicadores REAL · IBGE e entidades SIMULADO, cada linha com
+a coluna de proveniencia) e JSON (com bloco de proveniencia explicito) por
+cima dos serializadores do console; botoes no /comparar e comandos
+contextuais na paleta (EXPORTAR REGIAO CSV/JSON com regiao selecionada,
+EXPORTAR PNG DO MAPA na rota do mapa). O PNG compoe o canvas do maplibre
+(lido dentro do proprio evento de render: preserveDrawingBuffer off) com o
+canvas do deck (luma 9 preserva por default) sobre o void, com faixas de
+branding e o disclaimer desenhadas na propria imagem; painel DOM fica fora
+do snapshot por decisao (sem dependencia de html-to-image). Fallback com
+timeout evita travar em abas ocultas.
+
 PROD-3 (2026-08-18): a escala de poder como camada do mapa. Toggle
 `powerScaleVisible` no selection (exclusivo com o choropleth partidario:
 tintas concorrentes), estados pintados numa rampa ciano com piso pelo score
