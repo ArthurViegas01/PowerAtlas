@@ -427,7 +427,14 @@ só existe na F6, com revisão humana. O teste de paridade garante: payload de
    fontes, testes com respx. **(ENTREGUE 2026-07-22; ver seção 1.)**
 3. `feat/f5c-embeddings-scoring` — chunking + embeddings + scoring LLM →
    `entity_candidates` + citações. **(PAUSADA 2026-07-22 — ver nota
-   abaixo.)**
+   abaixo. O scoring v0 heurístico foi ENTREGUE em 2026-08-19,
+   `feat/f5c-scoring-v0`: `src/scoring/` conta menções das organizações
+   públicas curadas (orgs.py, ~45 órgãos federais) nos `raw_documents`,
+   score 0-100 normalizado no líder, confiança por faixas de evidência,
+   candidatas DRAFT com citações obrigatórias em `entity_candidates` +
+   `candidate_citations`, região BR na v0; `pnpm pipeline-score`; 7 testes
+   unit + 1 integration; payload servido intocado. Embeddings + LLM seguem
+   sendo a evolução futura desta etapa.)**
 
 **F5c pausada (2026-07-22, decisão do Arthur):** sem custos de IA por
 enquanto. Alternativas gratuitas avaliadas para a retomada (ou caso a pausa

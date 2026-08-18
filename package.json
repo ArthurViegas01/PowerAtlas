@@ -32,6 +32,7 @@
     "db-seed": "cd apps/api && .venv\\Scripts\\python.exe -m scripts.seed",
     "api-dev-db": "cd apps/api && set \"PA_DATABASE_URL=postgresql://poweratlas:poweratlas_local_dev@localhost:5432/poweratlas\" && .venv\\Scripts\\python.exe -m uvicorn src.main:app --reload --port 8000",
     "agro": "pnpm --filter @poweratlas/web agro",
-    "comercio-serie": "pnpm --filter @poweratlas/web comercio-serie"
+    "comercio-serie": "pnpm --filter @poweratlas/web comercio-serie",
+    "pipeline-score": "cd apps/api && .venv\\Scripts\\python.exe -m scripts.score"
   }
 }
