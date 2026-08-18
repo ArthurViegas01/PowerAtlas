@@ -609,6 +609,8 @@ onMounted(() => {
   if (import.meta.env.DEV) {
     ;(window as unknown as { __paMap?: maplibregl.Map }).__paMap = map
   }
+  // The PNG export (PROD-6) reaches the live map through the store.
+  mapLayers.registerMap(map)
   overlay = new MapboxOverlay({ interleaved: false, layers: [] })
   map.addControl(overlay as unknown as maplibregl.IControl)
   map.on('click', handleClick)
@@ -660,6 +662,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   if (rafId !== undefined) cancelAnimationFrame(rafId)
+  mapLayers.registerMap(null)
   map?.remove()
   map = null
   overlay = null
