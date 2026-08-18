@@ -15,7 +15,9 @@ import CornerBracket from './CornerBracket.vue'
 
 <style scoped>
 .hud-frame {
-  position: fixed;
+  /* Absolute on purpose: contained by MapScreen's shell, which already
+     offsets itself right of the nav rail. */
+  position: absolute;
   inset: var(--pa-inset-edge);
   z-index: var(--pa-z-frame);
   border: 1px solid var(--pa-border-faint);

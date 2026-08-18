@@ -51,7 +51,10 @@ watch(
 
 <style scoped>
 .scanfx {
-  position: fixed;
+  /* Absolute (inside the map shell): the ping coordinates come from the map
+     canvas, so the layer must share the canvas origin, not the viewport's
+     (the nav rail offsets the shell). */
+  position: absolute;
   inset: 0;
   z-index: var(--pa-z-scan-fx);
   pointer-events: none;
