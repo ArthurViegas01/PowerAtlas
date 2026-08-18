@@ -153,6 +153,7 @@ Primitivos existentes e estados:
 | `ui/CommandPalette` | busca e comandos via Ctrl-K | completo (IA-2/IA-3); nucleo puro em `lib/paletteIndex.ts` |
 | `ui/OnboardingOverlay` | boas-vindas em 4 passos (PROD-5) | completo; reabre por VER INTRODUCAO na paleta |
 | `ui/CompareTray` | bandeja de comparacao no dock esquerdo (PROD-2) | completo; ate 4 regioes |
+| `ui/NavRail` | rail vertical de destinos (IA-1a) | completo; icones stroke desenhados a mao; escondido no mobile |
 | `hud/HudPanel` + `CornerBracket` | superficie canonica | ok |
 | `hud/HudFrame`, `HudClock`, `MonitoringPanel` | chrome do HUD | ok |
 | `map/MapCompass` | controle de camera | normalizar chips no futuro HudIconButton |
@@ -220,6 +221,19 @@ de camera. O listener global roda em fase de captura para o Esc fechar a
 paleta antes da cascata de Esc do MapScreen. Nucleo de ranking puro e
 testado em `lib/paletteIndex.ts` (normalize sem acentos, score por
 prefixo/palavra/substring/keyword, cap por grupo).
+
+IA-1a (2026-08-17): rail de navegacao + rota /sobre. `ui/NavRail` fixo a
+esquerda em todas as rotas (destinos: mapa, comparar, dados, sobre;
+`--pa-rail-width` finalmente consumido), telas de fluxo normal deslocam via
+`.with-rail` no App e o palco do mapa desloca o proprio shell
+(`inset-left`); a moldura e o efeito de varredura viraram absolutos para
+compartilhar a origem do canvas. `/sobre` abriga a formula da escala, os
+patamares de autoridade (importados de lib/powerScore, sem duplicar), as
+duas dimensoes e a politica de dados mistos com os selos. Icones do rail:
+quatro strokes desenhados a mao (a adocao de um set completo, decisao ID-4,
+espera a contagem de icones crescer). Mobile esconde o rail; o header segue
+como navegacao ate a IA-1b (lentes). Restante da IA-1: lentes no header
+(IA-1b, refatora o selection store) e painel unico de camadas (IA-1c).
 
 PROD-2 (2026-08-17): comparacao lado a lado. Store `compare` (ate 4
 regioes), bandeja no dock esquerdo do mapa (`ui/CompareTray`), botao

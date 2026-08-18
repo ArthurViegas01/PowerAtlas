@@ -20,6 +20,7 @@ export type PaletteCommand =
   | 'intro'
   | 'comparar'
   | 'comparar-abrir'
+  | 'sobre'
 
 export type PaletteAction =
   | { kind: 'command'; command: PaletteCommand }
