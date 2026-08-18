@@ -413,3 +413,32 @@ from any real-world source.
 
 Hard-coded `[lon, lat]` pairs in the mock region files (~2–4 decimal
 precision), used only as anchors for the deck.gl column/arc layers.
+
+## Fine agro vocation (`public/data/vocacao/agro-municipios.json`)
+
+Built by `pnpm agro` (`scripts/fetch-agro.mjs`) from two IBGE municipal
+surveys, latest published year (resolved from the aggregate metadata at fetch
+time, currently 2024):
+
+- **PAM** (Producao Agricola Municipal, agregado 5457, variavel "Valor da
+  producao", mil R$): soja (em grao) and cafe (em grao) total. Product ids
+  are resolved BY NAME from the metadata, never hardcoded, so an IBGE recode
+  fails loudly instead of poisoning the payload.
+- **PPM** (Pesquisa da Pecuaria Municipal, agregado 3939, variavel "Efetivo
+  dos rebanhos", cabecas): bovino.
+
+The payload keeps absolute values plus the national totals. The front decides
+a municipality's dominant commodity by its share of the NATIONAL total of
+each commodity (mil R$ and cabecas become comparable, dimensionless), with a
+floor (`AGRO_SHARE_FLOOR`); below it the generic silo stands. "Forest"
+municipalities are NOT in this file: the Amazonia Legal rule is pure
+geography (the 8 full member UFs plus Maranhao west of the 44W meridian,
+decided by municipal centroid).
+
+**Caveats:** value of production follows PRICES, so a price spike (cafe in
+2024) inflates a crop's weight; herd head-counts are stocks, not slaughter
+value. Both are honest, published figures; the icon only claims "this is the
+municipality's strongest commodity presence nationally".
+
+**Role:** factual context for the vocation icons. Not the power rankings
+(ARCHITECTURE.md section 5).
