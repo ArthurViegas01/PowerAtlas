@@ -6,10 +6,13 @@ of the F5 ingestion pipeline, and it hosts the Celery worker code that fills
 that feed.
 
 Reads are open and cover the power contract, the monitoring feed and a stats
-overview. The only writes are the data console's dataset import/delete, gated
-behind `PA_ALLOW_WRITES` and confined to an isolated `datasets` namespace that
-can never affect the served power data. Real auth still arrives with the review
-workflow (see the root `PLAN.md` and `ARCHITECTURE.md` section 6).
+overview. The only writes are the data console's dataset import/delete, which
+require a single-admin session (`POST /api/v1/auth/login` with
+`PA_ADMIN_PASSWORD` → bearer token, see core/auth.py) and are confined to an
+isolated `datasets` namespace that can never affect the served power data. With
+no admin password set, all writes are refused. Multi-user auth and per-entity
+review/approval still arrive with the review workflow (see the root `PLAN.md` and
+`ARCHITECTURE.md` sections 2.11 and 6).
 
 ## Layout
 
@@ -49,11 +52,14 @@ with the web). It is the fallback whenever no database is configured.
   (documents by source and by day, candidates), plus `writesAllowed`. Feeds the
   data console's PIPELINE + BANCO panel. Database-only; empty envelope
   otherwise.
+- `POST /api/v1/auth/login` -> exchanges `PA_ADMIN_PASSWORD` for an expiring
+  bearer session token (503 when no admin is configured, 401 on wrong password).
 - `GET /api/v1/datasets`, `GET /api/v1/datasets/{id}` -> the operator-imported
   datasets (isolated `datasets` namespace). Reads are open.
-- `POST /api/v1/datasets/import`, `DELETE /api/v1/datasets/{id}` -> **gated by
-  `PA_ALLOW_WRITES`** (403 otherwise). Writes touch only the `datasets`
-  namespace, never the served tables; the power-data parity test proves it.
+- `POST /api/v1/datasets/import`, `DELETE /api/v1/datasets/{id}` -> **require a
+  valid admin session** (403 when no admin configured, 401 without a token).
+  Writes touch only the `datasets` namespace, never the served tables; the
+  power-data parity test proves it.
 
 ## Running
 

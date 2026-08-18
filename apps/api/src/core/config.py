@@ -7,6 +7,7 @@ not collide with the web app or the shell.
 
 from __future__ import annotations
 
+import hashlib
 from functools import lru_cache
 from typing import Literal
 
@@ -43,13 +44,34 @@ class Settings(BaseSettings):
     def use_database(self) -> bool:
         return bool(self.database_url)
 
-    # -- Writes ------------------------------------------------------------
-    # The API is read-only for the power contract. This flag gates the data
-    # console's dataset import/delete endpoints, which write ONLY to the
-    # isolated `datasets` namespace (migration 0003), never to the served
-    # tables. Off by default; the local compose api service turns it on. A
-    # minimal guard until real auth arrives (F6).
-    allow_writes: bool = False
+    # -- Writes / admin auth ----------------------------------------------
+    # The API is read-only for the power contract. Mutations exist only for the
+    # data console's dataset import/delete, which touch ONLY the isolated
+    # `datasets` namespace (migration 0003), never the served tables.
+    #
+    # Single-admin authentication is the write gate: set ``PA_ADMIN_PASSWORD``
+    # to enable writes; the console logs in (``POST /api/v1/auth/login``) and
+    # every import/delete then requires a valid bearer session token. With no
+    # password set, admin_enabled is False and every write is refused, so a
+    # public deploy (no password) is read-only for everyone.
+    admin_password: str = ""
+    # Signing key for the HMAC session tokens. Empty -> derived from the
+    # password, so setting only PA_ADMIN_PASSWORD is a complete setup; set a
+    # dedicated secret to invalidate outstanding sessions independently.
+    auth_secret: str = ""
+    # Session lifetime in seconds (default 12h).
+    admin_session_ttl_s: int = 43_200
+
+    @property
+    def admin_enabled(self) -> bool:
+        """True when an admin password is configured, i.e. writes are possible."""
+        return bool(self.admin_password)
+
+    @property
+    def signing_key(self) -> bytes:
+        """32-byte HMAC key for session tokens (from auth_secret or password)."""
+        base = self.auth_secret or self.admin_password
+        return hashlib.sha256(f"poweratlas-admin::{base}".encode()).digest()
 
     # -- Worker / pipeline (F5) --------------------------------------------
     # Redis backs the Celery broker and result backend (dbs 1 and 2, with 0

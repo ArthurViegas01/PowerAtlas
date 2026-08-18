@@ -1,18 +1,19 @@
 """Operator-imported datasets (data console). Isolated `datasets` namespace.
 
-Reads are open; writes (import/delete) are gated behind ``PA_ALLOW_WRITES`` (a
-minimal guard until real auth arrives in F6). Every write touches only the
-`datasets`/`dataset_rows` tables, so the served power-data payload is never
-affected. Export is done client-side from the detail payload, uniform with the
-built-in datasets, so there is no server export endpoint.
+Reads are open; writes (import/delete) require a valid admin session (see
+core/auth.py: ``Depends(require_admin)``), so only the logged-in operator can
+mutate. Every write touches only the `datasets`/`dataset_rows` tables, so the
+served power-data payload is never affected. Export is done client-side from the
+detail payload, uniform with the built-in datasets, so there is no server export
+endpoint.
 """
 
 from __future__ import annotations
 
 import asyncpg
-from fastapi import APIRouter, HTTPException, Request, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 
-from ....core.config import get_settings
+from ....core.auth import require_admin
 from ....data import datasets_repo
 from ....models.dataset import DatasetDetail, DatasetList, DatasetMeta, ImportRequest
 
@@ -27,14 +28,6 @@ def _pool(request: Request) -> asyncpg.Pool:
             detail="Nenhum banco configurado; datasets importados exigem o stack no ar.",
         )
     return pool
-
-
-def _require_writes() -> None:
-    if not get_settings().allow_writes:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Escrita desabilitada. Defina PA_ALLOW_WRITES para importar/remover.",
-        )
 
 
 @router.get("", response_model=DatasetList, response_model_by_alias=True)
@@ -59,8 +52,9 @@ async def get_dataset(request: Request, dataset_id: str) -> DatasetDetail:
     response_model_by_alias=True,
     status_code=status.HTTP_201_CREATED,
 )
-async def import_dataset(request: Request, payload: ImportRequest) -> DatasetMeta:
-    _require_writes()
+async def import_dataset(
+    request: Request, payload: ImportRequest, _: None = Depends(require_admin)
+) -> DatasetMeta:
     pool = _pool(request)
     keys = {c.key for c in payload.columns}
     if len(keys) != len(payload.columns):
@@ -69,8 +63,9 @@ async def import_dataset(request: Request, payload: ImportRequest) -> DatasetMet
 
 
 @router.delete("/{dataset_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_dataset(request: Request, dataset_id: str) -> Response:
-    _require_writes()
+async def delete_dataset(
+    request: Request, dataset_id: str, _: None = Depends(require_admin)
+) -> Response:
     deleted = await datasets_repo.delete_dataset(_pool(request), dataset_id)
     if not deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Dataset não encontrado.")

@@ -45,8 +45,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
 
     # Explicit origin allowlist (web dev + preview). No wildcard. POST/DELETE
-    # are for the data console's dataset import/delete, themselves gated by
-    # PA_ALLOW_WRITES and confined to the isolated `datasets` namespace.
+    # are for the data console's login and dataset import/delete; the writes are
+    # gated on an admin session and confined to the isolated `datasets`
+    # namespace. allow_headers "*" lets the browser send Authorization.
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
@@ -71,6 +72,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         """Liveness probe: process is up, reports whether a database is wired."""
         return {"status": "ok", "version": app.version, "database": settings.use_database}
 
+    from .api.v1.routers.auth import router as auth_router
     from .api.v1.routers.datasets import router as datasets_router
     from .api.v1.routers.monitoring import router as monitoring_router
     from .api.v1.routers.power_data import router as power_data_router
@@ -79,6 +81,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(power_data_router, prefix="/api")
     app.include_router(monitoring_router, prefix="/api")
     app.include_router(stats_router, prefix="/api")
+    app.include_router(auth_router, prefix="/api")
     app.include_router(datasets_router, prefix="/api")
 
     return app
