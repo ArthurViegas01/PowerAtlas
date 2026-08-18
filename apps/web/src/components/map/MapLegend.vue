@@ -177,6 +177,24 @@ watch(collapsed, (value) => {
       </ul>
     </div>
 
+    <div v-if="showPartisan" class="powerscale">
+      <button
+        class="trade-toggle pa-data"
+        type="button"
+        :aria-pressed="selection.powerScaleVisible"
+        @click="selection.togglePowerScale()"
+      >
+        <span class="chk">{{ selection.powerScaleVisible ? '[x]' : '[ ]' }}</span>
+        ESCALA DE PODER · 0-100
+      </button>
+      <template v-if="selection.powerScaleVisible">
+        <div class="ramp" aria-hidden="true"></div>
+        <div class="ramp-ends pa-data"><span>0</span><span>100</span></div>
+        <p class="ramp-note pa-label">SCORE DO AGENTE OFICIAL Nº1 DA REGIÃO</p>
+        <DataProvenanceChip state="simulated" class="ramp-chip" />
+      </template>
+    </div>
+
     <div v-if="showVocacao" class="vocacao">
       <p class="pa-label vocacao-title">VOCAÇÃO // SETORES</p>
       <ul class="m-0 flex list-none flex-col gap-1.5 p-0">
@@ -436,6 +454,41 @@ watch(collapsed, (value) => {
 .vocacao-note {
   margin: 8px 0 0;
   color: var(--pa-text-faint);
+}
+
+/* Power-scale ramp (PROD-3): the same alpha ramp the choropleth paints. */
+.powerscale {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--pa-border-faint);
+}
+
+.ramp {
+  height: 8px;
+  margin-top: 8px;
+  background: linear-gradient(
+    to right,
+    rgba(61, 225, 255, 0.14),
+    rgba(61, 225, 255, 0.65)
+  );
+  border: 1px solid var(--pa-border-faint);
+}
+
+.ramp-ends {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 3px;
+  font-size: var(--pa-text-2xs);
+  color: var(--pa-text-faint);
+}
+
+.ramp-note {
+  margin: 6px 0 0;
+  color: var(--pa-text-faint);
+}
+
+.ramp-chip {
+  margin-top: 6px;
 }
 
 /* Provenance key: chips left, meaning right; confidence as the three dots. */

@@ -25,6 +25,8 @@ export interface AnalysisState {
   brg?: number
   /** Manual pitch override in degrees. */
   pit?: number
+  /** Power-scale choropleth on (PROD-3). */
+  escala?: boolean
 }
 
 const UF_RE = /^[A-Z]{2}$/
@@ -42,6 +44,7 @@ export function toQuery(state: AnalysisState): Record<string, string> {
   if (state.setas === false) query.setas = '0'
   if (state.brg !== undefined) query.brg = String(Math.round(state.brg))
   if (state.pit !== undefined) query.pit = String(Math.round(state.pit))
+  if (state.escala) query.escala = '1'
   return query
 }
 
@@ -82,5 +85,6 @@ export function fromQuery(query: LocationQuery): AnalysisState {
   if (first(query.pit) !== null && Number.isFinite(pit)) {
     state.pit = Math.min(85, Math.max(0, Math.round(pit)))
   }
+  if (first(query.escala) === '1') state.escala = true
   return state
 }

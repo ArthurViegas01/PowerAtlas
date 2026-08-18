@@ -37,6 +37,7 @@ export const useAnalysisStore = defineStore('analysis', () => {
     state.setas = selection.tradeArrowsVisible
     if (selection.bearingOverride !== null) state.brg = selection.bearingOverride
     if (selection.pitchOverride !== null) state.pit = selection.pitchOverride
+    if (selection.powerScaleVisible) state.escala = true
     return state
   }
 
@@ -46,6 +47,7 @@ export const useAnalysisStore = defineStore('analysis', () => {
     if (state.pit !== undefined) selection.pitchOverride = state.pit
     if (state.trade?.length) selection.tradeDirs = [...state.trade]
     if (state.setas === false && selection.tradeArrowsVisible) selection.toggleTradeArrows()
+    if (state.escala && !selection.powerScaleVisible) selection.togglePowerScale()
 
     if (state.region) {
       await rankings.load()
