@@ -358,6 +358,20 @@ export const useMapLayersStore = defineStore('mapLayers', () => {
     const hoveredIso = selection.hoveredWorld?.iso ?? null
     const selectedIso = selection.selectedPartner?.iso ?? null
     const selected = selectedIso ? (comercio.byIso.get(selectedIso) ?? null) : null
+    // Timeline (PROD-4): with a series year active, partner totals come from
+    // the annual series; null index keeps the live reference-year values. The
+    // exploded per-sector fan below stays on the reference year by design
+    // (the series carries totals only), which the scrubber labels.
+    const yearIdx = comercio.activeYearIndex
+    const timelineValue = (
+      partner: (typeof comercio.partners)[number],
+      d: TradeDirection,
+    ): number => {
+      if (yearIdx == null) return directionValue(partner, d)
+      const row = comercio.serieByIso.get(partner.iso)
+      if (!row) return 0
+      return (d === 'export' ? row.exp[yearIdx] : row.imp[yearIdx]) ?? 0
+    }
     const rgbOf = (iso: string): [number, number, number] => countryRgb(iso) ?? DEFAULT_COUNTRY_RGB
     const arcs: TradeArcDatum[] = []
 
@@ -425,14 +439,14 @@ export const useMapLayersStore = defineStore('mapLayers', () => {
     // national color. With both directions on, every partner gets two arcs in
     // opposite senses, offset into parallel lanes so they don't overlap.
     const rankValue = (partner: (typeof comercio.partners)[number]) =>
-      dirs.reduce((sum, d) => sum + directionValue(partner, d), 0)
+      dirs.reduce((sum, d) => sum + timelineValue(partner, d), 0)
     const ranked = [...comercio.partners]
       .filter((partner) => rankValue(partner) > 0)
       .sort((a, b) => rankValue(b) - rankValue(a))
       .slice(0, TRADE_TOP_PARTNERS)
     const maxByDir: Record<TradeDirection, number> = {
-      export: Math.max(1, ...ranked.map((p) => p.exp)),
-      import: Math.max(1, ...ranked.map((p) => p.imp)),
+      export: Math.max(1, ...ranked.map((p) => timelineValue(p, 'export'))),
+      import: Math.max(1, ...ranked.map((p) => timelineValue(p, 'import'))),
     }
     const highlights: TradeHighlight[] = []
     for (const partner of ranked) {
@@ -460,7 +474,7 @@ export const useMapLayersStore = defineStore('mapLayers', () => {
         (topExport ? vocacao.originUf(partner.iso, topExport.code, 'export') : null)?.coordinates ??
         TRADE_ORIGIN
       for (const d of dirs) {
-        const value = directionValue(partner, d)
+        const value = timelineValue(partner, d)
         if (value <= 0) continue
         const lane = both ? (d === 'export' ? TRADE_LANE_DEG : -TRADE_LANE_DEG) : 0
         arcs.push({
