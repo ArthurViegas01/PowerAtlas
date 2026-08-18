@@ -411,9 +411,15 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 <style scoped>
 .app-shell {
   position: fixed;
-  inset: 0;
+  inset: 0 0 0 var(--pa-rail-width); /* the nav rail owns the far left */
   overflow: hidden;
   background: var(--pa-bg-void);
+}
+
+@media (max-width: 900px) {
+  .app-shell {
+    inset: 0; /* the rail hides on mobile */
+  }
 }
 
 .panel-slot {
