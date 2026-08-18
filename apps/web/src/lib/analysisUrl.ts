@@ -12,8 +12,8 @@ export interface AnalysisState {
   region?: string
   /** Trade partner ISO3, opens the partner panel in the global context. */
   parceiro?: string
-  /** Only the demographic lens is a named view today. */
-  view?: 'demografia'
+  /** Non-default lenses (IA-1b): demographic columns or the global trade view. */
+  view?: 'demografia' | 'comercio'
   metric?: 'population' | 'gdp'
   /** UF crop inside the demographic view. */
   uf?: string
@@ -57,11 +57,14 @@ export function fromQuery(query: LocationQuery): AnalysisState {
   if (region && (region === 'BR' || UF_RE.test(region))) state.region = region
   const parceiro = first(query.parceiro)?.toUpperCase()
   if (parceiro && ISO_RE.test(parceiro)) state.parceiro = parceiro
-  if (first(query.view) === 'demografia') {
+  const view = first(query.view)
+  if (view === 'demografia') {
     state.view = 'demografia'
     if (first(query.metric) === 'gdp') state.metric = 'gdp'
     const uf = first(query.uf)?.toUpperCase()
     if (uf && UF_RE.test(uf)) state.uf = uf
+  } else if (view === 'comercio') {
+    state.view = 'comercio'
   }
   const trade = first(query.trade)
   if (trade) {

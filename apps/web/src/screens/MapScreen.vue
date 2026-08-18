@@ -30,7 +30,7 @@ import { useFiscalStore } from '@/stores/fiscal'
 import { useIndicatorsStore } from '@/stores/indicators'
 import { useMapLayersStore } from '@/stores/mapLayers'
 import { useRankingsStore } from '@/stores/rankings'
-import { useSelectionStore } from '@/stores/selection'
+import { useSelectionStore, type MapLens } from '@/stores/selection'
 import { useVocacaoStore } from '@/stores/vocacao'
 import type { RegionIndicators } from '@/types/indicators'
 
@@ -111,25 +111,19 @@ function selectNational() {
   selection.select('BR', 'Brasil')
 }
 
-function viewGlobal() {
-  selection.exitDemographicView()
-  // Close any open panel (the Brasil card, a state, a partner) so the global
-  // trade view can take over — it only shows with nothing selected.
-  selection.closePanels()
-  selection.requestCamera('global')
-}
-
-/** The header button is the toggle: click again (or Esc) to leave. */
-function viewDemographic() {
-  if (selection.demographicView) {
-    selection.exitDemographicView()
-    return
+/**
+ * Lens switch from the header (IA-1b): the store owns the state transition;
+ * the heavy demographic data loads stay here, exactly where the old view
+ * button kicked them (all cached, safe to re-fire).
+ */
+function setLensWithLoads(lens: MapLens) {
+  if (lens === 'demographic') {
+    void demografia.load()
+    void fiscal.load()
+    // Municipal outlines for the demographic backdrop (27 meshes, cached).
+    void mapLayers.loadAllMunicipios()
   }
-  void demografia.load()
-  void fiscal.load()
-  // Municipal outlines for the demographic backdrop (27 meshes, cached).
-  void mapLayers.loadAllMunicipios()
-  selection.enterDemographicView()
+  selection.setLens(lens)
 }
 
 function reload() {
@@ -212,9 +206,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
     <ScanlineOverlay />
     <HudFrame />
     <HudHeader
-      @select-national="selectNational"
-      @view-global="viewGlobal"
-      @view-demographic="viewDemographic"
+      @set-lens="setLensWithLoads"
     />
 
     <transition name="pa-fade">
