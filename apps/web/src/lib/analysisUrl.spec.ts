@@ -56,6 +56,12 @@ describe('fromQuery', () => {
     expect(toQuery({ escala: undefined })).toEqual({})
   })
 
+  it('round-trips the trade-timeline year and drops junk years', () => {
+    expect(fromQuery(toQuery({ ano: 2022 }))).toEqual({ ano: 2022 })
+    expect(fromQuery({ ano: '1800' })).toEqual({})
+    expect(fromQuery({ ano: 'nan' })).toEqual({})
+  })
+
   it('drops junk instead of throwing', () => {
     expect(
       fromQuery({

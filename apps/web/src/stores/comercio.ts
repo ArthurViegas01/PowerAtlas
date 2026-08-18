@@ -27,6 +27,57 @@ export const useComercioStore = defineStore('comercio', () => {
       .sort((a, b) => directionValue(b, direction) - directionValue(a, direction))
   }
 
+  // -- annual series (comercio/serie.json, PROD-4 timeline) -------------------
+  const serieYears = ref<number[]>([])
+  const serieByIso = shallowRef<Map<string, { exp: number[]; imp: number[] }>>(new Map())
+  const loadingSerie = ref(false)
+  const serieLoaded = computed(() => serieYears.value.length > 0)
+  /** Index into serieYears; null = the reference year (full sector detail). */
+  const activeYearIndex = ref<number | null>(null)
+  const activeYear = computed(() =>
+    activeYearIndex.value == null ? null : (serieYears.value[activeYearIndex.value] ?? null),
+  )
+
+  let seriePromise: Promise<void> | null = null
+
+  /**
+   * Idempotent AND flight-sharing: every awaiting caller resolves only when
+   * the fetch lands. A bare in-flight guard would let the second caller (the
+   * ?ano= URL replay, racing MapScreen's boot load) proceed with an empty
+   * series and silently drop the year.
+   */
+  function loadSerie(): Promise<void> {
+    if (serieLoaded.value) return Promise.resolve()
+    if (!seriePromise) {
+      loadingSerie.value = true
+      seriePromise = (async () => {
+        try {
+          const response = await fetch(`${import.meta.env.BASE_URL}data/comercio/serie.json`)
+          if (!response.ok) throw new Error(`HTTP ${response.status}`)
+          const file = (await response.json()) as {
+            years: number[]
+            partners: [string, number[], number[]][]
+          }
+          serieYears.value = file.years
+          const map = new Map<string, { exp: number[]; imp: number[] }>()
+          for (const [iso, exp, imp] of file.partners) map.set(iso, { exp, imp })
+          serieByIso.value = map
+        } catch (cause) {
+          error.value = cause instanceof Error ? cause.message : String(cause)
+        } finally {
+          loadingSerie.value = false
+          seriePromise = null
+        }
+      })()
+    }
+    return seriePromise
+  }
+
+  function setActiveYearIndex(index: number | null) {
+    activeYearIndex.value =
+      index != null && index >= 0 && index < serieYears.value.length ? index : null
+  }
+
   async function load() {
     if (loading.value || partners.value.length > 0) return
     loading.value = true
@@ -60,5 +111,24 @@ export const useComercioStore = defineStore('comercio', () => {
     }
   }
 
-  return { partners, referenceYear, currency, source, totals, loading, error, byIso, ranked, load }
+  return {
+    partners,
+    referenceYear,
+    currency,
+    source,
+    totals,
+    loading,
+    error,
+    byIso,
+    ranked,
+    load,
+    // annual series (PROD-4)
+    serieYears,
+    serieByIso,
+    serieLoaded,
+    activeYearIndex,
+    activeYear,
+    loadSerie,
+    setActiveYearIndex,
+  }
 })

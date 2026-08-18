@@ -253,6 +253,16 @@ pendente da PROD-1: a chave de ORIGEM DO DADO embutida no painel, com os
 tres selos de proveniencia decodificados e os tres pontos de confianca.
 Com isso a Trilha IA-1 (rail + lentes + camadas) esta completa.
 
+PROD-4 (2026-08-18, piloto): linha do tempo do comercio.
+`pnpm comercio-serie` (scripts/fetch-comercio-serie.mjs) soma a base bruta
+NCM em streaming e gera comercio/serie.json (totais exp/imp por parceiro
+por ano, 2021-2025, ~15 KB); `TimeScrubber` no dock esquerdo (so na lente
+comercio) troca as setas do mundo para os totais do ano escolhido, ATUAL
+volta ao ano de referencia com o detalhe setorial (a serie e so de totais e
+o rotulo diz isso, cumprindo o "marcar quando nao ha serie"). `ano=` entra
+na URL das analises. Demais metricas seguem no ano corrente ate ganharem
+historico.
+
 Vocacao fina (2026-08-18): quatro arquetipos novos no estilo stack (soja
 em fileira de plantas, zebu com cupim, pes de cafe com cerejas, samauma de
 copa larga para a floresta), alimentados por `pnpm agro`

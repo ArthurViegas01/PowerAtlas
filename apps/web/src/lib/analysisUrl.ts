@@ -27,6 +27,8 @@ export interface AnalysisState {
   pit?: number
   /** Power-scale choropleth on (PROD-3). */
   escala?: boolean
+  /** Trade-timeline year (PROD-4); absent = the reference year. */
+  ano?: number
 }
 
 const UF_RE = /^[A-Z]{2}$/
@@ -45,6 +47,7 @@ export function toQuery(state: AnalysisState): Record<string, string> {
   if (state.brg !== undefined) query.brg = String(Math.round(state.brg))
   if (state.pit !== undefined) query.pit = String(Math.round(state.pit))
   if (state.escala) query.escala = '1'
+  if (state.ano !== undefined) query.ano = String(state.ano)
   return query
 }
 
@@ -86,5 +89,9 @@ export function fromQuery(query: LocationQuery): AnalysisState {
     state.pit = Math.min(85, Math.max(0, Math.round(pit)))
   }
   if (first(query.escala) === '1') state.escala = true
+  const ano = Number(first(query.ano))
+  if (first(query.ano) !== null && Number.isInteger(ano) && ano >= 1990 && ano <= 2100) {
+    state.ano = ano
+  }
   return state
 }

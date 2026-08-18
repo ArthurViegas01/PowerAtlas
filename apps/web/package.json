@@ -20,7 +20,8 @@
     "warehouse": "node scripts/warehouse-build.mjs",
     "compile-web": "node scripts/compile-web.mjs",
     "compile-web:check": "node scripts/compile-web.mjs --check",
-    "agro": "node scripts/fetch-agro.mjs"
+    "agro": "node scripts/fetch-agro.mjs",
+    "comercio-serie": "node scripts/fetch-comercio-serie.mjs"
   },
   "dependencies": {
     "@deck.gl/aggregation-layers": "^9.1.0",
