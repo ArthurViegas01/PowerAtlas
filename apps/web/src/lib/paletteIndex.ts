@@ -18,6 +18,8 @@ export type PaletteCommand =
   | 'salvar'
   | 'copiar'
   | 'intro'
+  | 'comparar'
+  | 'comparar-abrir'
 
 export type PaletteAction =
   | { kind: 'command'; command: PaletteCommand }

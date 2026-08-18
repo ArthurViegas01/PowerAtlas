@@ -20,9 +20,11 @@ import TradePartnerCard from '@/components/map/TradePartnerCard.vue'
 import TradeRankingPanel from '@/components/map/TradeRankingPanel.vue'
 import RankingColumn from '@/components/rankings/RankingColumn.vue'
 import IndicatorGrid from '@/components/shared/IndicatorGrid.vue'
+import CompareTray from '@/components/ui/CompareTray.vue'
 import { HIDDEN_INFLUENCE_ENABLED } from '@/lib/features'
 import { SUBDIVISAO_LABEL, SUBDIVISAO_LABEL_PLURAL } from '@/lib/labels'
 import { useComercioStore } from '@/stores/comercio'
+import { useCompareStore } from '@/stores/compare'
 import { useDemografiaStore } from '@/stores/demografia'
 import { useFiscalStore } from '@/stores/fiscal'
 import { useIndicatorsStore } from '@/stores/indicators'
@@ -39,6 +41,7 @@ const indicators = useIndicatorsStore()
 const demografia = useDemografiaStore()
 const fiscal = useFiscalStore()
 const comercio = useComercioStore()
+const compare = useCompareStore()
 const vocacao = useVocacaoStore()
 
 const region = computed(() => rankings.regionById(selection.selectedId))
@@ -237,6 +240,19 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
         <HudPanel :title="panelTitle" :subtitle="panelSubtitle">
           <template #actions>
             <button
+              v-if="region && !selection.selectedMunicipio && !selection.selectedSubdivisao"
+              class="close pa-data pa-focusable"
+              type="button"
+              :title="
+                compare.has(region.id)
+                  ? 'Remover da comparação'
+                  : 'Fixar na comparação (até 4 regiões)'
+              "
+              @click="compare.toggle({ id: region.id, name: region.name })"
+            >
+              {{ compare.has(region.id) ? '◆ FIXADO' : '◇ FIXAR' }}
+            </button>
+            <button
               class="close pa-data"
               type="button"
               aria-label="Fechar painel (Esc)"
@@ -349,14 +365,16 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
     <!-- Left dock: the trade ranking stacks directly above the legend card
          (collapsed, it sits glued just above it), both anchored bottom-left. -->
     <div class="left-dock">
+      <CompareTray />
       <TradeRankingPanel />
       <MapLegend />
     </div>
-    <!-- Power-scale formula: top-left, only on the national (BR) card. -->
+    <!-- Power-scale formula: top-left, only on the national (BR) card. The
+         card is static; this slot owns the anchoring. -->
     <transition name="pa-fade">
-      <PowerScaleFormula
-        v-if="region && region.id === 'BR' && !selection.demographicView"
-      />
+      <div v-if="region && region.id === 'BR' && !selection.demographicView" class="scale-slot">
+        <PowerScaleFormula />
+      </div>
     </transition>
     <MapCompass />
     <MonitoringPanel v-if="!selection.demographicView" />
@@ -421,6 +439,20 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
   align-items: flex-start;
   gap: 12px;
   max-height: calc(100vh - 96px);
+}
+
+/* Anchors the (static) power-scale formula card top-left. */
+.scale-slot {
+  position: absolute;
+  top: 84px; /* anchor: clears the header band */
+  left: 22px; /* dock anchor, mirrors .left-dock */
+  z-index: var(--pa-z-map-overlay);
+}
+
+@media (max-width: 900px) {
+  .scale-slot {
+    display: none;
+  }
 }
 
 .panel-slot > * {
