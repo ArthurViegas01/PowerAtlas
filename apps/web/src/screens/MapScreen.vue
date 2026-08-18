@@ -16,6 +16,7 @@ import MapTooltip from '@/components/map/MapTooltip.vue'
 import MapView from '@/components/map/MapView.vue'
 import NationalPowerCard from '@/components/map/NationalPowerCard.vue'
 import PowerScaleFormula from '@/components/map/PowerScaleFormula.vue'
+import TimeScrubber from '@/components/map/TimeScrubber.vue'
 import TradePartnerCard from '@/components/map/TradePartnerCard.vue'
 import TradeRankingPanel from '@/components/map/TradeRankingPanel.vue'
 import RankingColumn from '@/components/rankings/RankingColumn.vue'
@@ -194,6 +195,8 @@ onMounted(() => {
   // World trade arrows are on by default in the global view — stream the
   // (small) dataset right after boot so the arcs appear without a click.
   void comercio.load()
+  // Annual series behind the trade timeline (PROD-4); ~10 KB, boot-cheap.
+  void comercio.loadSerie()
   // Vocation (state trade-by-UF + municipal VAB): lets the exploded sector
   // arrows originate from the specialist state and feeds the 3D sector objects.
   void vocacao.load()
@@ -362,6 +365,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
     <!-- Left dock: the trade ranking stacks directly above the legend card
          (collapsed, it sits glued just above it), both anchored bottom-left. -->
     <div class="left-dock">
+      <TimeScrubber />
       <CompareTray />
       <TradeRankingPanel />
       <MapLegend />
