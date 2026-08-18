@@ -253,6 +253,13 @@ pendente da PROD-1: a chave de ORIGEM DO DADO embutida no painel, com os
 tres selos de proveniencia decodificados e os tres pontos de confianca.
 Com isso a Trilha IA-1 (rail + lentes + camadas) esta completa.
 
+Vocacao no drill de influencia (2026-08-18, follow-up da trilha de
+vocacao): os icones 3D municipais que so apareciam no recorte demografico
+agora tambem aparecem ao selecionar um estado na lente influencia (mesmo
+ranking por VAB e dominancia por quociente locacional, top 40, helper
+compartilhado municipalIconsFor); o payload demografico carrega junto na
+selecao do estado (cacheado). BR selecionado nao mostra (seriam 5.570).
+
 PROD-6 (2026-08-18): exportar a analise. `lib/exportAnalysis` monta CSV
 (dois blocos: indicadores REAL · IBGE e entidades SIMULADO, cada linha com
 a coluna de proveniencia) e JSON (com bloco de proveniencia explicito) por

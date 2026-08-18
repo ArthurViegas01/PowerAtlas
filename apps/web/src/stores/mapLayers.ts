@@ -175,7 +175,8 @@ export interface MapLayerModel {
     scoreByUf: Record<string, number>
   }
   /** Low-poly 3D sector objects: one per UF vocation (world view) or per top
-   *  município vocation (demographic view cropped to a state). */
+   *  município vocation (state drilled in the influence view, or the
+   *  demographic view cropped to a state). */
   sectorIcons: SectorIconPlacement[]
 }
 
@@ -492,27 +493,35 @@ export const useMapLayersStore = defineStore('mapLayers', () => {
   const MUNI_ICON_M = 26000
   const MUNI_ICONS_MAX = 40
 
+  /** Top municipal icons of one state (ranked by VAB, dominant activity by QL). */
+  function municipalIconsFor(sigla: string): SectorIconPlacement[] {
+    const prefix = states.value?.features.find((f) => f.properties.UF === sigla)
+      ?.properties.codarea
+    if (!prefix) return []
+    const ranked = demografia.municipios
+      .filter((m) => m.codigo.startsWith(prefix))
+      .map((m) => ({ m, vab: vocacao.municipioBy.get(m.codigo)?.vabTotal ?? 0 }))
+      .sort((a, b) => b.vab - a.vab)
+      .slice(0, MUNI_ICONS_MAX)
+    const out: SectorIconPlacement[] = []
+    for (const { m } of ranked) {
+      const dominant = vocacao.dominantFor(m.codigo)
+      if (!dominant) continue
+      const mesh = iconForVocacao(dominant.key)
+      out.push({ position: m.coordinates, mesh, color: ICON_COLOR[mesh], scale: MUNI_ICON_M })
+    }
+    return out
+  }
+
   const sectorIcons = computed<SectorIconPlacement[]>(() => {
     // Demographic view: only once cropped to a single state (else 5.570 icons).
     if (selection.demographicView) {
-      const sigla = selection.demographicUf
-      if (!sigla) return []
-      const prefix = states.value?.features.find((f) => f.properties.UF === sigla)
-        ?.properties.codarea
-      if (!prefix) return []
-      const ranked = demografia.municipios
-        .filter((m) => m.codigo.startsWith(prefix))
-        .map((m) => ({ m, vab: vocacao.municipioBy.get(m.codigo)?.vabTotal ?? 0 }))
-        .sort((a, b) => b.vab - a.vab)
-        .slice(0, MUNI_ICONS_MAX)
-      const out: SectorIconPlacement[] = []
-      for (const { m } of ranked) {
-        const dominant = vocacao.dominantFor(m.codigo)
-        if (!dominant) continue
-        const mesh = iconForVocacao(dominant.key)
-        out.push({ position: m.coordinates, mesh, color: ICON_COLOR[mesh], scale: MUNI_ICON_M })
-      }
-      return out
+      return selection.demographicUf ? municipalIconsFor(selection.demographicUf) : []
+    }
+    // Influence drill: a state selected (no município yet) shows the same
+    // municipal vocation icons the demographic crop shows.
+    if (selection.selectedId && !selection.selectedMunicipio) {
+      return selection.selectedId === 'BR' ? [] : municipalIconsFor(selection.selectedId)
     }
     // World view (nothing drilled, no demographic): one icon per UF vocation.
     if (!selection.selectedId && !selection.selectedMunicipio) {
