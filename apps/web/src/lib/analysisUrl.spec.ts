@@ -47,6 +47,10 @@ describe('fromQuery', () => {
     expect(fromQuery(toQuery(state))).toEqual(state)
   })
 
+  it('round-trips the trade lens', () => {
+    expect(fromQuery(toQuery({ view: 'comercio' }))).toEqual({ view: 'comercio' })
+  })
+
   it('drops junk instead of throwing', () => {
     expect(
       fromQuery({

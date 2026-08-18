@@ -55,17 +55,26 @@ const commandEntries = computed<PaletteEntry[]>(() => [
     action: { kind: 'command', command: 'national' },
   },
   {
+    key: 'cmd-influencia',
+    group: 'command',
+    label: 'LENTE INFLUÊNCIA',
+    sublabel: 'RANKINGS POR REGIÃO',
+    action: { kind: 'command', command: 'influencia' },
+  },
+  {
     key: 'cmd-global',
     group: 'command',
-    label: 'VISÃO GLOBAL',
-    sublabel: 'MUNDO + COMÉRCIO EXTERIOR',
+    label: 'LENTE COMÉRCIO · GLOBAL',
+    sublabel: 'MUNDO + PARCEIROS DO BRASIL',
+    keywords: ['visao global'],
     action: { kind: 'command', command: 'global' },
   },
   {
     key: 'cmd-demografia',
     group: 'command',
-    label: selection.demographicView ? 'SAIR DA VISÃO DEMOGRÁFICA' : 'VISÃO DEMOGRÁFICA [BR]',
+    label: selection.demographicView ? 'SAIR DA LENTE DEMOGRAFIA' : 'LENTE DEMOGRAFIA [BR]',
     sublabel: 'COLUNAS POR MUNICÍPIO',
+    keywords: ['visao demografica'],
     action: { kind: 'command', command: 'demografia' },
   },
   route.path === '/dados'
@@ -347,20 +356,21 @@ async function run(entry: PaletteEntry) {
       selection.exitDemographicView()
       selection.select('BR', 'Brasil')
       break
+    case 'influencia':
+      selection.setLens('influence')
+      break
     case 'global':
-      selection.exitDemographicView()
-      selection.closePanels()
-      selection.requestCamera('global')
+      selection.setLens('trade')
       break
     case 'demografia':
       if (selection.demographicView) {
-        selection.exitDemographicView()
+        selection.setLens('influence')
         break
       }
       void demografia.load()
       void fiscal.load()
       void mapLayers.loadAllMunicipios()
-      selection.enterDemographicView()
+      selection.setLens('demographic')
       break
     case 'home':
       selection.goHome()

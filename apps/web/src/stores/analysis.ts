@@ -30,6 +30,8 @@ export const useAnalysisStore = defineStore('analysis', () => {
       state.view = 'demografia'
       if (selection.demographicMetric === 'gdp') state.metric = 'gdp'
       if (selection.demographicUf) state.uf = selection.demographicUf
+    } else if (selection.lens === 'trade' && !selection.selectedPartner) {
+      state.view = 'comercio' // a pinned partner already implies the trade lens
     }
     state.trade = [...selection.tradeDirs]
     state.setas = selection.tradeArrowsVisible
@@ -63,13 +65,15 @@ export const useAnalysisStore = defineStore('analysis', () => {
     }
 
     if (state.view === 'demografia') {
-      // Mirrors MapScreen.viewDemographic (the palette does the same).
+      // Mirrors the lens switch with loads (MapScreen and palette do the same).
       void demografia.load()
       void fiscal.load()
       void mapLayers.loadAllMunicipios()
-      selection.enterDemographicView()
+      selection.setLens('demographic')
       if (state.metric === 'gdp') selection.setDemographicMetric('gdp')
       if (state.uf) selection.selectDemographicUf(state.uf)
+    } else if (state.view === 'comercio') {
+      selection.setLens('trade')
     }
   }
 
