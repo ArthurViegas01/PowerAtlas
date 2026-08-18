@@ -185,8 +185,6 @@ compasso, cabecalho do monitoramento. Componentes novos nascem com ela.
 
 ### Pendentes (fases seguintes do PLAN-IDENTIDADE)
 
-- Legenda de confianca no painel de camadas (PROD-1 restante): entra quando
-  `MapLegend.vue` fechar o trabalho em andamento nao commitado.
 - Affordance de busca no header (botao BUSCA): entra com o redesenho do
   header na IA-1; ate la a paleta abre so por Ctrl-K.
 - Busca de municipios na paleta: espera o indice unico
@@ -246,6 +244,14 @@ influencia. O header trocou os tres botoes de visao e o link do console por
 rail. A URL aprendeu `view=comercio` (analysisUrl + stores analysis). A
 paleta fala em lentes (LENTE INFLUENCIA/COMERCIO/DEMOGRAFIA, com os nomes
 antigos como keywords de busca).
+
+IA-1c (2026-08-18): o painel unico de camadas ja tinha nascido no proprio
+MapLegend (titulo LEGENDA // CAMADAS, colapsavel com estado lembrado,
+redimensionavel, toggles de comercio/direcoes/setas, choropleth de partidos
+com lazy load, vocacao e legenda demografica); a fase fechou a metade
+pendente da PROD-1: a chave de ORIGEM DO DADO embutida no painel, com os
+tres selos de proveniencia decodificados e os tres pontos de confianca.
+Com isso a Trilha IA-1 (rail + lentes + camadas) esta completa.
 
 PROD-2 (2026-08-17): comparacao lado a lado. Store `compare` (ate 4
 regioes), bandeja no dock esquerdo do mapa (`ui/CompareTray`), botao

@@ -8,6 +8,8 @@ import { useComercioStore } from '@/stores/comercio'
 import { usePartidosStore } from '@/stores/partidos'
 import { useSelectionStore } from '@/stores/selection'
 
+import DataProvenanceChip from '@/components/ui/DataProvenanceChip.vue'
+
 const selection = useSelectionStore()
 const comercio = useComercioStore()
 const partidos = usePartidosStore()
@@ -192,6 +194,32 @@ watch(collapsed, (value) => {
             : 'ESTADO · EXPORTAÇÃO DOMINANTE (COMEX)'
         }}
       </p>
+    </div>
+
+    <!-- Data provenance key (PROD-1's pending half): every number in the HUD
+         carries one of these seals; this is where the reader decodes them. -->
+    <div class="prov-legend">
+      <p class="pa-label vocacao-title">ORIGEM DO DADO</p>
+      <ul class="m-0 flex list-none flex-col gap-1.5 p-0">
+        <li class="flex items-center gap-2">
+          <DataProvenanceChip state="real" />
+          <span class="row-label pa-data">FONTE OFICIAL VERIFICÁVEL</span>
+        </li>
+        <li class="flex items-center gap-2">
+          <DataProvenanceChip state="simulated" />
+          <span class="row-label pa-data">PLACEHOLDER DE DESENVOLVIMENTO</span>
+        </li>
+        <li class="flex items-center gap-2">
+          <DataProvenanceChip state="review" />
+          <span class="row-label pa-data">PIPELINE · AGUARDA REVISÃO</span>
+        </li>
+        <li class="flex items-center gap-2">
+          <span class="conf-dots" aria-hidden="true">
+            <i class="cd cd--h"></i><i class="cd cd--m"></i><i class="cd cd--l"></i>
+          </span>
+          <span class="row-label pa-data">CONF · ALTA / MÉDIA / BAIXA</span>
+        </li>
+      </ul>
     </div>
 
     <p class="credit pa-label">
@@ -408,6 +436,39 @@ watch(collapsed, (value) => {
 .vocacao-note {
   margin: 8px 0 0;
   color: var(--pa-text-faint);
+}
+
+/* Provenance key: chips left, meaning right; confidence as the three dots. */
+.prov-legend {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--pa-border-faint);
+}
+
+.conf-dots {
+  display: inline-flex;
+  gap: 3px;
+  flex: none;
+}
+
+.cd {
+  width: 5px;
+  height: 5px;
+  border-radius: var(--pa-radius-pill);
+  background: currentColor;
+  box-shadow: 0 0 6px currentColor;
+}
+
+.cd--h {
+  color: var(--pa-confidence-high);
+}
+
+.cd--m {
+  color: var(--pa-confidence-medium);
+}
+
+.cd--l {
+  color: var(--pa-confidence-low);
 }
 
 .credit {
