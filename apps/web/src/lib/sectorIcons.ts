@@ -14,7 +14,17 @@
  */
 import type { VocacaoSectorKey } from '@/types/vocacao'
 
-export type MeshKey = 'silo' | 'factory' | 'towers' | 'civic' | 'mine' | 'tank'
+export type MeshKey =
+  | 'silo'
+  | 'factory'
+  | 'towers'
+  | 'civic'
+  | 'mine'
+  | 'tank'
+  | 'soy'
+  | 'cattle'
+  | 'coffee'
+  | 'tree'
 
 /** A single edge in the local unit frame: two [x, y, z] endpoints. */
 type Edge = [[number, number, number], [number, number, number]]
@@ -264,6 +274,130 @@ const ARCHETYPES: Record<MeshKey, Edge[]> = {
       [0.2, -0.05, 0.12],
     ],
   ],
+  // Soja: a crop row — three plants, each a stem with two leaf whorls and a
+  // pod cluster low on the stalk.
+  soy: [-0.3, 0.0, 0.3].flatMap((cx, i): Edge[] => {
+    const h = [0.56, 0.46, 0.52][i]
+    const cy = [0.06, -0.08, 0.02][i]
+    const edges: Edge[] = [pillar(cx, cy, 0, h)]
+    for (const [tier, z] of [[0, h * 0.5], [1, h * 0.82]] as const) {
+      for (let k = 0; k < 3; k++) {
+        const a = ((k + tier * 0.5) / 3) * Math.PI * 2
+        const tip: [number, number, number] = [
+          cx + Math.cos(a) * 0.13,
+          cy + Math.sin(a) * 0.13,
+          z + 0.05,
+        ]
+        edges.push([[cx, cy, z], tip])
+        // A short leaf midrib past the tip keeps the whorl readable.
+        edges.push([tip, [tip[0] + Math.cos(a) * 0.04, tip[1] + Math.sin(a) * 0.04, z + 0.03]])
+      }
+    }
+    // Pod cluster: a small ringed pouch low on the stem.
+    edges.push(
+      ...stack(4, cx + 0.045, cy, [
+        [0.028, h * 0.22],
+        [0.028, h * 0.34],
+      ]),
+    )
+    return edges
+  }),
+  // Pecuária: a low-poly zebu — body, legs, head with horns and the hump.
+  cattle: [
+    // Body slab on four legs.
+    ...box(0, 0, 0.26, 0.12, 0.26, 0.5),
+    pillar(-0.2, 0.09, 0, 0.26),
+    pillar(-0.2, -0.09, 0, 0.26),
+    pillar(0.18, 0.09, 0, 0.26),
+    pillar(0.18, -0.09, 0, 0.26),
+    // Head and muzzle, forward of the body.
+    ...box(0.34, 0, 0.08, 0.07, 0.36, 0.56),
+    ...box(0.45, 0, 0.035, 0.045, 0.34, 0.44),
+    // Horns sweeping up and out from the head top.
+    [
+      [0.3, 0.07, 0.56],
+      [0.26, 0.16, 0.66],
+    ],
+    [
+      [0.3, -0.07, 0.56],
+      [0.26, -0.16, 0.66],
+    ],
+    // The zebu hump over the shoulders.
+    ...stack(6, 0.1, 0, [
+      [0.07, 0.5],
+      [0.055, 0.58],
+      [0, 0.63],
+    ]),
+    // Tail down the back.
+    [
+      [-0.26, 0, 0.48],
+      [-0.31, 0, 0.24],
+    ],
+  ],
+  // Café: two bushy shrubs — bulged canopies over short trunks, with berry
+  // rings dotted on the larger crown.
+  coffee: [
+    pillar(-0.1, 0.02, 0, 0.16),
+    ...stack(8, -0.1, 0.02, [
+      [0.15, 0.16],
+      [0.2, 0.3],
+      [0.17, 0.44],
+      [0.09, 0.54],
+      [0, 0.58],
+    ]),
+    // Berry clusters on the crown.
+    ...stack(3, -0.26, 0.06, [
+      [0.02, 0.3],
+      [0.02, 0.34],
+    ]),
+    ...stack(3, 0.05, -0.1, [
+      [0.02, 0.36],
+      [0.02, 0.4],
+    ]),
+    // Smaller companion bush.
+    pillar(0.26, -0.04, 0, 0.1),
+    ...stack(8, 0.26, -0.04, [
+      [0.1, 0.1],
+      [0.13, 0.2],
+      [0.1, 0.3],
+      [0, 0.36],
+    ]),
+  ],
+  // Floresta (Amazônia Legal): a samaúma — buttressed trunk under a broad,
+  // flat emergent crown.
+  tree: [
+    // Columnar bole (true verticals), tapering only at the crown joint.
+    ...stack(6, 0, 0, [
+      [0.045, 0],
+      [0.045, 0.5],
+      [0.04, 0.55],
+    ]),
+    // Buttress roots flaring from the trunk base.
+    [
+      [0.04, 0, 0.16],
+      [0.16, 0.03, 0],
+    ],
+    [
+      [-0.04, 0.02, 0.16],
+      [-0.15, 0.09, 0],
+    ],
+    [
+      [0.0, -0.045, 0.16],
+      [0.05, -0.17, 0],
+    ],
+    [
+      [-0.02, -0.03, 0.16],
+      [-0.13, -0.1, 0],
+    ],
+    // Broad umbrella crown.
+    ...stack(10, 0, 0, [
+      [0.3, 0.55],
+      [0.34, 0.63],
+      [0.25, 0.72],
+      [0.12, 0.78],
+      [0, 0.81],
+    ]),
+  ],
 }
 
 /** Identity color of each archetype (matches the sector palette family). */
@@ -274,6 +408,10 @@ export const ICON_COLOR: Record<MeshKey, [number, number, number]> = {
   civic: [150, 170, 185], // slate (adm. pública)
   mine: [240, 140, 90], // orange (mineração)
   tank: [183, 139, 250], // violet (petróleo)
+  soy: [190, 232, 90], // yellow-green (lavoura de soja)
+  cattle: [235, 190, 140], // tan (rebanho)
+  coffee: [225, 105, 85], // cherry (café)
+  tree: [60, 210, 150], // emerald (floresta)
 }
 
 // ── sector -> archetype maps ────────────────────────────────────────────────
@@ -286,12 +424,47 @@ const AGRO_CHAPTERS = new Set([
 const MINE_CHAPTERS = new Set(['25', '26'])
 const OIL_CHAPTERS = new Set(['27'])
 
-/** Icon for a state's dominant export sector (HS chapter). */
+/** Icon for a state's dominant export sector (HS chapter). Commodity chapters
+ *  with an icon of their own come first; the broad sets catch the rest. */
 export function iconForChapter(chapter: string): MeshKey {
+  if (chapter === '12') return 'soy' // oleaginosas (soja em grão)
+  if (chapter === '09') return 'coffee' // café
+  if (chapter === '02') return 'cattle' // carnes
+  if (chapter === '44') return 'tree' // madeira
   if (AGRO_CHAPTERS.has(chapter)) return 'silo'
   if (MINE_CHAPTERS.has(chapter)) return 'mine'
   if (OIL_CHAPTERS.has(chapter)) return 'tank'
   return 'factory'
+}
+
+/**
+ * Fine agro commodity of a município (PAM/PPM): each figure is normalized by
+ * its own NATIONAL total (mil R$ vs cabeças become comparable shares); the
+ * biggest share wins if it clears the floor, else null (generic silo).
+ */
+export const AGRO_SHARE_FLOOR = 0.0005 // 0.05% of the national commodity
+
+export function pickAgroCommodity(
+  agro: { soja: number; cafe: number; bovino: number } | undefined,
+  national: { soja: number; cafe: number; bovino: number },
+): MeshKey | null {
+  if (!agro) return null
+  const shares: [MeshKey, number][] = [
+    ['soy', national.soja > 0 ? agro.soja / national.soja : 0],
+    ['coffee', national.cafe > 0 ? agro.cafe / national.cafe : 0],
+    ['cattle', national.bovino > 0 ? agro.bovino / national.bovino : 0],
+  ]
+  shares.sort((a, b) => b[1] - a[1])
+  return shares[0][1] >= AGRO_SHARE_FLOOR ? shares[0][0] : null
+}
+
+/** UFs fully inside the Amazônia Legal; MA joins west of the 44°W meridian. */
+const AMAZONIA_UF_PREFIX = new Set(['11', '12', '13', '14', '15', '16', '17', '51'])
+
+export function isAmazoniaLegal(codigo: string, lon: number): boolean {
+  const prefix = codigo.slice(0, 2)
+  if (AMAZONIA_UF_PREFIX.has(prefix)) return true
+  return prefix === '21' && lon < -44
 }
 
 /** Icon for a município's dominant VAB activity. */
