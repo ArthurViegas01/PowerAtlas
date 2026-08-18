@@ -172,11 +172,16 @@ watch(booting, (isBooting) => {
 })
 
 // Municipal indicators ride along with the state's municipal mesh: prefetch
-// on state selection so the drill-down panel opens already populated.
+// on state selection so the drill-down panel opens already populated. The
+// demografia payload rides too: the vocation icons inside the state place
+// their meshes by its municipal centroids (cached after the first state).
 watch(
   () => selection.selectedId,
   (regionId) => {
-    if (regionId) void indicators.loadMunicipios(regionId)
+    if (regionId) {
+      void indicators.loadMunicipios(regionId)
+      void demografia.load()
+    }
   },
 )
 
