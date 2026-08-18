@@ -282,6 +282,18 @@
   `lib/exportAnalysis`). Restam PROD-4 (espera série temporal), PROD-7
   (só seam, por desenho) e a camada visual da vocação (trilha própria).
   134 testes web.
+- **v0.18.0 (2026-08-18)**: vocação completa + linha do tempo. Ícones
+  municipais de vocação também no drill de influência (helper
+  compartilhado); **vocação fina** via `pnpm agro` (PAM valor de produção
+  soja/café + PPM efetivo bovino 2024, ids resolvidos por nome na metadata;
+  âncoras: São Félix 2,52 mi cabeças, Sorriso, Patrocínio) com quatro
+  arquétipos novos (soja, zebu, café, samaúma), commodity por fatia
+  nacional com piso, árvores na Amazônia Legal (8 UFs + MA oeste de 44°W) e
+  calibração dev `?icones=<uf>,<muni>`; **PROD-4 piloto**:
+  `pnpm comercio-serie` (série 2021-2025 de totais por parceiro, validada
+  contra os números oficiais), `TimeScrubber` na lente comércio reanimando
+  as setas por ano, `ano=` na URL das análises (corrida de boot do
+  loadSerie corrigida com promise compartilhada). 142 testes web.
 - **Pendências conhecidas da trilha frontend**: ranking por município
   (depende da F5); reativar a dimensão oculta (flip do flag) quando F5/F6
   existirem. Venv host da API está defasada (sem `celery` da F5a): rodar a
