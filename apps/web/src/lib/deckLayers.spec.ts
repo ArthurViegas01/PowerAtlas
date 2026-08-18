@@ -76,6 +76,7 @@ function model(overrides: Partial<MapLayerModel> = {}): MapLayerModel {
     },
     globalIdle: false,
     political: { active: false, byCodigo: new Map() },
+    powerScale: { active: false, scoreByUf: {} },
     sectorIcons: [],
     ...overrides,
   }
@@ -685,5 +686,41 @@ describe('buildDeckLayers', () => {
       rjMuni,
     )
     expect(z).toBe(0) // RJ column untouched by SP's click
+  })
+})
+
+describe('escala de poder no choropleth (PROD-3)', () => {
+  const fillOf = (m: MapLayerModel, uf: string) => {
+    const states = build(m).find((layer) => layer.id === 'states-choropleth')
+    const getFill = (
+      states?.props as unknown as { getFillColor: (f: unknown) => number[] }
+    ).getFillColor
+    return getFill({ properties: { UF: uf } })
+  }
+
+  it('pinta pelo score do agente oficial, com rampa e piso', () => {
+    const base = model({ selectedId: null, dataRegionIds: ['RJ', 'AC'] })
+    const ramped = model({
+      selectedId: null,
+      dataRegionIds: ['RJ', 'AC'],
+      powerScale: { active: true, scoreByUf: { RJ: 100, AC: 0 } },
+    })
+    const rjBase = fillOf(base, 'RJ')
+    const rjTop = fillOf(ramped, 'RJ')
+    const acFloor = fillOf(ramped, 'AC')
+    expect(rjTop).not.toEqual(rjBase)
+    expect(rjTop).not.toEqual(acFloor)
+    // Piso: o estado de score 0 ainda ganha tinta (nao volta ao fill neutro).
+    expect(acFloor).not.toEqual(rjBase)
+  })
+
+  it('uf sem score cai no fill neutro mesmo com o modo ativo', () => {
+    const ramped = model({
+      selectedId: null,
+      dataRegionIds: ['RJ', 'AC'],
+      powerScale: { active: true, scoreByUf: { RJ: 80 } },
+    })
+    const base = model({ selectedId: null, dataRegionIds: ['RJ', 'AC'] })
+    expect(fillOf(ramped, 'AC')).toEqual(fillOf(base, 'AC'))
   })
 })

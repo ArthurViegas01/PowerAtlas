@@ -234,3 +234,19 @@ describe('map lens (IA-1b)', () => {
     expect(s.selectedPartner).toBeNull()
   })
 })
+
+describe('choropleth pela escala (PROD-3)', () => {
+  beforeEach(() => setActivePinia(createPinia()))
+
+  it('escala e partidos sao mutuamente exclusivos', () => {
+    const s = useSelectionStore()
+    s.togglePartisan()
+    expect(s.partisanVisible).toBe(true)
+    s.togglePowerScale()
+    expect(s.powerScaleVisible).toBe(true)
+    expect(s.partisanVisible).toBe(false)
+    s.togglePartisan()
+    expect(s.partisanVisible).toBe(true)
+    expect(s.powerScaleVisible).toBe(false)
+  })
+})
