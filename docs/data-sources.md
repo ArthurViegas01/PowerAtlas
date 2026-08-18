@@ -442,3 +442,15 @@ municipality's strongest commodity presence nationally".
 
 **Role:** factual context for the vocation icons. Not the power rankings
 (ARCHITECTURE.md section 5).
+
+## Trade annual series (`public/data/comercio/serie.json`)
+
+Built by `pnpm comercio-serie` (`scripts/fetch-comercio-serie.mjs`): a lean
+streaming sum over the SAME cached Comex Stat raw base the main trade
+dataset uses, one pair of NCM csv files per year (2021-2025), producing
+total exports/imports (US$ FOB) per partner ISO per year. No sector split
+on purpose: the timeline sweeps totals; the per-sector detail belongs to the
+reference year only (`mundo.json`). Validated against the official annual
+figures (2024: US$ 337,0 bi exported / US$ 262,9 bi imported).
+
+**Role:** factual context feeding the trade-lens timeline (PROD-4 pilot).
