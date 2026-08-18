@@ -253,6 +253,24 @@
   Verificado ponta a ponta no browser (stack no ar, ingest de 45 docs, import →
   KPIs/gráficos → remover → banco vazio, paridade ok). build + 76 testes web +
   typecheck; pytest stats/datasets unit+integration; ruff/mypy verdes.
+- **v0.16.0 (2026-08-16/17)**: duas frentes num release. (a) **Trilhas do
+  PLAN-IDENTIDADE.md** (briefing na raiz): design system "Tactical HUD"
+  formalizado (tokens completos com escala 4px/meios-passos, escada real de
+  z-index, `--pa-focus-ring`; `docs/design-system.md`; HudButton/HudInput
+  canonicos em `components/ui/`; refactor sem regressão provado por snapshot
+  de computed styles), selo de proveniência REAL/SIMULADO/EM REVISÃO
+  (`DataProvenanceChip`) em indicadores/comércio/demografia/rankings, paleta
+  Ctrl-K (`CommandPalette`, núcleo testado em `lib/paletteIndex`), estado da
+  análise na URL + análises salvas (`lib/analysisUrl`, stores
+  `analysis`/`savedViews`, `useAnalysisSync`), onboarding em 4 passos
+  (PROD-5) e styleguide vivo `/estilo` (ID-6). (b) **Frente de dados**:
+  auth de admin na API (sessão HMAC, § 2.11; substitui `PA_ALLOW_WRITES`),
+  console com login + catálogo, warehouse CSV em estrela
+  (`data/warehouse/`, `pnpm warehouse`/`compile-web`, § 2.10), dados de
+  partidos TSE 2024/vocação/comércio por UF e a visão nacional com escala
+  de poder (`docs/power-scale.md`). Restam da trilha de identidade: IA-1
+  (rail), PROD-2/3/6, PROD-4 (espera série temporal), camada visual da
+  vocação. 118 testes web + pytest/ruff/mypy na api.
 - **Pendências conhecidas da trilha frontend**: ranking por município
   (depende da F5); reativar a dimensão oculta (flip do flag) quando F5/F6
   existirem. Venv host da API está defasada (sem `celery` da F5a): rodar a
