@@ -17,7 +17,13 @@ import type {
 import type { Map as MaplibreMap } from 'maplibre-gl'
 
 import type { FiscalSegmentKey } from '@/lib/fiscalSegments'
-import { ICON_COLOR, iconForVocacao, type SectorIconPlacement } from '@/lib/sectorIcons'
+import {
+  ICON_COLOR,
+  iconForVocacao,
+  isAmazoniaLegal,
+  pickAgroCommodity,
+  type SectorIconPlacement,
+} from '@/lib/sectorIcons'
 import type { DemografiaMetric, DemografiaMunicipio } from '@/types/demografia'
 import type { FiscalMunicipio } from '@/types/fiscal'
 import { directionValue, TRADE_ORIGIN, type TradeDirection } from '@/types/comercio'
@@ -489,8 +495,23 @@ export const useMapLayersStore = defineStore('mapLayers', () => {
   // 3D sector objects. State view: one icon per UF at ~90 km. Demographic view
   // cropped to a state: the top municípios by VAB, at ~26 km, so the drill-down
   // reads its own vocation without crowding 5.570 icons onto the map.
-  const STATE_ICON_M = 90000
-  const MUNI_ICON_M = 26000
+  // Dev-only size calibration: open the map with /?icones=<estadoM>,<municipioM>
+  // (e.g. ?icones=70000,20000) to preview other icon scales. Not part of the
+  // analysis URL schema on purpose; the defaults below stay the product truth.
+  const iconOverride = (() => {
+    try {
+      const raw = new URLSearchParams(window.location.search).get('icones')
+      if (!raw) return null
+      const [uf, muni] = raw.split(',').map(Number)
+      return Number.isFinite(uf) && uf > 0 && Number.isFinite(muni) && muni > 0
+        ? { uf, muni }
+        : null
+    } catch {
+      return null
+    }
+  })()
+  const STATE_ICON_M = iconOverride?.uf ?? 90000
+  const MUNI_ICON_M = iconOverride?.muni ?? 26000
   const MUNI_ICONS_MAX = 40
 
   /** Top municipal icons of one state (ranked by VAB, dominant activity by QL). */
@@ -507,7 +528,17 @@ export const useMapLayersStore = defineStore('mapLayers', () => {
     for (const { m } of ranked) {
       const dominant = vocacao.dominantFor(m.codigo)
       if (!dominant) continue
-      const mesh = iconForVocacao(dominant.key)
+      let mesh = iconForVocacao(dominant.key)
+      if (dominant.key === 'agro') {
+        // Fine agro split (PAM/PPM): soja, café or the herd; silo otherwise.
+        mesh = pickAgroCommodity(vocacao.agroBy.get(m.codigo), vocacao.agroNational) ?? 'silo'
+      } else if (
+        (dominant.key === 'serv' || dominant.key === 'adm') &&
+        isAmazoniaLegal(m.codigo, m.coordinates[0])
+      ) {
+        // Forest towns of the Amazônia Legal read as forest, not as a capitol.
+        mesh = 'tree'
+      }
       out.push({ position: m.coordinates, mesh, color: ICON_COLOR[mesh], scale: MUNI_ICON_M })
     }
     return out

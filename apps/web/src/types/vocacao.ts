@@ -80,6 +80,33 @@ export interface MunicipioVocacao {
   shares: VocacaoShares
 }
 
+// -- vocacao/agro-municipios.json ---------------------------------------------
+
+/** National totals of each commodity (soja/cafe in mil R$, bovino in heads). */
+export interface AgroNational {
+  soja: number
+  cafe: number
+  bovino: number
+}
+
+/** Wire file of the fine-grained agro survey (PAM valor + PPM efetivo). */
+export interface AgroMunicipiosFile {
+  source: string
+  pam: { year: number }
+  ppm: { year: number }
+  national: AgroNational
+  /** [codigo, sojaMilReais, cafeMilReais, bovinoCabecas] */
+  municipios: [string, number, number, number][]
+}
+
+/** One município's absolute commodity figures. */
+export interface AgroMunicipio {
+  codigo: string
+  soja: number
+  cafe: number
+  bovino: number
+}
+
 /** One specialty of a município: the activity and how far above the nation it is. */
 export interface VocacaoSpecialty {
   key: VocacaoSectorKey

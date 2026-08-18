@@ -4,6 +4,9 @@ import { computed, ref, shallowRef } from 'vue'
 import { ICON_COLOR, iconForChapter, type MeshKey } from '@/lib/sectorIcons'
 import type { TradeDirection } from '@/types/comercio'
 import type {
+  AgroMunicipio,
+  AgroMunicipiosFile,
+  AgroNational,
   ComercioUfFile,
   MunicipioVocacao,
   SectorOriginUf,
@@ -147,8 +150,36 @@ export const useVocacaoStore = defineStore('vocacao', () => {
   }
 
   /** Load both vocation datasets. */
+  // -- fine agro vocation (vocacao/agro-municipios.json) ----------------------
+  const agroBy = shallowRef<Map<string, AgroMunicipio>>(new Map())
+  const agroNational = ref<AgroNational>({ soja: 0, cafe: 0, bovino: 0 })
+  const agroSource = ref<string | null>(null)
+  const loadingAgro = ref(false)
+  const agroLoaded = computed(() => agroBy.value.size > 0)
+
+  async function loadAgro() {
+    if (loadingAgro.value || agroLoaded.value) return
+    loadingAgro.value = true
+    try {
+      const response = await fetch(`${import.meta.env.BASE_URL}data/vocacao/agro-municipios.json`)
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      const file = (await response.json()) as AgroMunicipiosFile
+      agroNational.value = file.national
+      agroSource.value = file.source
+      const map = new Map<string, AgroMunicipio>()
+      for (const [codigo, soja, cafe, bovino] of file.municipios) {
+        map.set(codigo, { codigo, soja, cafe, bovino })
+      }
+      agroBy.value = map
+    } catch (cause) {
+      error.value = cause instanceof Error ? cause.message : String(cause)
+    } finally {
+      loadingAgro.value = false
+    }
+  }
+
   async function load() {
-    await Promise.all([loadUf(), loadMunicipios()])
+    await Promise.all([loadUf(), loadMunicipios(), loadAgro()])
   }
 
   /**
@@ -192,6 +223,12 @@ export const useVocacaoStore = defineStore('vocacao', () => {
     municipiosLoaded,
     specialtiesFor,
     dominantFor,
+    // fine agro vocation
+    agroBy,
+    agroNational,
+    agroSource,
+    agroLoaded,
+    loadAgro,
     // shared
     error,
     load,

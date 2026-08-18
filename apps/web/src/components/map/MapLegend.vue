@@ -33,6 +33,10 @@ const vocacaoItems: { key: MeshKey; label: string; d: string }[] = [
   { key: 'civic', label: 'ADM. PÚBLICA · CÍVICO', d: 'M3 15 L3 12 L17 12 L17 15 M5 12 L5 6 M9 12 L9 6 M13 12 L13 6 M3 6 L17 6 M3 6 L10 2 L17 6' },
   { key: 'mine', label: 'MINÉRIO · PILHA', d: 'M3 15 L10 3 L17 15 Z M6.5 9 L13.5 9' },
   { key: 'tank', label: 'PETRÓLEO · TANQUE', d: 'M4 15 L4 8 L16 8 L16 15 M4 8 Q10 4 16 8' },
+  { key: 'soy', label: 'SOJA · LAVOURA (PAM)', d: 'M10 15 L10 5 M10 8 L6.5 6.5 M10 8 L13.5 6.5 M10 11 L7 10 M10 11 L13 10' },
+  { key: 'cattle', label: 'GADO · REBANHO (PPM)', d: 'M4 12 L14 12 L14 8 L4 8 Z M5 12 L5 15 M13 12 L13 15 M14 9 L17 9 L17 11 M16 9 L17.5 6.5 M9 8 Q10.5 6 12 8' },
+  { key: 'coffee', label: 'CAFÉ · LAVOURA (PAM)', d: 'M10 15 L10 12 M10 12 Q4 11 5.5 6 Q10 2 14.5 6 Q16 11 10 12 M7.5 8 L8.5 8 M12 7 L13 7' },
+  { key: 'tree', label: 'FLORESTA · AMAZÔNIA LEGAL', d: 'M10 15 L10 8 M10 15 L7.5 14 M10 15 L12.5 14 M4 8 Q10 2 16 8 Q10 6.5 4 8' },
 ]
 
 /**

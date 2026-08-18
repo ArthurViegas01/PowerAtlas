@@ -253,6 +253,19 @@ pendente da PROD-1: a chave de ORIGEM DO DADO embutida no painel, com os
 tres selos de proveniencia decodificados e os tres pontos de confianca.
 Com isso a Trilha IA-1 (rail + lentes + camadas) esta completa.
 
+Vocacao fina (2026-08-18): quatro arquetipos novos no estilo stack (soja
+em fileira de plantas, zebu com cupim, pes de cafe com cerejas, samauma de
+copa larga para a floresta), alimentados por `pnpm agro`
+(scripts/fetch-agro.mjs: PAM valor da producao de soja/cafe + PPM efetivo
+bovino, ids resolvidos por NOME na metadata do IBGE, ano mais recente
+publicado). A commodity dominante compara a fatia NACIONAL de cada uma
+(unidades diferentes viram comparaveis), com piso; municipios da Amazonia
+Legal (8 UFs + MA a oeste de 44W) dominados por servicos/adm viram arvore.
+`iconForChapter` tambem ganhou os capitulos finos (12 soja, 09 cafe, 02
+carnes, 44 madeira), entao os icones de UF se refinam sozinhos.
+Calibracao dev de tamanho: abrir o mapa com `?icones=<estadoM>,<municipioM>`
+(ex.: `?icones=70000,20000`); o default vive no mapLayers.
+
 Vocacao no drill de influencia (2026-08-18, follow-up da trilha de
 vocacao): os icones 3D municipais que so apareciam no recorte demografico
 agora tambem aparecem ao selecionar um estado na lente influencia (mesmo
