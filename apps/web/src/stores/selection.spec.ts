@@ -192,3 +192,45 @@ describe('selection store', () => {
     expect(s.demographicMetric).toBe('gdp') // metric choice survives the exit
   })
 })
+
+describe('map lens (IA-1b)', () => {
+  beforeEach(() => setActivePinia(createPinia()))
+
+  it('starts on influence and switches to trade closing panels', () => {
+    const s = useSelectionStore()
+    expect(s.lens).toBe('influence')
+    s.select('SP', 'São Paulo')
+    const camerasBefore = s.cameraRequest.seq
+    s.setLens('trade')
+    expect(s.lens).toBe('trade')
+    expect(s.selectedId).toBeNull()
+    expect(s.cameraRequest.target).toBe('global')
+    expect(s.cameraRequest.seq).toBe(camerasBefore + 1)
+  })
+
+  it('picking a region leaves the trade lens', () => {
+    const s = useSelectionStore()
+    s.setLens('trade')
+    s.select('MG', 'Minas Gerais')
+    expect(s.lens).toBe('influence')
+    expect(s.selectedId).toBe('MG')
+  })
+
+  it('demographic lens keeps the demographicView alias in step', () => {
+    const s = useSelectionStore()
+    s.setLens('demographic')
+    expect(s.lens).toBe('demographic')
+    expect(s.demographicView).toBe(true)
+    s.setLens('influence')
+    expect(s.demographicView).toBe(false)
+  })
+
+  it('a trade partner drags the lens to trade and goHome restores influence', () => {
+    const s = useSelectionStore()
+    s.selectTradePartner({ iso: 'CHN', name: 'China' })
+    expect(s.lens).toBe('trade')
+    s.goHome()
+    expect(s.lens).toBe('influence')
+    expect(s.selectedPartner).toBeNull()
+  })
+})

@@ -28,6 +28,9 @@ export interface WorldStateRef {
 
 export type CameraTarget = 'national' | 'global'
 
+/** Data lens over the globe (IA-1b): the old "views" as what they really are. */
+export type MapLens = 'influence' | 'trade' | 'demographic'
+
 export type RotateKind = 'by' | 'north' | 'auto'
 
 export type DemografiaMetric = 'population' | 'gdp'
@@ -107,8 +110,14 @@ export const useSelectionStore = defineStore('selection', () => {
   /** Imperative tilt bus — MapView watches `seq` and tilts by `delta`. */
   const pitchRequest = ref<{ delta: number; seq: number }>({ delta: 0, seq: 0 })
 
-  /** Demographic view: per-município columns instead of the influence HUD. */
-  const demographicView = ref(false)
+  /**
+   * Active data lens (IA-1b): influence is the default HUD, trade is the
+   * global backdrop with the Comex arrows, demographic swaps in the
+   * per-município columns.
+   */
+  const lens = ref<MapLens>('influence')
+  /** Compat alias: the demographic consumers all read this boolean. */
+  const demographicView = computed(() => lens.value === 'demographic')
   const demographicMetric = ref<DemografiaMetric>('population')
   const hoveredDemografia = ref<DemografiaHover | null>(null)
   /** State focused inside the demographic view (camera crop; Esc clears). */
@@ -171,6 +180,7 @@ export const useSelectionStore = defineStore('selection', () => {
 
   function select(id: string, name: string, point?: ScreenPoint) {
     if (selectedId.value === id) return
+    if (lens.value === 'trade') lens.value = 'influence' // picking a region leaves the trade lens
     lockedWorld.value = null
     selectedPartner.value = null // leaving the global trade context
     selectedMunicipio.value = null
@@ -274,6 +284,7 @@ export const useSelectionStore = defineStore('selection', () => {
    */
   function selectTradePartner(region: WorldRegionRef, point?: ScreenPoint) {
     if (selectedPartner.value?.iso === region.iso) return
+    lens.value = 'trade' // a partner panel IS the trade context
     selectedId.value = null
     selectedName.value = null
     selectedMunicipio.value = null
@@ -303,6 +314,7 @@ export const useSelectionStore = defineStore('selection', () => {
 
   /** ESC / "voltar ao Brasil": close panels and recenter on the country. */
   function goHome() {
+    if (lens.value === 'trade') lens.value = 'influence'
     closePanels()
     requestCamera('national')
   }
@@ -317,7 +329,7 @@ export const useSelectionStore = defineStore('selection', () => {
     closePanels()
     hoveredDemografia.value = null
     selectedDemografia.value = null
-    demographicView.value = true
+    lens.value = 'demographic'
     requestCamera('national')
   }
 
@@ -336,14 +348,35 @@ export const useSelectionStore = defineStore('selection', () => {
     clearSubdivisao()
   }
 
-  /** Back to the influence HUD (Esc or the other view buttons). */
+  /** Back to the influence HUD (Esc or another lens). */
   function exitDemographicView() {
     if (!demographicView.value) return
-    demographicView.value = false
+    lens.value = 'influence'
     hoveredDemografia.value = null
     selectedDemografia.value = null
     demographicUf.value = null
     clearSubdivisao()
+  }
+
+  /**
+   * Lens switch (IA-1b): each branch mirrors the old header action exactly.
+   * Heavy demographic data loads stay with the callers (MapScreen, palette,
+   * analysis replay), same as before.
+   */
+  function setLens(next: MapLens) {
+    if (lens.value === next) return
+    if (next === 'demographic') {
+      enterDemographicView()
+      return
+    }
+    exitDemographicView()
+    lens.value = next
+    if (next === 'trade') {
+      closePanels()
+      requestCamera('global')
+    } else {
+      requestCamera('national')
+    }
   }
 
   /** Focus a state inside the demographic view (`null` = back to Brazil). */
@@ -453,6 +486,8 @@ export const useSelectionStore = defineStore('selection', () => {
     mapBearing,
     bearingOverride,
     rotateRequest,
+    lens,
+    setLens,
     demographicView,
     demographicMetric,
     hoveredDemografia,
