@@ -253,6 +253,16 @@ pendente da PROD-1: a chave de ORIGEM DO DADO embutida no painel, com os
 tres selos de proveniencia decodificados e os tres pontos de confianca.
 Com isso a Trilha IA-1 (rail + lentes + camadas) esta completa.
 
+PROD-3 (2026-08-18): a escala de poder como camada do mapa. Toggle
+`powerScaleVisible` no selection (exclusivo com o choropleth partidario:
+tintas concorrentes), estados pintados numa rampa ciano com piso pelo score
+0-100 do agente oficial numero 1 da regiao (agregacao documentada e
+simulada por natureza: o selo SIMULADO acompanha a legenda de rampa no
+painel de camadas), `escala=1` na URL das analises e comando na paleta que
+cai para a lente influencia ao ligar. Fill composto sobre o void como toda
+area; testes no deckLayers (rampa, piso, uf sem score) e exclusividade no
+selection.
+
 PROD-2 (2026-08-17): comparacao lado a lado. Store `compare` (ate 4
 regioes), bandeja no dock esquerdo do mapa (`ui/CompareTray`), botao
 FIXAR/FIXADO no painel de regiao, comandos contextuais na paleta e a rota

@@ -163,6 +163,15 @@ export interface MapLayerModel {
     active: boolean
     byCodigo: Map<string, string>
   }
+  /**
+   * Choropleth pela escala de poder (PROD-3): estados pintados numa rampa
+   * ciano pelo score 0-100 do agente oficial nº 1 da região. Simulado por
+   * natureza; a legenda carrega o selo.
+   */
+  powerScale: {
+    active: boolean
+    scoreByUf: Record<string, number>
+  }
   /** Low-poly 3D sector objects: one per UF vocation (world view) or per top
    *  município vocation (demographic view cropped to a state). */
   sectorIcons: SectorIconPlacement[]
@@ -179,6 +188,18 @@ export const useMapLayersStore = defineStore('mapLayers', () => {
   const comercio = useComercioStore()
   const vocacao = useVocacaoStore()
   const partidos = usePartidosStore()
+
+  /** PROD-3: score 0-100 por UF (o agente oficial nº 1 de cada região). */
+  const powerScoreByUf = computed(() => {
+    const scores: Record<string, number> = {}
+    for (const region of rankings.regionsById.values()) {
+      if (region.id === 'BR') continue
+      let top = 0
+      for (const entity of region.official) top = Math.max(top, entity.score)
+      scores[region.id] = top
+    }
+    return scores
+  })
 
   const states = shallowRef<BoundaryCollection | null>(null)
   const national = shallowRef<BoundaryCollection | null>(null)
@@ -566,6 +587,10 @@ export const useMapLayersStore = defineStore('mapLayers', () => {
         !selection.demographicView &&
         partidos.byCodigo.size > 0,
       byCodigo: partidos.byCodigo,
+    },
+    powerScale: {
+      active: selection.powerScaleVisible && !selection.demographicView && rankings.ready,
+      scoreByUf: powerScoreByUf.value,
     },
     sectorIcons: sectorIcons.value,
   }))
