@@ -1,0 +1,27 @@
+{
+  "demografia": {
+    "censusYear": 2022,
+    "gdpYear": 2023
+  },
+  "fiscal": {
+    "referenceYear": 2025,
+    "sources": {
+      "arrecadacao": "Receita Federal · Arrecadação por Município (TOTAL, GPS, IR, IPI)",
+      "transferencias": "Tesouro Nacional · Transferências Constitucionais e Legais",
+      "emendas": "Portal da Transparência · Emendas Parlamentares (recebido por favorecido)"
+    }
+  },
+  "indicators": {
+    "censusYear": 2022,
+    "gdpYear": 2023
+  },
+  "comercio": {
+    "referenceYear": 2025,
+    "currency": "USD",
+    "source": "Comex Stat / MDIC · Base de dados bruta (NCM)",
+    "totals": {
+      "exp": 348278462500,
+      "imp": 280208433825
+    }
+  }
+}

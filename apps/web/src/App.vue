@@ -7,6 +7,7 @@
 import { RouterView } from 'vue-router'
 
 import CommandPalette from '@/components/ui/CommandPalette.vue'
+import OnboardingOverlay from '@/components/ui/OnboardingOverlay.vue'
 import { useAnalysisSync } from '@/composables/useAnalysisSync'
 
 // Keeps the URL and the analysis state in step, both ways (IA-3).
@@ -15,6 +16,9 @@ useAnalysisSync()
 
 <template>
   <RouterView />
-  <!-- Global overlay: lives above the router so Ctrl-K works on any route. -->
+  <!-- Global overlays above the router: Ctrl-K works on any route; the
+       onboarding gates itself to the map route. Mount order matters: the
+       palette registers its capture keydown first and wins the Esc. -->
   <CommandPalette />
+  <OnboardingOverlay />
 </template>

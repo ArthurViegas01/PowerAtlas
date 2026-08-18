@@ -6,8 +6,10 @@
  *
  *   public/geo/brazil-states.geojson    (27 UFs, `UF` property = join key)
  *   public/geo/brazil-national.geojson  (country outline, UF="BR")
- *   public/geo/world-countries.geojson  (NE 110m, minus Brazil/Antarctica,
- *                                        props {iso, name} — "em breve" layer)
+ *   public/geo/world-countries.geojson  (NE 50m, minus Brazil/Antarctica, props
+ *                                        {iso, name}; province-covered countries
+ *                                        get their outline from world-states so
+ *                                        the walls match the hover — "em breve")
  *
  * The national outline is NOT downloaded separately: it is dissolved from the
  * already-simplified state polygons so both files share exactly coincident
@@ -48,10 +50,15 @@ const municipioMalhaUrl = (code) =>
 const municipioNamesUrl = (code) =>
   `https://servicodados.ibge.gov.br/api/v1/localidades/estados/${code}/municipios`
 
-// Natural Earth 1:110m admin-0 countries (public domain) — dim world
+// Natural Earth 1:50m admin-0 countries (public domain) — dim world
 // backdrop only; IBGE stays the authoritative source for Brazil itself.
+// 50m (vs the coarser 110m) has far more vertices per country, so the
+// backdrop borders read as smooth curves instead of angular line segments.
 const WORLD_URL =
-  'https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_admin_0_countries.geojson'
+  'https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_50m_admin_0_countries.geojson'
+// 50m is much denser than 110m: simplify lightly to keep the file within
+// budget while preserving the smooth outlines.
+const WORLD_SIMPLIFY = '18%'
 
 // Natural Earth 1:10m admin-1 states/provinces (public domain). The whole
 // American continent gets its internal divisions drawn (minus Brazil, which
@@ -99,7 +106,11 @@ const WORLD_STATES_COUNTRIES = {
 
 // keep-shapes prevents small polygons (islands) from collapsing entirely.
 const SIMPLIFY = '30%'
-const WORLD_STATES_SIMPLIFY = '7%'
+// Kept low on purpose: reconcileWorldCountries dissolves these provinces into the
+// province-covered countries' outlines, so this density also sets the size of
+// world-countries. At this level world-states lands ~500 KB and the reconciled
+// world-countries stays under its 400 KB budget. Raise it and check BOTH reports.
+const WORLD_STATES_SIMPLIFY = '4%'
 const BUDGET_KB = { national: 200, states: 500, world: 400, worldStates: 1800, municipios: 900 }
 
 // [sigla, code] for every UF: the municipal pipeline covers the whole country.
@@ -170,6 +181,34 @@ function decorateWorld(file) {
 }
 
 /**
+ * Natural Earth ships French Guiana as one of France's (FRA) polygons. On this
+ * map it borders Amapá, so a click on it would fly the camera to Europe. Pull
+ * that South-American polygon into its own GUF feature ("Guiana Francesa") so it
+ * reads and behaves as a território of its own.
+ */
+function splitFrenchGuiana(file) {
+  const fc = JSON.parse(readFileSync(file, 'utf8'))
+  const fra = fc.features.find((f) => f.properties.iso === 'FRA')
+  if (!fra || fra.geometry.type !== 'MultiPolygon') return
+  const isGuiana = (poly) => {
+    const ring = poly[0]
+    const cx = ring.reduce((a, p) => a + p[0], 0) / ring.length
+    const cy = ring.reduce((a, p) => a + p[1], 0) / ring.length
+    return cx < -40 && cx > -60 && cy > 0 && cy < 12
+  }
+  const guf = fra.geometry.coordinates.filter(isGuiana)
+  if (guf.length === 0) return
+  fra.geometry.coordinates = fra.geometry.coordinates.filter((p) => !isGuiana(p))
+  const idx = fc.features.indexOf(fra)
+  fc.features.splice(idx + 1, 0, {
+    type: 'Feature',
+    properties: { iso: 'GUF', name: 'Guiana Francesa' },
+    geometry: { type: 'MultiPolygon', coordinates: guf },
+  })
+  writeFileSync(file, JSON.stringify(fc))
+}
+
+/**
  * Slim the Natural Earth admin-1 file to the handful of big countries we draw
  * internal divisions for, and strip properties to { iso, name, country, code }:
  * `iso` is the country's ADM0_A3 (join key to world-countries), `name` the
@@ -198,6 +237,47 @@ function decorateWorldStates(file) {
   if (missing.length) throw new Error(`World-states: no provinces for ${missing.join(', ')}`)
   console.log(`[geo] world-states kept: ${JSON.stringify(kept)}`)
   writeFileSync(file, JSON.stringify(fc))
+}
+
+/**
+ * Make each province-covered country's outline match its provinces exactly.
+ * The world backdrop draws the country fill/wall from the NE 50m admin-0 mesh,
+ * but the hover highlight of a province comes from the denser NE 10m admin-1
+ * mesh (world-states). At different resolutions their coastlines disagree, so
+ * the wall sits in one place while the hovered province shows another territory.
+ * Fix: for every country in WORLD_STATES_COUNTRIES, replace its admin-0 polygon
+ * with the dissolved union of its own provinces (the same 10m geometry the hover
+ * uses), so the wall and the province outlines are one and the same. Countries
+ * without provinces keep their 50m outline (nothing to disagree with there).
+ */
+function reconcileWorldCountries() {
+  const outWorld = join(OUT, 'world-countries.geojson')
+  const outWorldStates = join(OUT, 'world-states.geojson')
+  const dissolved = join(CACHE, 'world-states-dissolved.geojson')
+  // Union each country's provinces into a single outline (interior province
+  // borders drop out), keyed by iso. Keep the province precision (0.0001) so the
+  // dissolved coastline vertices are IDENTICAL to the province ones — the whole
+  // point is that the wall and the province hover trace the same line.
+  mapshaper(
+    `"${outWorldStates}" -dissolve iso -o precision=0.0001 format=geojson "${dissolved}"`,
+  )
+  const byIso = new Map()
+  for (const feature of JSON.parse(readFileSync(dissolved, 'utf8')).features) {
+    const iso = feature.properties?.iso
+    if (iso) byIso.set(iso, feature.geometry)
+  }
+  const world = JSON.parse(readFileSync(outWorld, 'utf8'))
+  let replaced = 0
+  for (const feature of world.features) {
+    const geometry = byIso.get(feature.properties.iso)
+    if (geometry) {
+      feature.geometry = geometry
+      replaced += 1
+    }
+  }
+  writeFileSync(outWorld, JSON.stringify(world))
+  console.log(`[geo] reconciled ${replaced} country outlines from their admin-1 provinces`)
+  report(outWorld, BUDGET_KB.world)
 }
 
 async function buildWorldStates() {
@@ -260,9 +340,20 @@ const MUNICIPIOS_ONLY = process.argv.includes('--municipios-only')
 // `--world-states-only` builds just public/geo/world-states.geojson (the big
 // countries' admin-1 divisions), leaving every other output untouched.
 const WORLD_STATES_ONLY = process.argv.includes('--world-states-only')
+// `--reconcile-world` re-derives the province-covered countries' outlines from
+// the already-shipped world-states.geojson (no download), so the walls match
+// the province hover. Runs against the committed public/geo files.
+const RECONCILE_WORLD = process.argv.includes('--reconcile-world')
+
+if (RECONCILE_WORLD) {
+  reconcileWorldCountries()
+  console.log('[geo] done (reconcile-world only).')
+  process.exit(0)
+}
 
 if (WORLD_STATES_ONLY) {
   await buildWorldStates()
+  reconcileWorldCountries()
   console.log('[geo] done (world-states only).')
   process.exit(0)
 }
@@ -280,15 +371,22 @@ if (!MUNICIPIOS_ONLY) {
   decorate(outStates)
 
   await download(WORLD_URL, rawWorld)
-  // 110m is already coarse — just trim coordinate precision (~1 km).
-  mapshaper(`"${rawWorld}" -o precision=0.01 format=geojson "${outWorld}"`)
+  // 50m is dense: simplify lightly (keep-shapes so islands survive) and trim
+  // coordinate precision (~1 km) to land under the size budget.
+  mapshaper(
+    `"${rawWorld}" -simplify ${WORLD_SIMPLIFY} keep-shapes -clean -o precision=0.01 format=geojson "${outWorld}"`,
+  )
   decorateWorld(outWorld)
+  splitFrenchGuiana(outWorld)
 
   report(outStates, BUDGET_KB.states)
   report(outNational, BUDGET_KB.national)
   report(outWorld, BUDGET_KB.world)
 
   await buildWorldStates()
+  // The province-covered countries take their outline from their own provinces
+  // so the backdrop walls line up with the province hover.
+  reconcileWorldCountries()
 }
 
 const munOut = join(OUT, 'municipios')

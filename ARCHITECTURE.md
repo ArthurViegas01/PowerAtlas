@@ -178,10 +178,44 @@ CSV and store it, which means the API takes its first writes. To keep the
 content-safety rule (§5) and the read-only power contract intact, those writes
 go **only** to a new `datasets` / `dataset_rows` namespace (migration 0003)
 with no path to the served tables. A parity test asserts `GET /api/v1/power-data`
-is byte-identical before and after an import. Writes are gated behind
-`PA_ALLOW_WRITES` (off by default), a minimal guard until real auth arrives with
-the review workflow (F6). Export stays client-side and uniform across every
-dataset, so there is no server export endpoint.
+is byte-identical before and after an import. Writes require a real admin
+session (§2.11), so only the logged-in operator can mutate. Export stays
+client-side and uniform across every dataset, so there is no server export
+endpoint.
+
+### 2.11 Admin authentication is the write gate (single admin)
+
+"Only the operator alters data" is enforced server-side. The API enables writes
+only when `PA_ADMIN_PASSWORD` is set; the data console logs in
+(`POST /api/v1/auth/login`) for a stateless, HMAC-signed, expiring bearer token
+(core/auth.py) that every import/delete must carry, verified on each request. No
+password → every write refused (403); no/invalid token → 401. So a public deploy
+with no admin password is read-only for everyone, and the console's login UI only
+appears against a write-capable backend. Single admin, so the token carries only
+its expiry — no user table, no session store. This supersedes the earlier
+`PA_ALLOW_WRITES` flag. Real per-entity review/approval (F6) is still deferred;
+this covers the data console's isolated `datasets` namespace only.
+
+### 2.10 CSV-first data warehouse (star schema) behind the browser payloads
+
+The browser payloads under `public/data/**` are shaped for bundle size (positional
+tuples, nested trade sectors, region-keyed objects). That is hostile to analysis:
+Power BI/Excel cannot open them, and there is no explicit key to cross demografia ×
+fiscal × comércio. The **warehouse** (`data/warehouse/`, docs/warehouse.md) is a
+CSV-first star schema (four dims, five facts) that is the source of truth for the
+factual datasets: humans edit CSV, `scripts/warehouse-build.mjs` (`pnpm warehouse`)
+and `scripts/compile-web.mjs` (`pnpm compile-web`) are inverses, and
+`pnpm compile-web:check` asserts the compiled payloads are **byte-identical** to the
+committed ones, so the site is provably untouched. Non-tabular scalars (source
+labels, comércio totals, reference years) live in `data/warehouse/meta.json`, the
+only thing the CSVs cannot carry.
+
+Same script + committed output + provenance pattern as the meshes (§2.4), indicators
+(§2.5) and fiscal (§2.8). Scope is the four served datasets (indicators UF,
+demografia, fiscal, comércio); the raw per-município IBGE fetch and the geo meshes
+stay upstream inputs, and the fictional rankings (§5) stay out of the factual
+warehouse by construction. Cross-referencing keys: `codigo_ibge`, `uf_sigla`, `iso`,
+`capitulo_ncm`.
 
 ## 3. Deviations from the initial plan
 
@@ -269,7 +303,9 @@ Still deferred:
   no LLM) are noted in PLAN.md section 3 for whenever it resumes.
 - **Review workflow (F6)**: draft/published gate, single admin approver, every
   AI-derived score requires a source citation before publish.
-- **Writes + auth**: the API is read-only; no mutation endpoints or auth yet.
+- **Writes + auth**: the served power contract stays read-only; the only
+  mutations are the data console's dataset import/delete, gated on a single-admin
+  session (§2.11). Multi-user auth and per-entity review/approval remain deferred.
 - **infra Terraform**: deferred; `docker-compose.yml` covers local infra.
 - **Municipal rankings**: the municipal panel is factual-only until the
   pipeline can produce scored entities.

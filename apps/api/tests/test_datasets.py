@@ -45,8 +45,9 @@ def test_list_empty_without_database(client: TestClient) -> None:
     assert resp.json() == {"datasets": []}
 
 
-def test_import_forbidden_without_writes(client: TestClient) -> None:
-    # Default settings: writes disabled -> 403 before any DB work.
+def test_import_forbidden_without_admin(client: TestClient) -> None:
+    # Default settings: no admin configured -> writes disabled, 403 before any
+    # DB work.
     resp = client.post("/api/v1/datasets/import", json=SAMPLE)
     assert resp.status_code == 403
 
@@ -54,14 +55,19 @@ def test_import_forbidden_without_writes(client: TestClient) -> None:
 @pytest.mark.integration
 async def test_import_roundtrip_and_parity(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("PA_DATABASE_URL", DB_DSN)
-    monkeypatch.setenv("PA_ALLOW_WRITES", "true")
+    monkeypatch.setenv("PA_ADMIN_PASSWORD", "senha-de-teste")
     get_settings.cache_clear()
     dataset_id: str | None = None
     try:
         with TestClient(create_app()) as client:
             before = _payload_without_timestamp(client.get("/api/v1/power-data").text)
 
-            created = client.post("/api/v1/datasets/import", json=SAMPLE)
+            token = client.post(
+                "/api/v1/auth/login", json={"password": "senha-de-teste"}
+            ).json()["token"]
+            auth = {"Authorization": f"Bearer {token}"}
+
+            created = client.post("/api/v1/datasets/import", json=SAMPLE, headers=auth)
             assert created.status_code == 201
             meta = created.json()
             dataset_id = meta["id"]
@@ -78,7 +84,7 @@ async def test_import_roundtrip_and_parity(monkeypatch: pytest.MonkeyPatch) -> N
             after = _payload_without_timestamp(client.get("/api/v1/power-data").text)
             assert before == after
 
-            deleted = client.delete(f"/api/v1/datasets/{dataset_id}")
+            deleted = client.delete(f"/api/v1/datasets/{dataset_id}", headers=auth)
             assert deleted.status_code == 204
             dataset_id = None
     finally:

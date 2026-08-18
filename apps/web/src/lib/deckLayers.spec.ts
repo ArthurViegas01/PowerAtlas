@@ -75,6 +75,8 @@ function model(overrides: Partial<MapLayerModel> = {}): MapLayerModel {
       highlights: [],
     },
     globalIdle: false,
+    political: { active: false, byCodigo: new Map() },
+    sectorIcons: [],
     ...overrides,
   }
 }

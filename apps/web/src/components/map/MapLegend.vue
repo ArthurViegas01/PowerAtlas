@@ -1,11 +1,37 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 
+import { useResizableWidth } from '@/composables/useResizableWidth'
+import { DEFAULT_PARTY_RGB, LEGEND_PARTIES, partyColorAny } from '@/lib/partyColors'
+import { ICON_COLOR, type MeshKey } from '@/lib/sectorIcons'
 import { useComercioStore } from '@/stores/comercio'
+import { usePartidosStore } from '@/stores/partidos'
 import { useSelectionStore } from '@/stores/selection'
 
 const selection = useSelectionStore()
 const comercio = useComercioStore()
+const partidos = usePartidosStore()
+
+/**
+ * The 3D sector objects show in the world view (one per UF vocation) and in the
+ * demographic view cropped to a state (per município). Both keep nothing
+ * Brazilian drilled in the influence view, so this legend rides along there.
+ */
+const showVocacao = computed(
+  () => !selection.selectedId && !selection.selectedMunicipio,
+)
+
+const rgb = (c: [number, number, number]) => `rgb(${c[0]}, ${c[1]}, ${c[2]})`
+
+/** Wireframe glyph + label for each sector archetype (matches lib/sectorIcons). */
+const vocacaoItems: { key: MeshKey; label: string; d: string }[] = [
+  { key: 'silo', label: 'AGRO · SILO', d: 'M6 15 L6 7 L14 7 L14 15 M6 7 L10 2 L14 7' },
+  { key: 'factory', label: 'INDÚSTRIA · FÁBRICA', d: 'M3 15 L3 8 L13 8 L13 15 M11 8 L11 4 L13 4 L13 8' },
+  { key: 'towers', label: 'SERVIÇOS · TORRES', d: 'M3 15 L3 7 L6 7 L6 15 M8 15 L8 3 L11 3 L11 15 M13 15 L13 9 L16 9 L16 15' },
+  { key: 'civic', label: 'ADM. PÚBLICA · CÍVICO', d: 'M3 15 L3 12 L17 12 L17 15 M5 12 L5 6 M9 12 L9 6 M13 12 L13 6 M3 6 L17 6 M3 6 L10 2 L17 6' },
+  { key: 'mine', label: 'MINÉRIO · PILHA', d: 'M3 15 L10 3 L17 15 Z M6.5 9 L13.5 9' },
+  { key: 'tank', label: 'PETRÓLEO · TANQUE', d: 'M4 15 L4 8 L16 8 L16 15 M4 8 Q10 4 16 8' },
+]
 
 /**
  * The trade controls belong to the global context: no Brazilian region drilled
@@ -19,56 +45,59 @@ const showTrade = computed(
     comercio.partners.length > 0,
 )
 
+/**
+ * The party choropleth control stays available at national AND state level
+ * (the colors persist into the drill-down, so the key must too); it only steps
+ * aside for the demographic view and the deepest município drill. Toggling it on
+ * lazily loads the dataset (a no-op once cached).
+ */
+const showPartisan = computed(
+  () => !selection.demographicView && !selection.selectedMunicipio,
+)
+
+function togglePartisan() {
+  if (!selection.partisanVisible) void partidos.load()
+  selection.togglePartisan()
+}
+
+const partyRgbCss = (sigla: string) => {
+  const [r, g, b] = partyColorAny(sigla)
+  return `rgb(${r}, ${g}, ${b})`
+}
+const otherRgbCss = `rgb(${DEFAULT_PARTY_RGB[0]}, ${DEFAULT_PARTY_RGB[1]}, ${DEFAULT_PARTY_RGB[2]})`
+const legendParties = LEGEND_PARTIES
+
 /** User-adjustable card width, dragged from the right edge and remembered. */
-const WIDTH_MIN = 170
-const WIDTH_MAX = 480
-const WIDTH_DEFAULT = 210
-const STORAGE_KEY = 'pa-legend-width'
+const { width, startResize } = useResizableWidth('pa-legend-width', {
+  min: 170,
+  max: 480,
+  default: 210,
+})
 
-const width = ref(readStoredWidth())
-
-function readStoredWidth(): number {
-  if (typeof window === 'undefined') return WIDTH_DEFAULT
-  const raw = Number(window.localStorage.getItem(STORAGE_KEY))
-  return Number.isFinite(raw) && raw > 0 ? clampWidth(raw) : WIDTH_DEFAULT
-}
-
-function clampWidth(value: number): number {
-  return Math.min(WIDTH_MAX, Math.max(WIDTH_MIN, Math.round(value)))
-}
-
-let dragStartX = 0
-let dragStartWidth = 0
-
-function onDragMove(event: PointerEvent) {
-  width.value = clampWidth(dragStartWidth + (event.clientX - dragStartX))
-}
-
-function onDragEnd() {
-  window.removeEventListener('pointermove', onDragMove)
-  window.removeEventListener('pointerup', onDragEnd)
-  if (typeof window !== 'undefined') {
-    window.localStorage.setItem(STORAGE_KEY, String(width.value))
+/** Collapsed state (title-only), remembered across sessions. */
+const collapsed = ref(
+  typeof localStorage !== 'undefined' && localStorage.getItem('pa-legend-collapsed') === '1',
+)
+watch(collapsed, (value) => {
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem('pa-legend-collapsed', value ? '1' : '0')
   }
-}
-
-function startResize(event: PointerEvent) {
-  dragStartX = event.clientX
-  dragStartWidth = width.value
-  window.addEventListener('pointermove', onDragMove)
-  window.addEventListener('pointerup', onDragEnd)
-}
-
-onBeforeUnmount(() => {
-  window.removeEventListener('pointermove', onDragMove)
-  window.removeEventListener('pointerup', onDragEnd)
 })
 </script>
 
 <template>
-  <div class="legend" :style="{ width: `${width}px` }">
-    <p class="pa-label legend-title">LEGENDA // CAMADAS</p>
+  <div class="legend" :class="{ 'legend--collapsed': collapsed }" :style="collapsed ? undefined : { width: `${width}px` }">
+    <button
+      class="legend-title-btn"
+      type="button"
+      :aria-expanded="!collapsed"
+      @click="collapsed = !collapsed"
+    >
+      <span class="legend-chev">{{ collapsed ? '▸' : '▾' }}</span>
+      <span class="pa-label legend-title">LEGENDA // CAMADAS</span>
+    </button>
 
+    <template v-if="!collapsed">
     <ul v-if="selection.demographicView" class="m-0 flex list-none flex-col gap-1.5 p-0">
       <li class="flex items-center gap-2">
         <span class="swatch swatch--metric"></span>
@@ -124,6 +153,47 @@ onBeforeUnmount(() => {
       </button>
     </div>
 
+    <div v-if="showPartisan" class="partisan">
+      <button
+        class="trade-toggle pa-data"
+        type="button"
+        :aria-pressed="selection.partisanVisible"
+        @click="togglePartisan()"
+      >
+        <span class="chk">{{ selection.partisanVisible ? '[x]' : '[ ]' }}</span>
+        PARTIDOS · PREFEITO {{ partidos.referenceYear ?? '2024' }}
+      </button>
+      <ul v-if="selection.partisanVisible" class="party-list m-0 list-none p-0">
+        <li v-for="sigla in legendParties" :key="sigla" class="flex items-center gap-2">
+          <span class="swatch" :style="{ background: partyRgbCss(sigla) }"></span>
+          <span class="row-label pa-data">{{ sigla }}</span>
+        </li>
+        <li class="flex items-center gap-2">
+          <span class="swatch" :style="{ background: otherRgbCss }"></span>
+          <span class="row-label pa-data">OUTROS / SEM DADO</span>
+        </li>
+      </ul>
+    </div>
+
+    <div v-if="showVocacao" class="vocacao">
+      <p class="pa-label vocacao-title">VOCAÇÃO // SETORES</p>
+      <ul class="m-0 flex list-none flex-col gap-1.5 p-0">
+        <li v-for="item in vocacaoItems" :key="item.key" class="flex items-center gap-2">
+          <svg class="voc-glyph" viewBox="0 0 20 17" aria-hidden="true">
+            <path :d="item.d" :style="{ stroke: rgb(ICON_COLOR[item.key]) }" />
+          </svg>
+          <span class="row-label pa-data">{{ item.label }}</span>
+        </li>
+      </ul>
+      <p class="vocacao-note pa-label">
+        {{
+          selection.demographicView
+            ? 'MUNICÍPIO · VAB IBGE 2021 (QUOCIENTE LOCACIONAL)'
+            : 'ESTADO · EXPORTAÇÃO DOMINANTE (COMEX)'
+        }}
+      </p>
+    </div>
+
     <p class="credit pa-label">
       {{ selection.demographicView ? 'DADOS: IBGE · MALHAS SIMPLIFICADAS' : 'FONTE: IBGE · COMEX STAT/MDIC' }}
     </p>
@@ -137,6 +207,7 @@ onBeforeUnmount(() => {
       title="Arraste para ajustar a largura"
       @pointerdown.prevent="startResize"
     ></div>
+    </template>
   </div>
 </template>
 
@@ -177,9 +248,36 @@ onBeforeUnmount(() => {
   background: var(--pa-border-cyan-strong);
 }
 
+/* Title doubles as the collapse toggle. */
+.legend-title-btn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  margin-bottom: 8px;
+  padding: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+}
+
+.legend--collapsed .legend-title-btn {
+  margin-bottom: 0;
+}
+
+.legend-chev {
+  font-size: var(--pa-text-2xs);
+  color: var(--pa-series-official);
+}
+
 .legend-title {
-  margin: 0 0 8px;
+  margin: 0;
   color: var(--pa-text-dim);
+}
+
+.legend-title-btn:hover .legend-title {
+  color: var(--pa-series-official);
 }
 
 .row-label {
@@ -265,6 +363,51 @@ onBeforeUnmount(() => {
 .dir--on {
   color: var(--pa-text-primary);
   border-color: var(--pa-border-cyan);
+}
+
+/* Party choropleth control: a toggle plus a swatch per major party. */
+.partisan {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--pa-border-faint);
+}
+
+.party-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px 10px;
+  margin-top: 8px;
+}
+
+/* Sector vocation legend: a wireframe glyph per archetype, in its icon color. */
+.vocacao {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--pa-border-faint);
+}
+
+.vocacao-title {
+  margin: 0 0 8px;
+  color: var(--pa-text-dim);
+}
+
+.voc-glyph {
+  width: 18px;
+  height: 15px;
+  flex: none;
+  overflow: visible;
+}
+
+.voc-glyph path {
+  fill: none;
+  stroke-width: 1.2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.vocacao-note {
+  margin: 8px 0 0;
+  color: var(--pa-text-faint);
 }
 
 .credit {

@@ -30,3 +30,18 @@ export interface MunicipioIndicatorsFile extends IndicatorsMeta {
   /** Keyed by 7-digit IBGE municipality code. */
   municipios: Record<string, RegionIndicators>
 }
+
+/** One município's indicators with its code (the data-console dataset row). */
+export interface MunicipioIndicador extends RegionIndicators {
+  codigo: string
+}
+
+/**
+ * Consolidated all-municipality indicators for the data console
+ * (public/data/indicators/municipios-all.json, compiled from the warehouse).
+ * Tuples to keep the lazy payload small: [codigo, population, areaKm2, density,
+ * gdpBrlThousands].
+ */
+export interface MunicipiosAllFile extends IndicatorsMeta {
+  municipios: [string, number | null, number | null, number | null, number | null][]
+}

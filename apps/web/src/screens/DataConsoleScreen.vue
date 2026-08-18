@@ -2,6 +2,8 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 
+import AdminLoginDialog from '@/components/dashboard/AdminLoginDialog.vue'
+import CatalogPanel from '@/components/dashboard/CatalogPanel.vue'
 import DataTable from '@/components/dashboard/DataTable.vue'
 import ImportDialog from '@/components/dashboard/ImportDialog.vue'
 import KpiTile from '@/components/dashboard/KpiTile.vue'
@@ -13,76 +15,114 @@ import Histogram from '@/components/dashboard/charts/Histogram.vue'
 import LineChart from '@/components/dashboard/charts/LineChart.vue'
 import ScatterPlot from '@/components/dashboard/charts/ScatterPlot.vue'
 import {
+  buildComercioDataset,
   buildDemografiaDataset,
   buildFiscalDataset,
   buildImportedDataset,
+  buildIndicadoresMunicipioDataset,
   buildIndicatorsDataset,
   buildRankingsDataset,
 } from '@/lib/datasets'
 import { chartsFor } from '@/lib/datasetCharts'
 import { downloadText, toCsv, toJson } from '@/lib/csv'
+import { useAdminStore } from '@/stores/admin'
+import { useComercioStore } from '@/stores/comercio'
 import { useDemografiaStore } from '@/stores/demografia'
 import { useFiscalStore } from '@/stores/fiscal'
 import { useImportedDatasetsStore } from '@/stores/importedDatasets'
 import { useIndicatorsStore } from '@/stores/indicators'
+import { useIndicatorsMunicipiosStore } from '@/stores/indicatorsMunicipios'
 import { useRankingsStore } from '@/stores/rankings'
 import { useStatsStore } from '@/stores/stats'
 import type { TabularDataset } from '@/types/dataset'
 
 /**
- * Data console: a tabular/analytical view over every dataset the app manages.
- * Reuses the client-side stores (no re-fetch): IBGE indicators, the demographic
- * and fiscal municipal sets, the fictional rankings, plus the pipeline/backend
- * overview and operator-imported datasets. KPIs, SVG charts, a sortable table
- * and CSV/JSON export.
+ * Data console: a tabular/analytical view over every dataset the app manages,
+ * grouped by theme. Reuses the client-side stores (no re-fetch) for the factual
+ * datasets — IBGE indicators (UF + município), demographic, fiscal, foreign
+ * trade — plus the fictional rankings, the warehouse catalog, the backend
+ * pipeline overview and operator-imported datasets. Every dataset renders the
+ * same way: KPIs, SVG charts, a sortable table, CSV/JSON export.
+ *
+ * Only the logged-in admin can mutate: the import/remove tools appear once an
+ * admin session exists, and the API rejects writes without a valid token.
  */
 const rankings = useRankingsStore()
 const indicators = useIndicatorsStore()
+const indicatorsMunic = useIndicatorsMunicipiosStore()
 const demografia = useDemografiaStore()
 const fiscal = useFiscalStore()
+const comercio = useComercioStore()
 const stats = useStatsStore()
 const imported = useImportedDatasetsStore()
+const admin = useAdminStore()
 
 onMounted(() => {
   void rankings.load()
   void indicators.loadUf()
   void demografia.load()
   void fiscal.load()
+  void comercio.load()
   void stats.load()
   void imported.loadList()
 })
-
-/** 'pipeline' is a backend-observability view, not a TabularDataset. */
-const isPipeline = computed(() => activeId.value === 'pipeline')
 
 const nameByCodigo = computed(
   () => new Map(demografia.municipios.map((m) => [m.codigo, m.name])),
 )
 
-const builtinDatasets = computed<TabularDataset[]>(() => [
-  buildIndicatorsDataset(indicators.ufFile),
-  buildDemografiaDataset(demografia.municipios, demografia.censusYear, demografia.gdpYear),
-  buildFiscalDataset(fiscal.byCodigo, fiscal.referenceYear, nameByCodigo.value),
-  buildRankingsDataset(rankings.data?.regions ?? []),
+// Themed groups of built-in datasets. Empty stores still yield a labelled tab
+// (id/label are stable); the rows fill in once the store loads.
+const groups = computed(() => [
+  {
+    label: 'TERRITORIAIS',
+    datasets: [
+      buildIndicatorsDataset(indicators.ufFile),
+      buildIndicadoresMunicipioDataset(
+        indicatorsMunic.municipios,
+        nameByCodigo.value,
+        indicatorsMunic.censusYear ?? demografia.censusYear,
+        indicatorsMunic.gdpYear ?? demografia.gdpYear,
+      ),
+      buildDemografiaDataset(demografia.municipios, demografia.censusYear, demografia.gdpYear),
+    ],
+  },
+  {
+    label: 'ECONÔMICOS',
+    datasets: [
+      buildFiscalDataset(fiscal.byCodigo, fiscal.referenceYear, nameByCodigo.value),
+      buildComercioDataset(comercio.partners, comercio.totals, comercio.referenceYear, comercio.source),
+    ],
+  },
+  {
+    label: 'SIMULADO',
+    datasets: [buildRankingsDataset(rankings.data?.regions ?? [])],
+  },
 ])
+
+const builtinDatasets = computed<TabularDataset[]>(() => groups.value.flatMap((g) => g.datasets))
 
 const activeId = ref('indicators')
 const showImport = ref(false)
+const showLogin = ref(false)
 
-/** Whether the active id is an imported dataset. */
+const isPipeline = computed(() => activeId.value === 'pipeline')
+const isCatalog = computed(() => activeId.value === 'catalog')
 const activeIsImported = computed(() => imported.list.some((d) => d.id === activeId.value))
 
-/** The active dataset, or undefined for the pipeline view or a not-yet-loaded import. */
+/** The active dataset, or undefined for the special views / a pending import. */
 const active = computed<TabularDataset | undefined>(() => {
-  if (isPipeline.value) return undefined
+  if (isPipeline.value || isCatalog.value) return undefined
   const builtin = builtinDatasets.value.find((d) => d.id === activeId.value)
   if (builtin) return builtin
   const detail = imported.detailById.get(activeId.value)
   return detail ? buildImportedDataset(detail) : undefined
 })
 
-// Fetch an imported dataset's rows the first time it is selected.
+// Lazy-load the heavier / on-demand datasets the first time they are selected.
 watch(activeId, (id) => {
+  if (id === 'indicadores-municipio') void indicatorsMunic.load()
+  if (id === 'comercio') void comercio.load()
   if (imported.list.some((d) => d.id === id)) void imported.loadDetail(id)
 })
 
@@ -99,13 +139,20 @@ async function removeActive() {
   activeId.value = 'indicators'
 }
 
-// indicators store loads a 3 KB file at boot and exposes no loading flag; the
-// two big municipal sets are what a spinner would be waiting on.
 const loading = computed(
-  () => rankings.loading || demografia.loading || fiscal.loading || imported.loading,
+  () =>
+    rankings.loading ||
+    demografia.loading ||
+    fiscal.loading ||
+    comercio.loading ||
+    indicatorsMunic.loading ||
+    imported.loading,
 )
 
 const charts = computed(() => (active.value ? chartsFor(active.value) : []))
+
+// Admin login offered only when a backend that can accept writes is reachable.
+const canLogin = computed(() => admin.canAuthenticate && stats.data?.writesAllowed === true)
 
 function exportCsv() {
   if (!active.value) return
@@ -129,51 +176,85 @@ function exportJson() {
         <p class="brand-name pa-data">POWERATLAS</p>
         <p class="pa-label">CONSOLE DE DADOS // OBSERVABILIDADE</p>
       </div>
-      <RouterLink to="/" class="nav-link pa-data">◄ VOLTAR AO MAPA</RouterLink>
+      <div class="header-actions">
+        <template v-if="admin.isAdmin">
+          <span class="admin-badge pa-data">ADMIN ✓</span>
+          <button class="nav-link pa-data" type="button" @click="admin.logout()">SAIR</button>
+        </template>
+        <button
+          v-else-if="canLogin"
+          class="nav-link nav-link--admin pa-data"
+          type="button"
+          @click="showLogin = true"
+        >
+          ⌁ ENTRAR (ADMIN)
+        </button>
+        <RouterLink to="/" class="nav-link pa-data">◄ VOLTAR AO MAPA</RouterLink>
+      </div>
     </header>
 
     <main class="console-body">
       <nav class="dataset-tabs" aria-label="Conjuntos de dados">
-        <button
-          v-for="ds in builtinDatasets"
-          :key="ds.id"
-          class="ds-tab pa-data"
-          :class="{ 'ds-tab--active': ds.id === activeId, 'ds-tab--fictional': ds.fictional }"
-          type="button"
-          @click="activeId = ds.id"
-        >
-          {{ ds.label }}
-        </button>
-        <button
-          v-for="ds in imported.list"
-          :key="ds.id"
-          class="ds-tab ds-tab--imported pa-data"
-          :class="{ 'ds-tab--active': ds.id === activeId }"
-          type="button"
-          @click="activeId = ds.id"
-        >
-          {{ ds.name.toUpperCase() }}
-        </button>
-        <button
-          v-if="stats.data?.writesAllowed"
-          class="ds-tab ds-tab--action pa-data"
-          type="button"
-          @click="showImport = true"
-        >
-          + IMPORTAR
-        </button>
-        <button
-          v-if="stats.available"
-          class="ds-tab ds-tab--pipeline pa-data"
-          :class="{ 'ds-tab--active': isPipeline }"
-          type="button"
-          @click="activeId = 'pipeline'"
-        >
-          PIPELINE + BANCO
-        </button>
+        <div v-for="group in groups" :key="group.label" class="tab-group">
+          <span class="group-label pa-label">{{ group.label }}</span>
+          <button
+            v-for="ds in group.datasets"
+            :key="ds.id"
+            class="ds-tab pa-data"
+            :class="{ 'ds-tab--active': ds.id === activeId, 'ds-tab--fictional': ds.fictional }"
+            type="button"
+            @click="activeId = ds.id"
+          >
+            {{ ds.label }}
+          </button>
+        </div>
+
+        <div v-if="imported.list.length || admin.isAdmin" class="tab-group">
+          <span class="group-label pa-label">IMPORTADOS</span>
+          <button
+            v-for="ds in imported.list"
+            :key="ds.id"
+            class="ds-tab ds-tab--imported pa-data"
+            :class="{ 'ds-tab--active': ds.id === activeId }"
+            type="button"
+            @click="activeId = ds.id"
+          >
+            {{ ds.name.toUpperCase() }}
+          </button>
+          <button
+            v-if="admin.isAdmin"
+            class="ds-tab ds-tab--action pa-data"
+            type="button"
+            @click="showImport = true"
+          >
+            + IMPORTAR
+          </button>
+        </div>
+
+        <div class="tab-group tab-group--end">
+          <span class="group-label pa-label">SISTEMA</span>
+          <button
+            class="ds-tab ds-tab--catalog pa-data"
+            :class="{ 'ds-tab--active': isCatalog }"
+            type="button"
+            @click="activeId = 'catalog'"
+          >
+            CATÁLOGO
+          </button>
+          <button
+            v-if="stats.available"
+            class="ds-tab ds-tab--pipeline pa-data"
+            :class="{ 'ds-tab--active': isPipeline }"
+            type="button"
+            @click="activeId = 'pipeline'"
+          >
+            PIPELINE + BANCO
+          </button>
+        </div>
       </nav>
 
-      <PipelinePanel v-if="isPipeline" />
+      <CatalogPanel v-if="isCatalog" />
+      <PipelinePanel v-else-if="isPipeline" />
 
       <section v-else-if="active" class="dataset-panel">
         <div class="panel-head">
@@ -186,7 +267,7 @@ function exportJson() {
             <button class="action pa-data" type="button" @click="exportCsv">EXPORTAR CSV</button>
             <button class="action pa-data" type="button" @click="exportJson">EXPORTAR JSON</button>
             <button
-              v-if="activeIsImported"
+              v-if="activeIsImported && admin.isAdmin"
               class="action action-danger pa-data"
               type="button"
               @click="removeActive"
@@ -251,6 +332,11 @@ function exportJson() {
     </main>
 
     <ImportDialog v-if="showImport" @close="showImport = false" @imported="onImported" />
+    <AdminLoginDialog
+      v-if="showLogin"
+      @close="showLogin = false"
+      @authenticated="showLogin = false"
+    />
 
     <footer class="disclaimer pa-data" role="note">
       ⚠ {{ rankings.disclaimer || 'PROTÓTIPO · DADOS SIMULADOS · ENTIDADES FICTÍCIAS' }}
@@ -294,6 +380,20 @@ function exportJson() {
   margin: 2px 0 0;
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.admin-badge {
+  padding: 4px 8px;
+  font-size: var(--pa-text-2xs);
+  letter-spacing: 0.14em;
+  color: var(--pa-bg-void);
+  background: var(--pa-confidence-high);
+}
+
 .nav-link {
   padding: 6px 12px;
   font-size: var(--pa-text-2xs);
@@ -302,10 +402,16 @@ function exportJson() {
   text-decoration: none;
   background: transparent;
   border: 1px solid var(--pa-border-cyan);
+  cursor: pointer;
 }
 
 .nav-link:hover {
   box-shadow: var(--pa-glow-cyan);
+}
+
+.nav-link--admin {
+  color: var(--pa-confidence-high);
+  border-color: color-mix(in srgb, var(--pa-confidence-high) 50%, transparent);
 }
 
 .console-body {
@@ -321,7 +427,26 @@ function exportJson() {
 .dataset-tabs {
   display: flex;
   flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px 18px;
+}
+
+.tab-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 8px;
+}
+
+.tab-group--end {
+  margin-left: auto;
+}
+
+.group-label {
+  align-self: center;
+  margin-right: 2px;
+  color: var(--pa-text-faint);
+  letter-spacing: 0.16em;
 }
 
 .ds-tab {
@@ -376,10 +501,6 @@ function exportJson() {
 .ds-tab--action:hover {
   color: var(--pa-series-official);
   border-color: var(--pa-border-cyan);
-}
-
-.ds-tab--pipeline {
-  margin-left: auto;
 }
 
 .action-danger {
@@ -472,6 +593,10 @@ function exportJson() {
 .loading {
   padding: 24px;
   text-align: center;
+  color: var(--pa-text-dim);
+}
+
+.ds-tab--catalog {
   color: var(--pa-text-dim);
 }
 

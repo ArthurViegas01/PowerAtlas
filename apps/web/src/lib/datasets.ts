@@ -11,6 +11,7 @@ import {
   formatDecimal,
   formatGdpThousands,
   formatInt,
+  formatUsd,
   NOT_AVAILABLE,
 } from '@/lib/format'
 import type {
@@ -19,10 +20,11 @@ import type {
   DatasetKpi,
   TabularDataset,
 } from '@/types/dataset'
+import type { TradePartner } from '@/types/comercio'
 import type { DemografiaMunicipio } from '@/types/demografia'
 import type { FiscalMunicipio } from '@/types/fiscal'
 import type { ImportedDatasetDetail } from '@/types/importedDataset'
-import type { RegionIndicators, UfIndicatorsFile } from '@/types/indicators'
+import type { MunicipioIndicador, RegionIndicators, UfIndicatorsFile } from '@/types/indicators'
 import type { PowerRegion } from '@/types/power-entity'
 
 /** 2-digit IBGE UF geocode -> sigla, to label the municipal datasets. */
@@ -51,6 +53,8 @@ export function formatCell(column: DatasetColumn, value: CellValue): string {
       return formatGdpThousands(num)
     case 'brl':
       return formatBrl(num)
+    case 'usd':
+      return formatUsd(num)
     case 'areaKm2':
       return formatAreaKm2(num)
     case 'density':
@@ -220,6 +224,92 @@ export function buildFiscalDataset(
       kpi('ARRECADAÇÃO', totalArr, formatBrl(totalArr), referenceYear ? `${referenceYear}` : ''),
       kpi('TRANSFERÊNCIAS', totalTransf, formatBrl(totalTransf), 'FPM · FUNDEB · OUTRAS'),
       kpi('EMENDAS', totalEmendas, formatBrl(totalEmendas), 'PARLAMENTARES'),
+    ],
+  }
+}
+
+// -- Municipal indicators (5.570, área/densidade/pop/PIB) --------------------
+
+export function buildIndicadoresMunicipioDataset(
+  municipios: MunicipioIndicador[],
+  nameByCodigo: Map<string, string>,
+  censusYear: number | null,
+  gdpYear: number | null,
+): TabularDataset {
+  const columns: DatasetColumn[] = [
+    { key: 'codigo', label: 'CÓD IBGE', numeric: false, format: 'text' },
+    { key: 'name', label: 'MUNICÍPIO', numeric: false, format: 'text' },
+    { key: 'uf', label: 'UF', numeric: false, format: 'text' },
+    { key: 'population', label: 'POPULAÇÃO', numeric: true, format: 'int' },
+    { key: 'areaKm2', label: 'ÁREA', numeric: true, format: 'areaKm2' },
+    { key: 'density', label: 'DENSIDADE', numeric: true, format: 'density' },
+    { key: 'gdpBrlThousands', label: 'PIB', numeric: true, format: 'brlThousands' },
+  ]
+  const rows: Record<string, CellValue>[] = municipios.map((m) => ({
+    codigo: m.codigo,
+    name: nameByCodigo.get(m.codigo) ?? m.codigo,
+    uf: ufOf(m.codigo),
+    population: m.population,
+    areaKm2: m.areaKm2,
+    density: m.density,
+    gdpBrlThousands: m.gdpBrlThousands,
+  }))
+  const totalPop = sumColumn(rows, 'population')
+  const totalArea = sumColumn(rows, 'areaKm2')
+  const source =
+    censusYear && gdpYear ? `IBGE · CENSO ${censusYear} · PIB ${gdpYear}` : 'IBGE'
+  return {
+    id: 'indicadores-municipio',
+    label: 'INDICADORES MUNICÍPIO',
+    description: 'População, área, densidade e PIB dos 5.570 municípios.',
+    source,
+    fictional: false,
+    columns,
+    rows,
+    kpis: [
+      kpi('MUNICÍPIOS', rows.length, formatInt(rows.length)),
+      kpi('POPULAÇÃO TOTAL', totalPop, formatInt(totalPop), 'CENSO 2022'),
+      kpi('ÁREA TOTAL', totalArea, formatAreaKm2(totalArea), 'KM²'),
+    ],
+  }
+}
+
+// -- Foreign trade (Comex: parceiros e fluxos) -------------------------------
+
+export function buildComercioDataset(
+  partners: TradePartner[],
+  totals: { exp: number; imp: number },
+  referenceYear: number | null,
+  source: string | null,
+): TabularDataset {
+  const columns: DatasetColumn[] = [
+    { key: 'iso', label: 'ISO', numeric: false, format: 'text' },
+    { key: 'name', label: 'PAÍS', numeric: false, format: 'text' },
+    { key: 'exp', label: 'EXPORTAÇÕES', numeric: true, format: 'usd' },
+    { key: 'imp', label: 'IMPORTAÇÕES', numeric: true, format: 'usd' },
+    { key: 'corrente', label: 'CORRENTE', numeric: true, format: 'usd' },
+    { key: 'saldo', label: 'SALDO', numeric: true, format: 'usd' },
+  ]
+  const rows: Record<string, CellValue>[] = partners.map((p) => ({
+    iso: p.iso,
+    name: p.name,
+    exp: p.exp,
+    imp: p.imp,
+    corrente: p.exp + p.imp,
+    saldo: p.exp - p.imp,
+  }))
+  return {
+    id: 'comercio',
+    label: 'COMÉRCIO EXTERIOR',
+    description: 'Exportações e importações do Brasil por país parceiro (US$ FOB).',
+    source: referenceYear ? `${source ?? 'COMEX STAT / MDIC'} · ${referenceYear}` : (source ?? 'COMEX STAT / MDIC'),
+    fictional: false,
+    columns,
+    rows,
+    kpis: [
+      kpi('CORRENTE', totals.exp + totals.imp, formatUsd(totals.exp + totals.imp), 'EXP + IMP'),
+      kpi('EXPORTAÇÕES', totals.exp, formatUsd(totals.exp)),
+      kpi('SALDO', totals.exp - totals.imp, formatUsd(totals.exp - totals.imp), 'EXP - IMP'),
     ],
   }
 }

@@ -15,6 +15,7 @@ import type {
   WorldStateCollection,
 } from '@/lib/geo'
 import type { FiscalSegmentKey } from '@/lib/fiscalSegments'
+import { ICON_COLOR, iconForVocacao, type SectorIconPlacement } from '@/lib/sectorIcons'
 import type { DemografiaMetric, DemografiaMunicipio } from '@/types/demografia'
 import type { FiscalMunicipio } from '@/types/fiscal'
 import { directionValue, TRADE_ORIGIN, type TradeDirection } from '@/types/comercio'
@@ -23,8 +24,10 @@ import type { AmbientSignal, PowerDimension } from '@/types/power-entity'
 import { useComercioStore } from './comercio'
 import { useDemografiaStore } from './demografia'
 import { useFiscalStore } from './fiscal'
+import { usePartidosStore } from './partidos'
 import { useRankingsStore } from './rankings'
 import { useSelectionStore } from './selection'
+import { useVocacaoStore } from './vocacao'
 
 export interface ColumnDatum {
   regionId: string
@@ -61,8 +64,11 @@ export interface TradeArcDatum {
   key: string
   /** Flow direction of this arc — exports run Brazil->partner, imports back. */
   direction: TradeDirection
-  /** Origin end; defaults to TRADE_ORIGIN, offset into a lane when both dirs show. */
+  /** Origin end; defaults to TRADE_ORIGIN, offset into a lane when both dirs show.
+   *  In the exploded per-sector view it is the specialist state's centroid. */
   source?: [number, number]
+  /** Sigla of the specialist state the exploded sector arc originates from. */
+  originUf?: string
   target: [number, number]
   /** 0..1 (√ of value / max) for the arc width. */
   weight: number
@@ -149,6 +155,17 @@ export interface MapLayerModel {
   }
   /** True in the global idle context: hide state siglas, show the BRASIL tag. */
   globalIdle: boolean
+  /**
+   * Camada política: quando ativa, os municípios do país inteiro são pintados
+   * pela cor do partido do prefeito eleito (byCodigo: IBGE 7 díg -> sigla).
+   */
+  political: {
+    active: boolean
+    byCodigo: Map<string, string>
+  }
+  /** Low-poly 3D sector objects: one per UF vocation (world view) or per top
+   *  município vocation (demographic view cropped to a state). */
+  sectorIcons: SectorIconPlacement[]
 }
 
 /** Twin columns straddle the capital: official west, hidden east. */
@@ -160,6 +177,8 @@ export const useMapLayersStore = defineStore('mapLayers', () => {
   const demografia = useDemografiaStore()
   const fiscal = useFiscalStore()
   const comercio = useComercioStore()
+  const vocacao = useVocacaoStore()
+  const partidos = usePartidosStore()
 
   const states = shallowRef<BoundaryCollection | null>(null)
   const national = shallowRef<BoundaryCollection | null>(null)
@@ -269,6 +288,13 @@ export const useMapLayersStore = defineStore('mapLayers', () => {
   /** Lateral separation (degrees) of the export/import lanes when both show. */
   const TRADE_LANE_DEG = 1.6
 
+  /**
+   * The federal capital. Exports leave the producing state (soja -> MT), but
+   * imports enter the country through Brasília, so an exploded import arc lands
+   * on the capital instead of spraying across the states that happen to book it.
+   */
+  const BRASILIA: [number, number] = [-47.8825, -15.7942]
+
   const trade = computed(() => {
     // Arrows belong to the global context: no Brazilian region drilled into,
     // the demographic view off, and the legend toggle on.
@@ -317,9 +343,21 @@ export const useMapLayersStore = defineStore('mapLayers', () => {
       const step = n > 1 ? fanWidth / (n - 1) : 0
       sectors.forEach(({ sector, index }, k) => {
         const offset = (k - (n - 1) / 2) * step
+        // The Brazilian end depends on the flow's sense. Exports leave the state
+        // that produces the commodity (soja -> MT, minério -> PA, aeronaves ->
+        // SP), tying the specialist state to the world buyer. Imports come back
+        // into the country through Brasília, the capital. Export falls back to
+        // TRADE_ORIGIN (the map center) until uf.json loads or when the pair has
+        // no booked origin UF.
+        const origin =
+          primary === 'export' ? vocacao.originUf(selected.iso, sector.code, 'export') : null
+        const source: [number, number] | undefined =
+          primary === 'export' ? origin?.coordinates : BRASILIA
         arcs.push({
           key: `${selected.iso}:${sector.code}`,
           direction: primary,
+          source,
+          originUf: primary === 'export' ? origin?.uf : 'DF',
           target: [tx + px * offset, ty + py * offset],
           weight: Math.sqrt(directionValue(sector, primary) / maxValue),
           focus: true,
@@ -369,6 +407,21 @@ export const useMapLayersStore = defineStore('mapLayers', () => {
       const len = Math.hypot(dx, dy) || 1
       const px = -dy / len
       const py = dx / len
+      // Export leaves the production origin: the state behind this partner's
+      // biggest export sector (soja -> MT, minério -> PA), so the arrow visibly
+      // departs from where the goods come from. Import returns to Brasília. Only
+      // the partner (target) end is lane-offset, so the two arrows to the same
+      // country stay separated while each Brazilian end keeps its true anchor.
+      // Skip the aggregated "Outros" bucket (ZZ): it has no single HS chapter,
+      // so no origin state — use the biggest real sector instead.
+      const topExport = partner.sectors.reduce<{ code: string; exp: number } | null>(
+        (best, sector) =>
+          sector.code !== 'ZZ' && sector.exp > (best?.exp ?? 0) ? sector : best,
+        null,
+      )
+      const exportOrigin =
+        (topExport ? vocacao.originUf(partner.iso, topExport.code, 'export') : null)?.coordinates ??
+        TRADE_ORIGIN
       for (const d of dirs) {
         const value = directionValue(partner, d)
         if (value <= 0) continue
@@ -376,7 +429,8 @@ export const useMapLayersStore = defineStore('mapLayers', () => {
         arcs.push({
           key: `${partner.iso}:${d}`,
           direction: d,
-          source: [TRADE_ORIGIN[0] + px * lane, TRADE_ORIGIN[1] + py * lane],
+          source: d === 'export' ? exportOrigin : BRASILIA,
+          originUf: d === 'export' ? undefined : 'DF',
           target: [tx + px * lane, ty + py * lane],
           weight: Math.sqrt(value / maxByDir[d]),
           focus,
@@ -399,6 +453,47 @@ export const useMapLayersStore = defineStore('mapLayers', () => {
       exploded: false,
       highlights,
     }
+  })
+
+  // 3D sector objects. State view: one icon per UF at ~90 km. Demographic view
+  // cropped to a state: the top municípios by VAB, at ~26 km, so the drill-down
+  // reads its own vocation without crowding 5.570 icons onto the map.
+  const STATE_ICON_M = 90000
+  const MUNI_ICON_M = 26000
+  const MUNI_ICONS_MAX = 40
+
+  const sectorIcons = computed<SectorIconPlacement[]>(() => {
+    // Demographic view: only once cropped to a single state (else 5.570 icons).
+    if (selection.demographicView) {
+      const sigla = selection.demographicUf
+      if (!sigla) return []
+      const prefix = states.value?.features.find((f) => f.properties.UF === sigla)
+        ?.properties.codarea
+      if (!prefix) return []
+      const ranked = demografia.municipios
+        .filter((m) => m.codigo.startsWith(prefix))
+        .map((m) => ({ m, vab: vocacao.municipioBy.get(m.codigo)?.vabTotal ?? 0 }))
+        .sort((a, b) => b.vab - a.vab)
+        .slice(0, MUNI_ICONS_MAX)
+      const out: SectorIconPlacement[] = []
+      for (const { m } of ranked) {
+        const dominant = vocacao.dominantFor(m.codigo)
+        if (!dominant) continue
+        const mesh = iconForVocacao(dominant.key)
+        out.push({ position: m.coordinates, mesh, color: ICON_COLOR[mesh], scale: MUNI_ICON_M })
+      }
+      return out
+    }
+    // World view (nothing drilled, no demographic): one icon per UF vocation.
+    if (!selection.selectedId && !selection.selectedMunicipio) {
+      return vocacao.ufIcons.map((icon) => ({
+        position: icon.coordinates,
+        mesh: icon.mesh,
+        color: icon.color,
+        scale: STATE_ICON_M,
+      }))
+    }
+    return []
   })
 
   /**
@@ -462,6 +557,17 @@ export const useMapLayersStore = defineStore('mapLayers', () => {
     trade: trade.value,
     globalIdle:
       !selection.selectedId && !selection.selectedMunicipio && !selection.demographicView,
+    political: {
+      // Colore os municípios pelo partido. Vale no contexto nacional E com um
+      // estado selecionado (as cores dos municípios seguem no drill-down); só o
+      // modo demográfico, que tem sua própria paleta, a desliga.
+      active:
+        selection.partisanVisible &&
+        !selection.demographicView &&
+        partidos.byCodigo.size > 0,
+      byCodigo: partidos.byCodigo,
+    },
+    sectorIcons: sectorIcons.value,
   }))
 
   async function fetchGeoFile<T>(file: string): Promise<T> {

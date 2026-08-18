@@ -1,5 +1,10 @@
 import type { SubdivisaoLevel } from '@/lib/geo'
-import type { ConfidenceLevel, EntityKind, ReviewStatus } from '@/types/power-entity'
+import type {
+  ConfidenceLevel,
+  EntityClass,
+  EntityKind,
+  ReviewStatus,
+} from '@/types/power-entity'
 
 /** Bairro or distrito: the panel must say which division it is showing. */
 export const SUBDIVISAO_LABEL: Record<SubdivisaoLevel, string> = {
@@ -20,6 +25,12 @@ export const KIND_LABEL: Record<EntityKind, string> = {
   faction: 'FACÇÃO',
   movement: 'MOVIMENTO',
   'economic-bloc': 'BLOCO ECON.',
+  person: 'PESSOA',
+}
+
+export const ENTITY_CLASS_LABEL: Record<EntityClass, string> = {
+  group: 'GRUPO',
+  individual: 'INDIVÍDUO',
 }
 
 export const CONFIDENCE_LABEL: Record<ConfidenceLevel, string> = {

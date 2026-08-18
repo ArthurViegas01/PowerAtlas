@@ -14,6 +14,7 @@ export type ColumnFormat =
   | 'decimal'
   | 'brlThousands'
   | 'brl'
+  | 'usd'
   | 'areaKm2'
   | 'density'
 

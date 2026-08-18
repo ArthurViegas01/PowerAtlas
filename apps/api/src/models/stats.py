@@ -56,7 +56,9 @@ class PipelineStats(_Base):
 class StatsResponse(_Base):
     generated_at: datetime
     database: bool
-    # Whether the dataset import/delete endpoints are enabled (PA_ALLOW_WRITES).
+    # Whether an admin is configured (PA_ADMIN_PASSWORD), i.e. writes are
+    # possible on this server after login. The console shows the admin login
+    # only when this is true; the write tools appear once logged in.
     writes_allowed: bool
     content: ContentStats
     pipeline: PipelineStats

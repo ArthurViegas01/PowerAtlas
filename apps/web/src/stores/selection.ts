@@ -143,6 +143,13 @@ export const useSelectionStore = defineStore('selection', () => {
   /** Partner country opened in the trade panel — explodes its sector arrows. */
   const selectedPartner = ref<WorldRegionRef | null>(null)
 
+  /**
+   * Camada política: pinta cada município pela cor do partido do prefeito
+   * eleito. Contexto nacional (nada drilado, demográfico off). Off por padrão —
+   * o operador liga na legenda.
+   */
+  const partisanVisible = ref(false)
+
   const hasSelection = computed(() => selectedId.value !== null)
   const hasPanel = computed(
     () =>
@@ -242,6 +249,11 @@ export const useSelectionStore = defineStore('selection', () => {
   /** Toggle just the animated arrows, keeping the colored countries/labels. */
   function toggleTradeArrows() {
     tradeArrowsVisible.value = !tradeArrowsVisible.value
+  }
+
+  /** Toggle the municipal party choropleth (legend switch). */
+  function togglePartisan() {
+    partisanVisible.value = !partisanVisible.value
   }
 
   /** Toggle one direction on/off, keeping at least one active. */
@@ -451,6 +463,7 @@ export const useSelectionStore = defineStore('selection', () => {
     tradeDirs,
     tradeArrowsVisible,
     selectedPartner,
+    partisanVisible,
     mapPitch,
     pitchOverride,
     pitchRequest,
@@ -480,6 +493,7 @@ export const useSelectionStore = defineStore('selection', () => {
     toggleTrade,
     toggleTradeArrows,
     toggleTradeDirection,
+    togglePartisan,
     selectTradePartner,
     clearTradePartner,
     requestPitch,
