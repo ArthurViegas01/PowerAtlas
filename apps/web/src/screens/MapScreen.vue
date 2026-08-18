@@ -14,6 +14,8 @@ import MapLegend from '@/components/map/MapLegend.vue'
 import MapScanEffect from '@/components/map/MapScanEffect.vue'
 import MapTooltip from '@/components/map/MapTooltip.vue'
 import MapView from '@/components/map/MapView.vue'
+import NationalPowerCard from '@/components/map/NationalPowerCard.vue'
+import PowerScaleFormula from '@/components/map/PowerScaleFormula.vue'
 import TradePartnerCard from '@/components/map/TradePartnerCard.vue'
 import TradeRankingPanel from '@/components/map/TradeRankingPanel.vue'
 import RankingColumn from '@/components/rankings/RankingColumn.vue'
@@ -27,6 +29,7 @@ import { useIndicatorsStore } from '@/stores/indicators'
 import { useMapLayersStore } from '@/stores/mapLayers'
 import { useRankingsStore } from '@/stores/rankings'
 import { useSelectionStore } from '@/stores/selection'
+import { useVocacaoStore } from '@/stores/vocacao'
 import type { RegionIndicators } from '@/types/indicators'
 
 const selection = useSelectionStore()
@@ -36,6 +39,7 @@ const indicators = useIndicatorsStore()
 const demografia = useDemografiaStore()
 const fiscal = useFiscalStore()
 const comercio = useComercioStore()
+const vocacao = useVocacaoStore()
 
 const region = computed(() => rankings.regionById(selection.selectedId))
 const regionIndicators = computed(() => indicators.forRegion(selection.selectedId))
@@ -188,6 +192,9 @@ onMounted(() => {
   // World trade arrows are on by default in the global view — stream the
   // (small) dataset right after boot so the arcs appear without a click.
   void comercio.load()
+  // Vocation (state trade-by-UF + municipal VAB): lets the exploded sector
+  // arrows originate from the specialist state and feeds the 3D sector objects.
+  void vocacao.load()
   window.addEventListener('keydown', onKeydown)
 })
 
@@ -291,7 +298,8 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
               :indicators="regionIndicators"
               :source-label="indicators.sourceLabel"
             />
-            <div class="columns">
+            <NationalPowerCard v-if="region.id === 'BR'" :region="region" />
+            <div v-else class="columns">
               <RankingColumn variant="official" :entities="region.official" />
               <RankingColumn
                 v-if="HIDDEN_INFLUENCE_ENABLED"
@@ -344,6 +352,12 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
       <TradeRankingPanel />
       <MapLegend />
     </div>
+    <!-- Power-scale formula: top-left, only on the national (BR) card. -->
+    <transition name="pa-fade">
+      <PowerScaleFormula
+        v-if="region && region.id === 'BR' && !selection.demographicView"
+      />
+    </transition>
     <MapCompass />
     <MonitoringPanel v-if="!selection.demographicView" />
     <DemografiaCard />

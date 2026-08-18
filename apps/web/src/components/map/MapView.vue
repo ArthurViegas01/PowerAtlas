@@ -61,13 +61,29 @@ function triggerRipple(event: maplibregl.MapMouseEvent) {
 // the shader expands and fades. Kept to the few most recent (fixed shader
 // slots); the ambient breathing wave is stateless, so it needs nothing here.
 const oceanRipples = ref<{ epicenter: [number, number]; start: number }[]>([])
-const OCEAN_RIPPLE_LIFETIME_MS = 1800
-const MAX_OCEAN_RIPPLES = 4
+const OCEAN_RIPPLE_LIFETIME_MS = 3000
+const MAX_OCEAN_RIPPLES = 16
 // Cursor position as screen UV (0–1, y up) driving the grid's mouse bulge.
 const oceanMouse = ref<[number, number] | null>(null)
 function spawnOceanRipple(event: maplibregl.MapMouseEvent) {
   if (reduced.value) return
   const next = { epicenter: [event.lngLat.lng, event.lngLat.lat] as [number, number], start: performance.now() }
+  oceanRipples.value = [...oceanRipples.value, next].slice(-MAX_OCEAN_RIPPLES)
+}
+
+// Ambient rain: every so often a drop lands at a random point in view and its
+// ring propagates outward on its own, so the open sea is alive even when the
+// user isn't clicking. The interval is jittered so the drops feel natural
+// instead of metronomic; reduced motion silences them.
+let nextOceanDropAt = 0
+function spawnRandomOceanDrop(now: number) {
+  if (reduced.value || !map) return
+  if (now < nextOceanDropAt) return
+  nextOceanDropAt = now + 350 + Math.random() * 650 // next drop in ~0.35–1.0s
+  const bounds = map.getBounds()
+  const lng = bounds.getWest() + Math.random() * (bounds.getEast() - bounds.getWest())
+  const lat = bounds.getSouth() + Math.random() * (bounds.getNorth() - bounds.getSouth())
+  const next = { epicenter: [lng, lat] as [number, number], start: now }
   oceanRipples.value = [...oceanRipples.value, next].slice(-MAX_OCEAN_RIPPLES)
 }
 
@@ -637,6 +653,7 @@ onMounted(() => {
     // (they still form a dotted arc, just not moving).
     pulse.value = reduced.value ? 1 : 0.5 + 0.5 * Math.sin(now / 640)
     flowTime.value = reduced.value ? 0 : now / FLOW_LOOP_MS
+    spawnRandomOceanDrop(now)
   }
   rafId = requestAnimationFrame(animate)
 })

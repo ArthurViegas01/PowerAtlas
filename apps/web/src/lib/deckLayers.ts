@@ -5,6 +5,7 @@ import {
   ArcLayer,
   ColumnLayer,
   GeoJsonLayer,
+  LineLayer,
   PathLayer,
   PointCloudLayer,
   SolidPolygonLayer,
@@ -41,7 +42,9 @@ import {
 import { countryColorAny, countryRgb, DEFAULT_COUNTRY_RGB, type RGB } from '@/lib/countryColors'
 import { OceanGridLayer, type OceanRipple } from '@/lib/OceanGridLayer'
 import { over, overVoid, paColor, shade, type RGBA } from '@/lib/palette'
+import { partyColorAny } from '@/lib/partyColors'
 import { sectorColor } from '@/lib/tradeSectors'
+import { sectorIconSegments, type IconSegment } from '@/lib/sectorIcons'
 import type { ArcDatum, ColumnDatum, LabelDatum, MapLayerModel, TradeArcDatum } from '@/stores/mapLayers'
 import { TRADE_ORIGIN } from '@/types/comercio'
 import type { DemografiaMunicipio } from '@/types/demografia'
@@ -366,21 +369,40 @@ function tradeCountryWalls(
 const WORLD_WALL_ELEVATION = 2600
 
 // Same memoization as the partner walls: the backdrop geometry is static, only
-// the excluded (highlighted) set changes, so rebuild on the trade signature.
-let worldWallCache: { sig: string; walls: WallQuad[]; crests: CrestPath[] } | null = null
+// the excluded (highlighted) set and the colored/gray mode change, so rebuild on
+// the trade signature plus the mode.
+let worldWallCache: { sig: string; walls: TradeWall[]; crests: TradeCrest[] } | null = null
 
+/**
+ * Backdrop parapets for the unmapped world. In the global context each country
+ * wears its own identity color, exactly like its fill, so the wall reads as that
+ * country's land extruded up from its border instead of a stray gray ribbon.
+ * In the focused trade view (fills go neutral gray) the walls follow and stay
+ * gray so nothing competes with Brazil and its highlighted partners. The color
+ * is baked into the geometry and cached, since it only changes with `colored`.
+ */
 function worldBackdropWalls(
   world: WorldCollection,
   excludeIsos: Set<string>,
   sig: string,
-): { walls: WallQuad[]; crests: CrestPath[] } {
+  colored: boolean,
+): { walls: TradeWall[]; crests: TradeCrest[] } {
   if (worldWallCache && worldWallCache.sig === sig) return worldWallCache
-  const walls: WallQuad[] = []
-  const crests: CrestPath[] = []
+  const grayFill = paColor.faint(52)
+  const grayCrest = paColor.faint(150)
+  const walls: TradeWall[] = []
+  const crests: TradeCrest[] = []
   for (const feature of world.features) {
     if (excludeIsos.has(feature.properties.iso)) continue
-    for (const quad of featureWallQuads(feature, WORLD_WALL_ELEVATION)) walls.push(quad)
-    for (const path of featureCrestPaths(feature, WORLD_WALL_ELEVATION)) crests.push(path)
+    const [r, g, b] = countryColorAny(feature.properties.iso)
+    const fill: RGBA = colored ? [r, g, b, 60] : grayFill
+    const crest: RGBA = colored ? [r, g, b, 170] : grayCrest
+    for (const quad of featureWallQuads(feature, WORLD_WALL_ELEVATION)) {
+      walls.push({ polygon: quad, color: fill })
+    }
+    for (const path of featureCrestPaths(feature, WORLD_WALL_ELEVATION)) {
+      crests.push({ path, color: crest })
+    }
   }
   worldWallCache = { sig, walls, crests }
   return worldWallCache
@@ -619,12 +641,13 @@ export function buildDeckLayers({
   // Ocean ripple grid: the holographic naval mesh under everything. Pushed
   // FIRST so the opaque land fills (overVoid) paint over it and crop it to the
   // open sea. Present in every view — it is part of the map, not a toggle.
-  // Dark neon blue, distinct from the cyan HUD series color.
+  // Deep ocean blue (darker than the old neon), distinct from the cyan HUD
+  // series color; the ripple sheen and soft tile glow lift it back up.
   layers.push(
     new OceanGridLayer({
       id: 'ocean-grid',
       time: flowTime,
-      color: [46, 104, 240],
+      color: [28, 64, 160],
       ripples: oceanRipples,
       mouse: oceanMouse,
     }),
@@ -857,6 +880,7 @@ export function buildDeckLayers({
   // mesh has loaded; the selected municipality brightens, the hovered one
   // lights up under the tooltip.
   if (model.municipios) {
+    const politicalOn = model.political.active
     layers.push(
       new GeoJsonLayer<MunicipioProps>({
         id: 'municipios',
@@ -866,18 +890,35 @@ export function buildDeckLayers({
         filled: true,
         getFillColor: (feature) => {
           const codigo = feature.properties.codigo
+          // Party view: the drilled state keeps its municipal party colors, the
+          // selected/hovered município just brightens the same hue.
+          if (politicalOn) {
+            const [r, g, b] = partyColorAny(model.political.byCodigo.get(codigo) ?? null)
+            const alpha =
+              codigo === model.selectedMunicipioCodigo
+                ? 255
+                : codigo === model.hoveredMunicipioCodigo
+                  ? 215
+                  : 165
+            return overVoid([r, g, b, alpha])
+          }
           if (codigo === model.selectedMunicipioCodigo) return municipioFills.selected
           if (codigo === model.hoveredMunicipioCodigo) return municipioFills.hovered
           return municipioFills.base
         },
-        getLineColor: paColor.official(130),
+        getLineColor: politicalOn ? [8, 12, 16, 170] : paColor.official(130),
         getLineWidth: (feature) =>
           feature.properties.codigo === model.selectedMunicipioCodigo ? 2 : 0.6,
         lineWidthUnits: 'pixels',
         lineWidthMinPixels: 0.5,
         onHover: (info) => onHoverMunicipio(info as PickingInfo<MunicipioFeature>),
         updateTriggers: {
-          getFillColor: [model.selectedMunicipioCodigo, model.hoveredMunicipioCodigo],
+          getFillColor: [
+            model.selectedMunicipioCodigo,
+            model.hoveredMunicipioCodigo,
+            politicalOn,
+          ],
+          getLineColor: [politicalOn],
           getLineWidth: [model.selectedMunicipioCodigo],
         },
       }),
@@ -885,28 +926,45 @@ export function buildDeckLayers({
   }
 
   // Country-wide municipal outlines: faint context lines in every view.
-  // The demographic view tints them with the metric color and makes them
-  // pickable, so footprint hovers highlight and clicks reach the city card.
+  // The demographic view tints them with the metric color; the party
+  // choropleth (política) fills each município by its mayor's party. Both make
+  // the layer pickable so footprint hovers highlight and reach the tooltip.
   if (model.municipalBorders) {
+    const political = model.political
+    const politicalOn = political.active
     layers.push(
       new GeoJsonLayer<MunicipioProps>({
         id: 'municipal-borders',
         data: model.municipalBorders,
+        // Not pickable in the party view on purpose: the fill is context, but
+        // hovers/clicks fall through to the states-choropleth below, so hovering
+        // shows the STATE and a click selects it. Only the demographic view
+        // makes the footprints interactive.
         pickable: demo.active,
         stroked: true,
-        filled: demo.active,
-        getFillColor: (feature) =>
-          demo.active && feature.properties.codigo === demo.hoveredCodigo
+        filled: demo.active || politicalOn,
+        getFillColor: (feature) => {
+          const codigo = feature.properties.codigo
+          if (politicalOn) {
+            const [r, g, b] = partyColorAny(political.byCodigo.get(codigo) ?? null)
+            return overVoid([r, g, b, 150])
+          }
+          return demo.active && codigo === demo.hoveredCodigo
             ? shade(demoBase, 1, 46)
-            : [0, 0, 0, 0],
-        getLineColor: demo.active ? shade(demoBase, 0.9, 60) : paColor.official(38),
+            : [0, 0, 0, 0]
+        },
+        getLineColor: politicalOn
+          ? [8, 12, 16, 150]
+          : demo.active
+            ? shade(demoBase, 0.9, 60)
+            : paColor.official(38),
         getLineWidth: 0.5,
         lineWidthUnits: 'pixels',
         lineWidthMinPixels: 0.3,
         onHover: (info) => onHoverDemografiaBase(info as PickingInfo<MunicipioFeature>),
         updateTriggers: {
-          getFillColor: [demo.active, demo.metric, demo.hoveredCodigo],
-          getLineColor: [demo.active, demo.metric],
+          getFillColor: [demo.active, demo.metric, demo.hoveredCodigo, politicalOn],
+          getLineColor: [demo.active, demo.metric, politicalOn],
         },
       }),
     )
@@ -1405,33 +1463,68 @@ export function buildDeckLayers({
     // TextLayer: sharper, and never clipped by the horizon fade when tilted.
   }
 
+  // 3D sector objects: low-poly wireframe icons (silo/factory/towers/civic/
+  // heap/tank) planted on each UF's or município's dominant vocation. Built as
+  // PathLayer edges so they wear the same holographic glow as the walls and flow
+  // rails, with no mesh lighting. A faint wide pass under a bright thin pass
+  // gives the lines a soft bloom.
+  if (model.sectorIcons.length > 0) {
+    const segments = sectorIconSegments(model.sectorIcons)
+    // LineLayer (not PathLayer): it draws each edge straight between its two
+    // projected endpoints, so the vertical "height" edges render — a PathLayer
+    // extrudes in the ground plane and drops purely vertical segments.
+    const iconLayer = (id: string, width: number, alpha: number) =>
+      new LineLayer<IconSegment>({
+        id,
+        data: segments,
+        pickable: false,
+        widthUnits: 'pixels',
+        getSourcePosition: (d) => d.source,
+        getTargetPosition: (d) => d.target,
+        getColor: (d) => [d.color[0], d.color[1], d.color[2], alpha],
+        getWidth: width,
+        widthMinPixels: Math.min(width, 1),
+      })
+    layers.push(iconLayer('sector-icons-glow', 3.2, 40), iconLayer('sector-icons', 1.4, 235))
+  }
+
   // Gray parapets around the "em breve" backdrop countries — a low wall so the
   // unmapped world reads as terrain under the tilted camera instead of a flat
   // cutout. Highlighted partners are skipped here; they wear their taller,
   // colored parapet below so they still stand out.
   if (model.world && !demo.active && (model.trade.active || model.globalIdle)) {
     const excludeIsos = new Set(model.trade.highlights.map((h) => h.iso))
-    const { walls, crests } = worldBackdropWalls(model.world, excludeIsos, tradeSig)
+    // In the global context the walls wear each country's identity color, like
+    // the fills; in the focused trade view they stay gray with the fills.
+    const colored = model.globalIdle
+    const { walls, crests } = worldBackdropWalls(
+      model.world,
+      excludeIsos,
+      `${tradeSig}|${colored ? 'c' : 'g'}`,
+      colored,
+    )
     if (walls.length > 0) {
       layers.push(
-        new SolidPolygonLayer<WallQuad>({
+        new SolidPolygonLayer<TradeWall>({
           id: 'world-backdrop-walls',
           data: walls,
-          getPolygon: (d) => d,
+          getPolygon: (d) => d.polygon,
           pickable: false,
           _full3d: true,
           material: false,
-          getFillColor: paColor.faint(52),
+          getFillColor: (d) => d.color,
+          updateTriggers: { getFillColor: [colored] },
         }),
-        new PathLayer<CrestPath>({
+        new PathLayer<TradeCrest>({
           id: 'world-backdrop-crests',
           data: crests,
-          getPath: (d) => d,
-          getColor: paColor.faint(150),
+          getPath: (d) => d.path,
+          getColor: (d) => d.color,
           getWidth: 1,
           widthUnits: 'pixels',
           widthMinPixels: 0.6,
           pickable: false,
+          updateTriggers: { getColor: [colored] },
         }),
       )
     }

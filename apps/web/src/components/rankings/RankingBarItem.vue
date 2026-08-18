@@ -4,11 +4,29 @@ import { computed, onMounted, ref } from 'vue'
 import AnimatedCounter from '@/components/shared/AnimatedCounter.vue'
 import SourceCitationTag from '@/components/shared/SourceCitationTag.vue'
 import { KIND_LABEL, STATUS_LABEL } from '@/lib/labels'
+import { partyColorAny } from '@/lib/partyColors'
 import type { PowerDimension, PowerEntity } from '@/types/power-entity'
 
 import ConfidenceBadge from './ConfidenceBadge.vue'
 
 const props = defineProps<{ entity: PowerEntity; rank: number; variant: PowerDimension }>()
+
+/** The three-pillar decomposition, when the entity carries it. */
+const pillars = computed(() => {
+  const p = props.entity.power
+  if (!p) return null
+  return [
+    { key: 'CAP', label: 'CAPITAL', value: p.capital },
+    { key: 'AUT', label: 'AUTORIDADE', value: p.authority },
+    { key: 'INF', label: 'INFLUÊNCIA', value: p.influence },
+  ]
+})
+
+const partyChipColor = computed(() => {
+  if (!props.entity.party) return ''
+  const [r, g, b] = partyColorAny(props.entity.party)
+  return `rgb(${r}, ${g}, ${b})`
+})
 
 // Width starts at 0 and transitions to the score (CSS handles the tween;
 // the reduced-motion media query zeroes the transition duration globally).
@@ -39,8 +57,16 @@ const deltaLabel = computed(() => {
     <div class="row-head">
       <span class="rank pa-data">{{ rankLabel }}</span>
       <span class="name">{{ entity.name }}</span>
+      <span
+        v-if="entity.party"
+        class="party pa-data"
+        :style="{ borderColor: partyChipColor, color: partyChipColor }"
+      >
+        {{ entity.party }}
+      </span>
       <span v-if="isDraft" class="draft pa-data">{{ STATUS_LABEL.draft }}</span>
     </div>
+    <p v-if="entity.role" class="role pa-label">{{ entity.role }}</p>
     <div class="row-bar">
       <div class="bar">
         <div class="fill" :style="{ width: barWidth }"></div>
@@ -49,6 +75,14 @@ const deltaLabel = computed(() => {
       <span class="delta pa-data" :class="{ up: entity.delta > 0, down: entity.delta < 0 }">
         {{ deltaLabel }}
       </span>
+    </div>
+    <div v-if="pillars" class="pillars" :title="`Capital ${pillars[0].value} · Autoridade ${pillars[1].value} · Influência ${pillars[2].value}`">
+      <div v-for="p in pillars" :key="p.key" class="pillar">
+        <span class="pillar-label pa-label">{{ p.key }}</span>
+        <div class="pillar-track">
+          <div class="pillar-fill" :style="{ width: `${p.value}%` }"></div>
+        </div>
+      </div>
     </div>
     <div class="row-meta">
       <span class="pa-label">{{ KIND_LABEL[entity.kind] }}</span>
@@ -101,6 +135,22 @@ const deltaLabel = computed(() => {
   font-size: var(--pa-text-2xs);
   color: var(--pa-confidence-medium);
   border: 1px dashed currentColor;
+}
+
+.party {
+  flex: none;
+  padding: 0 5px;
+  font-size: var(--pa-text-2xs);
+  letter-spacing: 0.06em;
+  border: 1px solid currentColor;
+  border-radius: 2px;
+}
+
+.role {
+  margin: 2px 0 0 22px;
+  font-size: var(--pa-text-2xs);
+  letter-spacing: 0.08em;
+  color: var(--pa-text-dim);
 }
 
 .row-bar {
@@ -167,5 +217,45 @@ const deltaLabel = computed(() => {
   align-items: center;
   gap: 6px 10px;
   margin-top: 6px;
+}
+
+/* Three-pillar decomposition: capital / autoridade / influência mini-bars. */
+.pillars {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px 8px;
+  margin-top: 7px;
+}
+
+.pillar {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.pillar-label {
+  min-width: 3ch;
+  font-size: 9px;
+  color: var(--pa-text-faint);
+}
+
+.pillar-track {
+  flex: 1;
+  height: 3px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.pillar-fill {
+  height: 100%;
+  background: color-mix(in srgb, currentColor 55%, transparent);
+}
+
+.item--official .pillars {
+  color: var(--pa-series-official);
+}
+
+.item--hidden .pillars {
+  color: var(--pa-series-hidden);
 }
 </style>

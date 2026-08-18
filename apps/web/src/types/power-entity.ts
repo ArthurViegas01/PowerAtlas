@@ -14,6 +14,13 @@ export type ReviewStatus = 'draft' | 'published'
 
 export type PowerDimension = 'official' | 'hidden'
 
+/**
+ * The other axis of the national card: a collective actor (a party, an
+ * institution, a documented organization) versus a single person (an office
+ * holder, a businessperson). Cross with `dimension` to get the four sections.
+ */
+export type EntityClass = 'group' | 'individual'
+
 export type EntityKind =
   | 'office'
   | 'institution'
@@ -21,6 +28,18 @@ export type EntityKind =
   | 'faction'
   | 'movement'
   | 'economic-bloc'
+  | 'person'
+
+/**
+ * Decomposition of `score` into the three pillars of the power scale
+ * (0-100 each). See lib/powerScore.ts and docs/power-scale.md. When present,
+ * `score` should equal `powerScore(power)`.
+ */
+export interface PowerBreakdown {
+  capital: number
+  authority: number
+  influence: number
+}
 
 export interface SourceCitation {
   id: string
@@ -43,6 +62,14 @@ export interface PowerEntity {
   status: ReviewStatus
   sources: SourceCitation[]
   note?: string
+  /** Group vs individual — the second axis of the national 4-section card. */
+  entityClass?: EntityClass
+  /** The three-pillar decomposition behind `score`. */
+  power?: PowerBreakdown
+  /** Party sigla for an individual office holder (badge). */
+  party?: string
+  /** Human-readable role/title ("Senador", "Governador", "Empresário"). */
+  role?: string
 }
 
 export interface RegionCapital {

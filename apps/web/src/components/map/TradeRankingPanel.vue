@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 
 import BarTable, { type BarTableRow } from '@/components/shared/BarTable.vue'
+import { useResizableWidth } from '@/composables/useResizableWidth'
 import { countryRgb, DEFAULT_COUNTRY_RGB } from '@/lib/countryColors'
 import { formatUsdParts } from '@/lib/format'
 import { useComercioStore } from '@/stores/comercio'
@@ -13,6 +14,13 @@ const comercio = useComercioStore()
 
 /** Whether the panel is expanded — collapses to just its header bar. */
 const open = ref(true)
+
+/** User-adjustable card width, dragged from the right edge and remembered. */
+const { width, startResize } = useResizableWidth('pa-ranking-width', {
+  min: 200,
+  max: 520,
+  default: 260,
+})
 
 /** How many partners the table lists (matches the arrows the map draws). */
 const TOP_PARTNERS = 15
@@ -77,7 +85,7 @@ function onSelect(iso: string) {
 </script>
 
 <template>
-  <div v-if="showRanking" class="ranking">
+  <div v-if="showRanking" class="ranking" :style="{ width: `${width}px` }">
     <button
       class="ranking-toggle pa-data"
       type="button"
@@ -94,18 +102,56 @@ function onSelect(iso: string) {
         <BarTable :rows="rows" show-rank selectable @select="onSelect" />
       </div>
     </div>
+
+    <!-- Drag the right edge to resize the card; width is remembered. -->
+    <div
+      class="resize-handle"
+      role="separator"
+      aria-orientation="vertical"
+      aria-label="Ajustar a largura do ranking"
+      title="Arraste para ajustar a largura"
+      @pointerdown.prevent="startResize"
+    ></div>
   </div>
 </template>
 
 <style scoped>
-/* Flows inside the left dock (MapScreen), stacked just above the legend. */
+/* Flows inside the left dock (MapScreen), stacked just above the legend.
+   Relative so the resize handle can anchor to its right edge; width is
+   user-driven (inline style). */
 .ranking {
-  width: 260px;
+  position: relative;
   max-width: calc(100vw - 44px);
   padding: 10px 12px;
   background: rgba(3, 6, 8, 0.72);
   border: 1px solid var(--pa-border-faint);
   backdrop-filter: blur(6px);
+}
+
+/* Right-edge grip: an 8px hit area with a thin bar that lights up on hover. */
+.resize-handle {
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  right: -1px;
+  width: 8px;
+  cursor: ew-resize;
+  touch-action: none;
+}
+
+.resize-handle::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: 2px;
+  background: var(--pa-border-faint);
+  transition: background var(--pa-dur-fast) ease;
+}
+
+.resize-handle:hover::after {
+  background: var(--pa-border-cyan-strong);
 }
 
 .ranking-toggle {
