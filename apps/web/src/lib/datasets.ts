@@ -36,7 +36,8 @@ const UF_BY_CODE: Record<string, string> = {
   '51': 'MT', '52': 'GO', '53': 'DF',
 }
 
-function ufOf(codigo: string): string {
+/** Shared with the command palette's municipality search. */
+export function ufOf(codigo: string): string {
   return UF_BY_CODE[codigo.slice(0, 2)] ?? '--'
 }
 

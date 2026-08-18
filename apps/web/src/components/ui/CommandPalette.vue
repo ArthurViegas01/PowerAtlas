@@ -6,6 +6,7 @@ import CornerBracket from '@/components/hud/CornerBracket.vue'
 import HudInput from '@/components/ui/HudInput.vue'
 import { fromQuery, toQuery } from '@/lib/analysisUrl'
 import { downloadText } from '@/lib/csv'
+import { ufOf } from '@/lib/datasets'
 import {
   buildAnalysisCsv,
   buildAnalysisJson,
@@ -252,6 +253,19 @@ const countryEntries = computed<PaletteEntry[]>(() =>
   })),
 )
 
+/** All 5.570 municipalities (names from the cached demografia payload). Only
+ *  offered while typing: they would flood the empty-query menu otherwise. */
+const municipioEntries = computed<PaletteEntry[]>(() =>
+  demografia.municipios.map((m) => ({
+    key: `mun-${m.codigo}`,
+    group: 'municipio' as const,
+    label: m.name.toUpperCase(),
+    sublabel: `MUNICÍPIO · ${ufOf(m.codigo)}`,
+    keywords: [m.codigo],
+    action: { kind: 'municipio' as const, codigo: m.codigo, name: m.name, uf: ufOf(m.codigo) },
+  })),
+)
+
 /** Fictional ranking entities; picking one flies to its region. */
 const entityEntries = computed<PaletteEntry[]>(() => {
   const out: PaletteEntry[] = []
@@ -275,6 +289,7 @@ const groups = computed(() =>
       ...commandEntries.value,
       ...savedEntries.value,
       ...regionEntries.value,
+      ...(query.value.trim() ? municipioEntries.value : []),
       ...countryEntries.value,
       ...entityEntries.value,
     ],
@@ -308,6 +323,8 @@ watch(
     hintOverride.value = null
     void rankings.load()
     void comercio.load()
+    // Municipality names for the search (312 KB, cached for the session).
+    void demografia.load()
     await nextTick()
     inputRef.value?.focus()
   },
@@ -388,6 +405,15 @@ async function run(entry: PaletteEntry) {
   if (action.kind === 'region') {
     selection.exitDemographicView()
     selection.select(action.id, action.name)
+    return
+  }
+  if (action.kind === 'municipio') {
+    // Mirrors the map's drill flow: state first (mesh and indicators ride
+    // along on selection), then the municipality inside it.
+    const region = rankings.regionById(action.uf)
+    selection.exitDemographicView()
+    selection.select(action.uf, region?.name ?? action.uf)
+    selection.selectMunicipio(action.codigo, action.name)
     return
   }
   if (action.kind === 'country') {

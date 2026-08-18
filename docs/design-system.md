@@ -187,8 +187,6 @@ compasso, cabecalho do monitoramento. Componentes novos nascem com ela.
 
 - Affordance de busca no header (botao BUSCA): entra com o redesenho do
   header na IA-1; ate la a paleta abre so por Ctrl-K.
-- Busca de municipios na paleta: espera o indice unico
-  (`indicators/municipios-all.json`) fechar na outra frente.
 - `Modal`/`Popover`/`Toast` (PROD): `--pa-z-modal`/`--pa-z-toast`, overlay
   void a 40% sem blur.
 - `HudIconButton` (compasso): normaliza os chips fora da escala.
@@ -252,6 +250,12 @@ com lazy load, vocacao e legenda demografica); a fase fechou a metade
 pendente da PROD-1: a chave de ORIGEM DO DADO embutida no painel, com os
 tres selos de proveniencia decodificados e os tres pontos de confianca.
 Com isso a Trilha IA-1 (rail + lentes + camadas) esta completa.
+
+Municipios na paleta (2026-08-19): o Ctrl-K busca os 5.570 municipios
+(nomes do payload da demografia, cacheado; grupo MUNICIPIOS so aparece com
+consulta digitada para nao inundar o menu vazio) e executa o mesmo drill do
+mapa: estado primeiro, municipio dentro. Sublabel traz a UF via ufOf
+(exportado de lib/datasets).
 
 PROD-4 (2026-08-18, piloto): linha do tempo do comercio.
 `pnpm comercio-serie` (scripts/fetch-comercio-serie.mjs) soma a base bruta
