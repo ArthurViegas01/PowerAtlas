@@ -19,6 +19,22 @@ const POWER_DATA_PATH = '/api/v1/power-data'
 const MONITORING_PATH = '/api/v1/monitoring/documents'
 const STATS_PATH = '/api/v1/stats'
 const DATASETS_PATH = '/api/v1/datasets'
+const LOGIN_PATH = '/api/v1/auth/login'
+
+/**
+ * In-memory admin session token, set by the admin store after login and sent as
+ * a bearer on the write endpoints. Kept here (not in the store) so the low-level
+ * fetch helpers can read it without a Vue dependency.
+ */
+let authToken: string | null = null
+
+export function setAuthToken(token: string | null): void {
+  authToken = token
+}
+
+function authHeaders(): Record<string, string> {
+  return authToken ? { authorization: `Bearer ${authToken}` } : {}
+}
 
 function endpoint(baseUrl: string, path: string): string {
   return `${baseUrl.replace(/\/+$/, '')}${path}`
@@ -76,10 +92,21 @@ export async function getDataset(id: string): Promise<ImportedDatasetDetail> {
   return fetchJson<ImportedDatasetDetail>(`${DATASETS_PATH}/${id}`)
 }
 
+/** Exchange the admin password for a session token (see apps/api auth). */
+export async function login(password: string): Promise<{ token: string; expiresAt: number }> {
+  const response = await fetch(endpoint(apiBase(), LOGIN_PATH), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', accept: 'application/json' },
+    body: JSON.stringify({ password }),
+  })
+  if (!response.ok) throw await apiError(response)
+  return (await response.json()) as { token: string; expiresAt: number }
+}
+
 export async function importDataset(payload: ImportPayload): Promise<ImportedDatasetMeta> {
   const response = await fetch(endpoint(apiBase(), `${DATASETS_PATH}/import`), {
     method: 'POST',
-    headers: { 'content-type': 'application/json', accept: 'application/json' },
+    headers: { 'content-type': 'application/json', accept: 'application/json', ...authHeaders() },
     body: JSON.stringify(payload),
   })
   if (!response.ok) throw await apiError(response)
@@ -89,6 +116,7 @@ export async function importDataset(payload: ImportPayload): Promise<ImportedDat
 export async function deleteDataset(id: string): Promise<void> {
   const response = await fetch(endpoint(apiBase(), `${DATASETS_PATH}/${id}`), {
     method: 'DELETE',
+    headers: { ...authHeaders() },
   })
   if (!response.ok) throw await apiError(response)
 }

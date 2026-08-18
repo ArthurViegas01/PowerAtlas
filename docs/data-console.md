@@ -8,22 +8,31 @@ project manages instead of the geography. Reached from the map header
 
 ## What it shows
 
-A dataset selector (chips) over a KPI row, a set of SVG charts and a sortable,
-searchable, paginated table. Every dataset renders the same way, so a new
-source (including an imported CSV) gets the full treatment for free.
+The dataset selector groups the tabs by theme (TERRITORIAIS · ECONÔMICOS ·
+SIMULADO · IMPORTADOS · SISTEMA) over a KPI row, a set of SVG charts and a
+sortable, searchable, paginated table. Every dataset renders the same way, so a
+new source (including an imported CSV) gets the full treatment for free.
 
-| Dataset | Source | Notes |
-| --- | --- | --- |
-| INDICADORES IBGE | `indicators` store (uf.json) | 28 regions: population, area, density, PIB |
-| DEMOGRAFIA | `demografia` store | 5.570 municípios: centroid, population, PIB |
-| FLUXO FISCAL | `fiscal` store | 5.570 municípios: federal collection, transfers, amendments |
-| RANKINGS (FICTÍCIO) | `rankings` store | The fictional influence entities, clearly banner-flagged |
-| PIPELINE + BANCO | `stats` + `monitoring` (API) | Backend observability, only when a backend is connected |
-| (imported) | `datasets` API | Operator-uploaded CSVs, isolated namespace |
+| Group | Dataset | Source | Notes |
+| --- | --- | --- | --- |
+| TERRITORIAIS | INDICADORES IBGE | `indicators` store (uf.json) | 28 regions: population, area, density, PIB |
+| TERRITORIAIS | INDICADORES MUNICÍPIO | `indicatorsMunicipios` store (municipios-all.json) | 5.570 municípios: population, area, density, PIB (lazy) |
+| TERRITORIAIS | DEMOGRAFIA | `demografia` store | 5.570 municípios: centroid, population, PIB |
+| ECONÔMICOS | FLUXO FISCAL | `fiscal` store | 5.570 municípios: federal collection, transfers, amendments |
+| ECONÔMICOS | COMÉRCIO EXTERIOR | `comercio` store | Exports/imports per partner country (US$ FOB) |
+| SIMULADO | RANKINGS (FICTÍCIO) | `rankings` store | The fictional influence entities, clearly banner-flagged |
+| IMPORTADOS | (imported) | `datasets` API | Operator-uploaded CSVs, isolated namespace |
+| SISTEMA | CATÁLOGO | `catalog` store (catalog.json) | The warehouse star schema: tables, columns, join keys |
+| SISTEMA | PIPELINE + BANCO | `stats` + `monitoring` (API) | Backend observability, only when a backend is connected |
 
 The factual datasets are read straight from the Pinia stores the map already
-populates: the console never re-fetches them. Pipeline and imported datasets
-come from the API.
+populates: the console never re-fetches them. The município-level indicators, the
+catalog and the imported/pipeline datasets are loaded on demand from
+`public/data` (compiled from the warehouse) or the API.
+
+`INDICADORES MUNICÍPIO`, `COMÉRCIO` and `CATÁLOGO` are compiled from the CSV
+warehouse (`pnpm compile-web`, see [warehouse.md](warehouse.md)): the console and
+Power BI read the same source.
 
 ## Charts
 
@@ -59,22 +68,31 @@ only, never scores.
 serialize the current dataset (`lib/csv.ts`) and download it. Raw values, so a
 re-import round-trips.
 
-**Import** (the "+ IMPORTAR" chip, shown only when the backend allows writes)
-opens a dialog: pick a CSV, preview the inferred columns and first rows, name
-it, confirm. The file is parsed in the browser (`parseCsvDataset`, which infers
-per-column types) and posted to the API, which stores it in the isolated
-`datasets` namespace. Imported datasets then appear as chips and can be
-removed.
+**Import** (the "+ IMPORTAR" chip, shown only to a logged-in admin) opens a
+dialog: pick a CSV, preview the inferred columns and first rows, name it,
+confirm. The file is parsed in the browser (`parseCsvDataset`, which infers
+per-column types) and posted to the API with the admin bearer token, which
+stores it in the isolated `datasets` namespace. Imported datasets then appear as
+chips and can be removed (also admin-only).
+
+### Admin authentication (only the operator can alter data)
+
+Writes require a real admin session. The API enables writes only when
+`PA_ADMIN_PASSWORD` is set; the console's "ENTRAR (ADMIN)" login exchanges the
+password for a stateless, expiring bearer token (`POST /api/v1/auth/login`),
+stored in `sessionStorage`, and every import/delete then carries it. The API
+rejects any write without a valid token (401), so the guarantee is server-side:
+a public deploy with no admin password is read-only for everyone, and the login
+UI only appears when a write-capable backend is connected. See
+[../apps/api/README.md](../apps/api/README.md) and core/auth.py.
 
 ### Safety boundary (content-safety rule)
 
 Import writes **only** to `datasets` / `dataset_rows` (migration 0003), a
 namespace with no relationship to the served power-entity tables. It can never
 reach the public power-data payload: an integration test asserts
-`GET /api/v1/power-data` is byte-identical before and after an import. Writes
-are gated behind `PA_ALLOW_WRITES` (off by default; the local compose api turns
-it on), a minimal guard until real auth arrives with the review workflow (F6).
-This keeps the fictional-only rule of ARCHITECTURE.md section 5 intact.
+`GET /api/v1/power-data` is byte-identical before and after an import. This keeps
+the fictional-only rule of ARCHITECTURE.md section 5 intact.
 
 ## Routing
 
