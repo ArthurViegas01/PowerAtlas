@@ -8,6 +8,7 @@ import { fromQuery, toQuery } from '@/lib/analysisUrl'
 import { rankEntries, type PaletteEntry } from '@/lib/paletteIndex'
 import { useAnalysisStore } from '@/stores/analysis'
 import { useComercioStore } from '@/stores/comercio'
+import { useCompareStore } from '@/stores/compare'
 import { useDemografiaStore } from '@/stores/demografia'
 import { useFiscalStore } from '@/stores/fiscal'
 import { useMapLayersStore } from '@/stores/mapLayers'
@@ -33,6 +34,7 @@ const mapLayers = useMapLayersStore()
 const analysis = useAnalysisStore()
 const savedViews = useSavedViewsStore()
 const onboarding = useOnboardingStore()
+const compare = useCompareStore()
 const route = useRoute()
 const router = useRouter()
 
@@ -96,6 +98,30 @@ const commandEntries = computed<PaletteEntry[]>(() => [
     keywords: ['compartilhar', 'share'],
     action: { kind: 'command', command: 'copiar' },
   },
+  ...(selection.selectedId && !selection.selectedMunicipio
+    ? [
+        {
+          key: 'cmd-comparar',
+          group: 'command' as const,
+          label: compare.has(selection.selectedId)
+            ? 'REMOVER DA COMPARAÇÃO'
+            : 'FIXAR NA COMPARAÇÃO',
+          sublabel: `${selection.selectedId} · ATÉ 4 REGIÕES`,
+          action: { kind: 'command' as const, command: 'comparar' as const },
+        },
+      ]
+    : []),
+  ...(compare.count
+    ? [
+        {
+          key: 'cmd-comparar-abrir',
+          group: 'command' as const,
+          label: 'ABRIR COMPARAÇÃO',
+          sublabel: `${compare.count} FIXADAS · ROTA /COMPARAR`,
+          action: { kind: 'command' as const, command: 'comparar-abrir' as const },
+        },
+      ]
+    : []),
   {
     key: 'cmd-home',
     group: 'command',
@@ -288,6 +314,10 @@ async function run(entry: PaletteEntry) {
     void router.push('/dados')
     return
   }
+  if (action.kind === 'command' && action.command === 'comparar-abrir') {
+    void router.push('/comparar')
+    return
+  }
   if (route.path !== '/') await router.push('/')
   if (action.kind === 'region') {
     selection.exitDemographicView()
@@ -332,10 +362,15 @@ async function run(entry: PaletteEntry) {
     case 'intro':
       onboarding.open()
       break
+    case 'comparar':
+      if (selection.selectedId && selection.selectedName)
+        compare.toggle({ id: selection.selectedId, name: selection.selectedName })
+      break
     case 'mapa':
     case 'salvar':
     case 'copiar':
-      break // salvar/copiar returned earlier; mapa already landed home
+    case 'comparar-abrir':
+      break // these returned earlier or already landed on their route
   }
 }
 

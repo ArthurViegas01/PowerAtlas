@@ -26,11 +26,9 @@ const w = POWER_WEIGHTS
 </template>
 
 <style scoped>
+/* Static card on purpose: whoever places it (MapScreen's .scale-slot, the
+   compare screen's footer) owns the positioning. */
 .scale-card {
-  position: absolute;
-  top: 84px;
-  left: 22px;
-  z-index: 16;
   width: 260px;
   padding: 10px 12px;
   background: rgba(3, 6, 8, 0.72);
@@ -111,11 +109,5 @@ const w = POWER_WEIGHTS
 .scale-note {
   margin: 8px 0 0;
   color: var(--pa-text-faint);
-}
-
-@media (max-width: 900px) {
-  .scale-card {
-    display: none;
-  }
 }
 </style>
