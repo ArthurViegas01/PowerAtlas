@@ -22,6 +22,7 @@ export type PaletteCommand =
   | 'comparar-abrir'
   | 'sobre'
   | 'influencia'
+  | 'escala'
 
 export type PaletteAction =
   | { kind: 'command'; command: PaletteCommand }

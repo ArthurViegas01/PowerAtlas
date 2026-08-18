@@ -264,6 +264,16 @@ export const useSelectionStore = defineStore('selection', () => {
   /** Toggle the municipal party choropleth (legend switch). */
   function togglePartisan() {
     partisanVisible.value = !partisanVisible.value
+    // The two map colorings are exclusive: party fills would bury the ramp.
+    if (partisanVisible.value) powerScaleVisible.value = false
+  }
+
+  /** Choropleth pela escala de poder (PROD-3); exclusivo com o partidario. */
+  const powerScaleVisible = ref(false)
+
+  function togglePowerScale() {
+    powerScaleVisible.value = !powerScaleVisible.value
+    if (powerScaleVisible.value) partisanVisible.value = false
   }
 
   /** Toggle one direction on/off, keeping at least one active. */
@@ -499,6 +509,8 @@ export const useSelectionStore = defineStore('selection', () => {
     tradeArrowsVisible,
     selectedPartner,
     partisanVisible,
+    powerScaleVisible,
+    togglePowerScale,
     mapPitch,
     pitchOverride,
     pitchRequest,

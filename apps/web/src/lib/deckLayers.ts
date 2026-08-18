@@ -822,6 +822,15 @@ export function buildDeckLayers({
         if (!dataRegions.has(uf)) return fills.stateNoData
         if (uf === model.selectedId) return fills.stateSelected
         if (uf === model.hoveredId) return fills.stateHovered
+        // PROD-3: ramp by the region's top official score; floor keeps weak
+        // regions visible. Composited over the void like every area fill.
+        if (model.powerScale.active) {
+          const score = model.powerScale.scoreByUf[uf]
+          if (score !== undefined) {
+            const t = Math.min(100, Math.max(0, score)) / 100
+            return overVoid([61, 225, 255, Math.round(36 + t * 130)])
+          }
+        }
         return fills.state
       },
       getLineColor: (feature) => {
@@ -848,6 +857,8 @@ export function buildDeckLayers({
           demo.uf,
           demo.metric,
           model.globalIdle,
+          model.powerScale.active,
+          model.powerScale.scoreByUf,
         ],
         getLineColor: [model.selectedId, demo.active, demo.uf, demo.metric, model.globalIdle],
         getLineWidth: [model.selectedId, demo.active, demo.uf],

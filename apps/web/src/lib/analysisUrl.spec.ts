@@ -51,6 +51,11 @@ describe('fromQuery', () => {
     expect(fromQuery(toQuery({ view: 'comercio' }))).toEqual({ view: 'comercio' })
   })
 
+  it('round-trips the power-scale choropleth flag', () => {
+    expect(fromQuery(toQuery({ escala: true }))).toEqual({ escala: true })
+    expect(toQuery({ escala: undefined })).toEqual({})
+  })
+
   it('drops junk instead of throwing', () => {
     expect(
       fromQuery({

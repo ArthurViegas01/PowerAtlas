@@ -77,6 +77,14 @@ const commandEntries = computed<PaletteEntry[]>(() => [
     keywords: ['visao demografica'],
     action: { kind: 'command', command: 'demografia' },
   },
+  {
+    key: 'cmd-escala',
+    group: 'command',
+    label: selection.powerScaleVisible ? 'OCULTAR ESCALA NO MAPA' : 'ESCALA DE PODER NO MAPA',
+    sublabel: 'CHOROPLETH PELO SCORE OFICIAL · SIMULADO',
+    keywords: ['choropleth', 'score'],
+    action: { kind: 'command', command: 'escala' },
+  },
   route.path === '/dados'
     ? {
         key: 'cmd-mapa',
@@ -387,6 +395,11 @@ async function run(entry: PaletteEntry) {
     case 'comparar':
       if (selection.selectedId && selection.selectedName)
         compare.toggle({ id: selection.selectedId, name: selection.selectedName })
+      break
+    case 'escala':
+      // Turning the ramp on only makes sense under the influence lens.
+      if (!selection.powerScaleVisible) selection.setLens('influence')
+      selection.togglePowerScale()
       break
     case 'mapa':
     case 'salvar':
