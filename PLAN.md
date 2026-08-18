@@ -271,6 +271,17 @@
   de poder (`docs/power-scale.md`). Restam da trilha de identidade: IA-1
   (rail), PROD-2/3/6, PROD-4 (espera série temporal), camada visual da
   vocação. 118 testes web + pytest/ruff/mypy na api.
+- **v0.17.0 (2026-08-17/18)**: o PLAN-IDENTIDADE.md fecha por inteiro.
+  PROD-2 comparar (`/comparar` com deep link `?ids=`, bandeja no dock,
+  FIXAR no painel), IA-1 completa (rail `NavRail` + `/sobre`, lentes
+  `LensSwitch` no header com `lens` no selection e alias compatível,
+  painel único de camadas com a chave ORIGEM DO DADO), PROD-3 (choropleth
+  pela escala com rampa/piso, selo SIMULADO, `escala=1` na URL, exclusivo
+  com o partidário) e PROD-6 (export CSV/JSON com proveniência e PNG do
+  palco compondo maplibre + deck com branding e disclaimer;
+  `lib/exportAnalysis`). Restam PROD-4 (espera série temporal), PROD-7
+  (só seam, por desenho) e a camada visual da vocação (trilha própria).
+  134 testes web.
 - **Pendências conhecidas da trilha frontend**: ranking por município
   (depende da F5); reativar a dimensão oculta (flip do flag) quando F5/F6
   existirem. Venv host da API está defasada (sem `celery` da F5a): rodar a
