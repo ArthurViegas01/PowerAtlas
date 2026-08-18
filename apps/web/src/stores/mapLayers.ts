@@ -14,6 +14,8 @@ import type {
   WorldCollection,
   WorldStateCollection,
 } from '@/lib/geo'
+import type { Map as MaplibreMap } from 'maplibre-gl'
+
 import type { FiscalSegmentKey } from '@/lib/fiscalSegments'
 import { ICON_COLOR, iconForVocacao, type SectorIconPlacement } from '@/lib/sectorIcons'
 import type { DemografiaMetric, DemografiaMunicipio } from '@/types/demografia'
@@ -188,6 +190,13 @@ export const useMapLayersStore = defineStore('mapLayers', () => {
   const comercio = useComercioStore()
   const vocacao = useVocacaoStore()
   const partidos = usePartidosStore()
+
+  /** Instância viva do MapLibre (registrada pelo MapView); o export PNG usa. */
+  const mapInstance = shallowRef<MaplibreMap | null>(null)
+
+  function registerMap(map: MaplibreMap | null) {
+    mapInstance.value = map
+  }
 
   /** PROD-3: score 0-100 por UF (o agente oficial nº 1 de cada região). */
   const powerScoreByUf = computed(() => {
@@ -759,6 +768,8 @@ export const useMapLayersStore = defineStore('mapLayers', () => {
     national,
     world,
     worldStates,
+    mapInstance,
+    registerMap,
     loading,
     error,
     layerModel,

@@ -8,6 +8,13 @@ import RankingColumn from '@/components/rankings/RankingColumn.vue'
 import IndicatorGrid from '@/components/shared/IndicatorGrid.vue'
 import HudButton from '@/components/ui/HudButton.vue'
 import HudInput from '@/components/ui/HudInput.vue'
+import { downloadText } from '@/lib/csv'
+import {
+  buildAnalysisCsv,
+  buildAnalysisJson,
+  exportFileName,
+  type RegionExportInput,
+} from '@/lib/exportAnalysis'
 import { normalize } from '@/lib/paletteIndex'
 import { useCompareStore } from '@/stores/compare'
 import { useIndicatorsStore } from '@/stores/indicators'
@@ -83,6 +90,28 @@ function pin(id: string, name: string) {
   compare.add({ id, name })
   addQuery.value = ''
 }
+
+/** PROD-6: the pinned columns as one CSV/JSON artifact. */
+function exportItems(): RegionExportInput[] {
+  return columns.value.map((column) => ({
+    id: column.item.id,
+    name: column.item.name,
+    indicators: column.indicators,
+    region: column.region,
+  }))
+}
+
+function exportCsv() {
+  downloadText(exportFileName('comparacao', 'csv'), 'text/csv', buildAnalysisCsv(exportItems()))
+}
+
+function exportJson() {
+  downloadText(
+    exportFileName('comparacao', 'json'),
+    'application/json',
+    buildAnalysisJson(exportItems()),
+  )
+}
 </script>
 
 <template>
@@ -92,7 +121,11 @@ function pin(id: string, name: string) {
         <h1 class="cmp-title pa-data">COMPARAR // REGIÕES</h1>
         <p class="pa-label">ATÉ 4 COLUNAS · MESMOS INDICADORES · RANKING OFICIAL</p>
       </div>
-      <HudButton :tag="RouterLink" to="/">◄ VOLTAR AO MAPA</HudButton>
+      <div class="cmp-actions">
+        <HudButton v-if="compare.count" type="button" @click="exportCsv">EXPORTAR CSV</HudButton>
+        <HudButton v-if="compare.count" type="button" @click="exportJson">EXPORTAR JSON</HudButton>
+        <HudButton :tag="RouterLink" to="/">◄ VOLTAR AO MAPA</HudButton>
+      </div>
     </header>
 
     <div v-if="compare.count" class="cmp-grid">
@@ -192,6 +225,12 @@ function pin(id: string, name: string) {
   gap: var(--pa-space-4);
   max-width: 1280px;
   margin: 0 auto var(--pa-space-6);
+}
+
+.cmp-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pa-space-2);
 }
 
 .cmp-title {

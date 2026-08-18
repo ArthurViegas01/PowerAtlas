@@ -23,6 +23,9 @@ export type PaletteCommand =
   | 'sobre'
   | 'influencia'
   | 'escala'
+  | 'exportar-csv'
+  | 'exportar-json'
+  | 'exportar-png'
 
 export type PaletteAction =
   | { kind: 'command'; command: PaletteCommand }
