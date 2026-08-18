@@ -120,7 +120,7 @@ inteira se mover junta.
 | Token | Valor | Consumidores hoje |
 | --- | --- | --- |
 | `--pa-z-map-hint` | 15 | hint de selecao (MapScreen, pendente) |
-| `--pa-z-map-overlay` | 16 | chrome do MapView, PowerScaleFormula (pendentes) |
+| `--pa-z-map-overlay` | 16 | formula da escala (.scale-slot); chrome do MapView pendente |
 | `--pa-z-hud` | 18 | relogio, compasso, monitoramento, tooltip, ficha demografica, dock esquerdo (MapScreen pendente) |
 | `--pa-z-panel` | 20 | painel lateral (MapScreen pendente), menu demografico |
 | `--pa-z-footer` | 25 | disclaimer (MapScreen, pendente) |
@@ -152,6 +152,7 @@ Primitivos existentes e estados:
 | `ui/HudInput` | input canonico (busca) | completo (IA-2) |
 | `ui/CommandPalette` | busca e comandos via Ctrl-K | completo (IA-2/IA-3); nucleo puro em `lib/paletteIndex.ts` |
 | `ui/OnboardingOverlay` | boas-vindas em 4 passos (PROD-5) | completo; reabre por VER INTRODUCAO na paleta |
+| `ui/CompareTray` | bandeja de comparacao no dock esquerdo (PROD-2) | completo; ate 4 regioes |
 | `hud/HudPanel` + `CornerBracket` | superficie canonica | ok |
 | `hud/HudFrame`, `HudClock`, `MonitoringPanel` | chrome do HUD | ok |
 | `map/MapCompass` | controle de camera | normalizar chips no futuro HudIconButton |
@@ -219,6 +220,17 @@ de camera. O listener global roda em fase de captura para o Esc fechar a
 paleta antes da cascata de Esc do MapScreen. Nucleo de ranking puro e
 testado em `lib/paletteIndex.ts` (normalize sem acentos, score por
 prefixo/palavra/substring/keyword, cap por grupo).
+
+PROD-2 (2026-08-17): comparacao lado a lado. Store `compare` (ate 4
+regioes), bandeja no dock esquerdo do mapa (`ui/CompareTray`), botao
+FIXAR/FIXADO no painel de regiao, comandos contextuais na paleta e a rota
+lazy `/comparar` com colunas reusando exatamente IndicatorGrid e
+RankingColumn (os selos da PROD-1 vem junto de graca). Deep link
+`/comparar?ids=SP,RS` semeia a bandeja e a URL acompanha cada pin/unpin.
+PowerScaleFormula virou card estatico (quem posiciona e o consumidor:
+`.scale-slot` no MapScreen, rodape no comparar). Fiscal por UF ficou de
+fora: nao ha agregado publicado por regiao; entra se o warehouse ganhar
+esse fato.
 
 PROD-5 (2026-08-17): onboarding de primeiro acesso
 (`ui/OnboardingOverlay`, montado no App.vue e restrito a rota do mapa).

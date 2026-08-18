@@ -18,6 +18,12 @@ export const router = createRouter({
       component: () => import('@/screens/DataConsoleScreen.vue'),
     },
     {
+      // Side-by-side comparison (PROD-2); deep link via ?ids=SP,RS.
+      path: '/comparar',
+      name: 'compare',
+      component: () => import('@/screens/CompareScreen.vue'),
+    },
+    {
       // Living styleguide (ID-6): lazy and out of the production nav.
       path: '/estilo',
       name: 'styleguide',
