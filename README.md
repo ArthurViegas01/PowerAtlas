@@ -127,10 +127,10 @@ fictional rankings, and operator-imported CSVs) as KPIs, hand-rolled SVG charts
 (bars, histogram with log toggle, scatter, concentration curve, correlation
 heatmap), and a sortable/searchable table, plus CSV/JSON export. When a backend
 is connected it adds a PIPELINE + BANCO panel (served-table and ingestion
-counts, documents by source/day, latest headlines) and CSV import. Import
-persists into an isolated `datasets` namespace, gated by `PA_ALLOW_WRITES` and
-provably unable to touch the served power data
-([docs/data-console.md](docs/data-console.md)).
+counts, documents by source/day, latest headlines) and, for a logged-in admin,
+CSV import. Import persists into an isolated `datasets` namespace, requires an
+admin session (`PA_ADMIN_PASSWORD` + login) and is provably unable to touch the
+served power data ([docs/data-console.md](docs/data-console.md)).
 
 **Subdivision drill-down.** The zoom now goes one level below the município:
 closing the camera on a city loads its IBGE intramunicipal mesh (Censo 2022)
