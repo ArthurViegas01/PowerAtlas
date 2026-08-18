@@ -7,6 +7,7 @@
 import { RouterView } from 'vue-router'
 
 import CommandPalette from '@/components/ui/CommandPalette.vue'
+import NavRail from '@/components/ui/NavRail.vue'
 import OnboardingOverlay from '@/components/ui/OnboardingOverlay.vue'
 import { useAnalysisSync } from '@/composables/useAnalysisSync'
 
@@ -15,10 +16,28 @@ useAnalysisSync()
 </script>
 
 <template>
-  <RouterView />
+  <NavRail />
+  <div class="with-rail">
+    <RouterView />
+  </div>
   <!-- Global overlays above the router: Ctrl-K works on any route; the
        onboarding gates itself to the map route. Mount order matters: the
        palette registers its capture keydown first and wins the Esc. -->
   <CommandPalette />
   <OnboardingOverlay />
 </template>
+
+<style scoped>
+/* Normal-flow screens live right of the rail; MapScreen's fixed shell
+   offsets itself (its .app-shell inset does the same job). */
+.with-rail {
+  height: 100%;
+  padding-left: var(--pa-rail-width);
+}
+
+@media (max-width: 900px) {
+  .with-rail {
+    padding-left: 0;
+  }
+}
+</style>

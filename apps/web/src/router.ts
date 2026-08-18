@@ -24,6 +24,12 @@ export const router = createRouter({
       component: () => import('@/screens/CompareScreen.vue'),
     },
     {
+      // Methodology and sources (IA-1): the conceptual weight off the map.
+      path: '/sobre',
+      name: 'about',
+      component: () => import('@/screens/AboutScreen.vue'),
+    },
+    {
       // Living styleguide (ID-6): lazy and out of the production nav.
       path: '/estilo',
       name: 'styleguide',

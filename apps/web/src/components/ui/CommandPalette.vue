@@ -145,6 +145,14 @@ const commandEntries = computed<PaletteEntry[]>(() => [
     action: { kind: 'command', command: 'auto' },
   },
   {
+    key: 'cmd-sobre',
+    group: 'command',
+    label: 'SOBRE / METODOLOGIA',
+    sublabel: 'ESCALA, DIMENSÕES E FONTES · ROTA /SOBRE',
+    keywords: ['metodologia', 'fontes', 'escala'],
+    action: { kind: 'command', command: 'sobre' },
+  },
+  {
     key: 'cmd-intro',
     group: 'command',
     label: 'VER INTRODUÇÃO',
@@ -318,6 +326,10 @@ async function run(entry: PaletteEntry) {
     void router.push('/comparar')
     return
   }
+  if (action.kind === 'command' && action.command === 'sobre') {
+    void router.push('/sobre')
+    return
+  }
   if (route.path !== '/') await router.push('/')
   if (action.kind === 'region') {
     selection.exitDemographicView()
@@ -370,6 +382,7 @@ async function run(entry: PaletteEntry) {
     case 'salvar':
     case 'copiar':
     case 'comparar-abrir':
+    case 'sobre':
       break // these returned earlier or already landed on their route
   }
 }

@@ -347,7 +347,7 @@ function exportJson() {
 <style scoped>
 .console {
   position: fixed;
-  inset: 0;
+  inset: 0 0 0 var(--pa-rail-width); /* the nav rail owns the far left */
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -355,6 +355,12 @@ function exportJson() {
     radial-gradient(120% 80% at 50% -10%, rgba(10, 26, 34, 0.5), transparent 60%),
     var(--pa-bg-void);
   color: var(--pa-text-primary);
+}
+
+@media (max-width: 900px) {
+  .console {
+    inset: 0; /* the rail hides on mobile */
+  }
 }
 
 .console-header {
