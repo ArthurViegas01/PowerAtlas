@@ -1,16 +1,13 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { RouterLink } from 'vue-router'
 
 import { useComercioStore } from '@/stores/comercio'
-import { useSelectionStore } from '@/stores/selection'
+import { useSelectionStore, type MapLens } from '@/stores/selection'
 
-import HudButton from '@/components/ui/HudButton.vue'
+import LensSwitch from '@/components/ui/LensSwitch.vue'
 
 const emit = defineEmits<{
-  (event: 'select-national'): void
-  (event: 'view-global'): void
-  (event: 'view-demographic'): void
+  (event: 'set-lens', lens: MapLens): void
 }>()
 
 const selection = useSelectionStore()
@@ -51,30 +48,9 @@ const readout = computed(() => {
 
     <p class="readout pa-data" aria-live="polite">{{ readout }}</p>
 
-    <div class="flex items-center gap-4">
-      <HudButton type="button" @click="emit('view-global')">
-        VISÃO GLOBAL
-      </HudButton>
-      <HudButton
-        type="button"
-        :disabled="selection.selectedId === 'BR' && !selection.demographicView"
-        @click="emit('select-national')"
-      >
-        VISÃO NACIONAL [BR]
-      </HudButton>
-      <HudButton
-        type="button"
-        :active="selection.demographicView"
-        :aria-pressed="selection.demographicView"
-        title="Alternar a visão demográfica"
-        @click="emit('view-demographic')"
-      >
-        VISÃO DEMOGRÁFICA [BR]
-      </HudButton>
-      <HudButton :tag="RouterLink" to="/dados" accent="amber" title="Abrir o console de dados">
-        CONSOLE DE DADOS
-      </HudButton>
-    </div>
+    <!-- The old view buttons became a lens selector (IA-1b); destinations
+         like the data console live on the nav rail now. -->
+    <LensSwitch @change="emit('set-lens', $event)" />
   </header>
 </template>
 
