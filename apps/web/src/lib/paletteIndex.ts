@@ -17,6 +17,7 @@ export type PaletteCommand =
   | 'home'
   | 'salvar'
   | 'copiar'
+  | 'intro'
 
 export type PaletteAction =
   | { kind: 'command'; command: PaletteCommand }
