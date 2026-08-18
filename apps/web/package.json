@@ -15,7 +15,11 @@
     "indicators": "node scripts/fetch-indicators.mjs",
     "demografia": "node scripts/build-demografia.mjs",
     "fiscal": "node scripts/build-fiscal.mjs",
-    "comercio": "node scripts/fetch-comercio.mjs"
+    "comercio": "node scripts/fetch-comercio.mjs",
+    "vocacao": "node scripts/fetch-vocacao.mjs",
+    "warehouse": "node scripts/warehouse-build.mjs",
+    "compile-web": "node scripts/compile-web.mjs",
+    "compile-web:check": "node scripts/compile-web.mjs --check"
   },
   "dependencies": {
     "@deck.gl/aggregation-layers": "^9.1.0",

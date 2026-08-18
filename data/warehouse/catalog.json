@@ -1,0 +1,437 @@
+{
+  "generatedFrom": "warehouse-build.mjs",
+  "tables": [
+    {
+      "name": "dim_uf",
+      "kind": "dimensao",
+      "grao": "Uma linha por UF (27) mais a linha agregada BR.",
+      "fonte": "IBGE (siglas/códigos) + classificação estática de macro-região.",
+      "rowCount": 28,
+      "columns": [
+        {
+          "key": "uf_sigla",
+          "tipo": "texto",
+          "unidade": "",
+          "desc": "Sigla da UF. CHAVE (PK)."
+        },
+        {
+          "key": "uf_codigo",
+          "tipo": "texto",
+          "unidade": "",
+          "desc": "Geocódigo IBGE de 2 dígitos (vazio para BR)."
+        },
+        {
+          "key": "uf_nome",
+          "tipo": "texto",
+          "unidade": "",
+          "desc": "Nome da unidade federativa."
+        },
+        {
+          "key": "regiao",
+          "tipo": "texto",
+          "unidade": "",
+          "desc": "Macro-região IBGE (Norte/Nordeste/Sudeste/Sul/Centro-Oeste; \"Brasil\" para BR)."
+        }
+      ],
+      "notas": []
+    },
+    {
+      "name": "dim_municipio",
+      "kind": "dimensao",
+      "grao": "Uma linha por município.",
+      "fonte": "IBGE · malha territorial + Censo 2022 (centroide aproximado).",
+      "rowCount": 5570,
+      "columns": [
+        {
+          "key": "codigo_ibge",
+          "tipo": "texto",
+          "unidade": "",
+          "desc": "Geocódigo IBGE de 7 dígitos. CHAVE (PK)."
+        },
+        {
+          "key": "nome",
+          "tipo": "texto",
+          "unidade": "",
+          "desc": "Nome do município."
+        },
+        {
+          "key": "uf_sigla",
+          "tipo": "texto",
+          "unidade": "",
+          "desc": "Sigla da UF. FK -> dim_uf.uf_sigla."
+        },
+        {
+          "key": "uf_codigo",
+          "tipo": "texto",
+          "unidade": "",
+          "desc": "Geocódigo IBGE de 2 dígitos da UF."
+        },
+        {
+          "key": "lon",
+          "tipo": "decimal",
+          "unidade": "graus",
+          "desc": "Longitude do centroide."
+        },
+        {
+          "key": "lat",
+          "tipo": "decimal",
+          "unidade": "graus",
+          "desc": "Latitude do centroide."
+        }
+      ],
+      "notas": []
+    },
+    {
+      "name": "fato_demografia_municipio",
+      "kind": "fato",
+      "grao": "Uma linha por município.",
+      "fonte": "IBGE · Censo 2022 (população/área/densidade) e PIB dos Municípios 2023.",
+      "rowCount": 5570,
+      "columns": [
+        {
+          "key": "codigo_ibge",
+          "tipo": "texto",
+          "unidade": "",
+          "desc": "FK -> dim_municipio.codigo_ibge."
+        },
+        {
+          "key": "ano_censo",
+          "tipo": "inteiro",
+          "unidade": "ano",
+          "desc": "Ano de referência da população."
+        },
+        {
+          "key": "ano_pib",
+          "tipo": "inteiro",
+          "unidade": "ano",
+          "desc": "Ano de referência do PIB."
+        },
+        {
+          "key": "populacao",
+          "tipo": "inteiro",
+          "unidade": "habitantes",
+          "desc": "População residente."
+        },
+        {
+          "key": "area_km2",
+          "tipo": "decimal",
+          "unidade": "km²",
+          "desc": "Área territorial."
+        },
+        {
+          "key": "densidade",
+          "tipo": "decimal",
+          "unidade": "hab/km²",
+          "desc": "Densidade demográfica."
+        },
+        {
+          "key": "pib_mil_brl",
+          "tipo": "inteiro",
+          "unidade": "R$ mil",
+          "desc": "PIB a preços correntes, em milhares de reais."
+        }
+      ],
+      "notas": []
+    },
+    {
+      "name": "fato_fiscal_municipio",
+      "kind": "fato",
+      "grao": "Uma linha por município.",
+      "fonte": "Receita Federal (arrecadação) · Tesouro Nacional (transferências) · Portal da Transparência (emendas).",
+      "rowCount": 5570,
+      "columns": [
+        {
+          "key": "codigo_ibge",
+          "tipo": "texto",
+          "unidade": "",
+          "desc": "FK -> dim_municipio.codigo_ibge."
+        },
+        {
+          "key": "ano",
+          "tipo": "inteiro",
+          "unidade": "ano",
+          "desc": "Ano de referência."
+        },
+        {
+          "key": "arrecadacao",
+          "tipo": "inteiro",
+          "unidade": "R$",
+          "desc": "Arrecadação federal total no município."
+        },
+        {
+          "key": "previdencia",
+          "tipo": "inteiro",
+          "unidade": "R$",
+          "desc": "Arrecadação previdenciária (GPS)."
+        },
+        {
+          "key": "ir",
+          "tipo": "inteiro",
+          "unidade": "R$",
+          "desc": "Imposto de Renda."
+        },
+        {
+          "key": "ipi",
+          "tipo": "inteiro",
+          "unidade": "R$",
+          "desc": "Imposto sobre Produtos Industrializados."
+        },
+        {
+          "key": "transferencias",
+          "tipo": "inteiro",
+          "unidade": "R$",
+          "desc": "Transferências constitucionais e legais (total)."
+        },
+        {
+          "key": "fpm",
+          "tipo": "inteiro",
+          "unidade": "R$",
+          "desc": "Fundo de Participação dos Municípios."
+        },
+        {
+          "key": "fundeb",
+          "tipo": "inteiro",
+          "unidade": "R$",
+          "desc": "FUNDEB."
+        },
+        {
+          "key": "emendas",
+          "tipo": "inteiro",
+          "unidade": "R$",
+          "desc": "Emendas parlamentares recebidas."
+        }
+      ],
+      "notas": [
+        "demais = arrecadacao - previdencia - ir - ipi (derivado no front; não armazenado).",
+        "outras = transferencias - fpm - fundeb (derivado no front; não armazenado).",
+        "Componentes-base apenas, para que um valor nunca contradiga o próprio total."
+      ]
+    },
+    {
+      "name": "fato_indicadores_uf",
+      "kind": "fato",
+      "grao": "Uma linha por região (BR + 27 UFs).",
+      "fonte": "IBGE · Censo 2022 (população/área/densidade) e PIB 2023.",
+      "rowCount": 28,
+      "columns": [
+        {
+          "key": "regiao_id",
+          "tipo": "texto",
+          "unidade": "",
+          "desc": "FK -> dim_uf.uf_sigla (BR ou sigla)."
+        },
+        {
+          "key": "ano_censo",
+          "tipo": "inteiro",
+          "unidade": "ano",
+          "desc": "Ano do Censo."
+        },
+        {
+          "key": "ano_pib",
+          "tipo": "inteiro",
+          "unidade": "ano",
+          "desc": "Ano do PIB."
+        },
+        {
+          "key": "populacao",
+          "tipo": "inteiro",
+          "unidade": "habitantes",
+          "desc": "População residente."
+        },
+        {
+          "key": "area_km2",
+          "tipo": "decimal",
+          "unidade": "km²",
+          "desc": "Área territorial."
+        },
+        {
+          "key": "densidade",
+          "tipo": "decimal",
+          "unidade": "hab/km²",
+          "desc": "Densidade demográfica."
+        },
+        {
+          "key": "pib_mil_brl",
+          "tipo": "inteiro",
+          "unidade": "R$ mil",
+          "desc": "PIB em milhares de reais."
+        }
+      ],
+      "notas": []
+    },
+    {
+      "name": "dim_pais",
+      "kind": "dimensao",
+      "grao": "Um parceiro comercial (país) por linha.",
+      "fonte": "Comex Stat / MDIC.",
+      "rowCount": 171,
+      "columns": [
+        {
+          "key": "iso",
+          "tipo": "texto",
+          "unidade": "",
+          "desc": "Código ISO do país. CHAVE (PK)."
+        },
+        {
+          "key": "nome",
+          "tipo": "texto",
+          "unidade": "",
+          "desc": "Nome do país."
+        },
+        {
+          "key": "lon",
+          "tipo": "decimal",
+          "unidade": "graus",
+          "desc": "Longitude aproximada."
+        },
+        {
+          "key": "lat",
+          "tipo": "decimal",
+          "unidade": "graus",
+          "desc": "Latitude aproximada."
+        }
+      ],
+      "notas": []
+    },
+    {
+      "name": "dim_setor_comercio",
+      "kind": "dimensao",
+      "grao": "Um capítulo NCM (2 dígitos) por linha; \"ZZ\" agrega o restante.",
+      "fonte": "Comex Stat / MDIC.",
+      "rowCount": 84,
+      "columns": [
+        {
+          "key": "capitulo_ncm",
+          "tipo": "texto",
+          "unidade": "",
+          "desc": "Capítulo NCM de 2 dígitos (ou \"ZZ\" = Outros). CHAVE (PK)."
+        },
+        {
+          "key": "descricao",
+          "tipo": "texto",
+          "unidade": "",
+          "desc": "Descrição do capítulo."
+        }
+      ],
+      "notas": []
+    },
+    {
+      "name": "fato_comercio_parceiro",
+      "kind": "fato",
+      "grao": "Uma linha por país parceiro.",
+      "fonte": "Comex Stat / MDIC.",
+      "rowCount": 171,
+      "columns": [
+        {
+          "key": "iso",
+          "tipo": "texto",
+          "unidade": "",
+          "desc": "FK -> dim_pais.iso."
+        },
+        {
+          "key": "ano",
+          "tipo": "inteiro",
+          "unidade": "ano",
+          "desc": "Ano de referência."
+        },
+        {
+          "key": "exp",
+          "tipo": "inteiro",
+          "unidade": "US$ FOB",
+          "desc": "Exportações do Brasil para o país."
+        },
+        {
+          "key": "imp",
+          "tipo": "inteiro",
+          "unidade": "US$ FOB",
+          "desc": "Importações do Brasil do país."
+        }
+      ],
+      "notas": []
+    },
+    {
+      "name": "fato_comercio_parceiro_setor",
+      "kind": "fato",
+      "grao": "Uma linha por país × capítulo NCM (setores aninhados desaninhados).",
+      "fonte": "Comex Stat / MDIC.",
+      "rowCount": 2176,
+      "columns": [
+        {
+          "key": "iso",
+          "tipo": "texto",
+          "unidade": "",
+          "desc": "FK -> dim_pais.iso."
+        },
+        {
+          "key": "capitulo_ncm",
+          "tipo": "texto",
+          "unidade": "",
+          "desc": "FK -> dim_setor_comercio.capitulo_ncm."
+        },
+        {
+          "key": "ano",
+          "tipo": "inteiro",
+          "unidade": "ano",
+          "desc": "Ano de referência."
+        },
+        {
+          "key": "exp",
+          "tipo": "inteiro",
+          "unidade": "US$ FOB",
+          "desc": "Exportações do setor para o país."
+        },
+        {
+          "key": "imp",
+          "tipo": "inteiro",
+          "unidade": "US$ FOB",
+          "desc": "Importações do setor do país."
+        }
+      ],
+      "notas": []
+    }
+  ],
+  "relationships": [
+    {
+      "from": "fato_demografia_municipio",
+      "fromCol": "codigo_ibge",
+      "to": "dim_municipio",
+      "toCol": "codigo_ibge"
+    },
+    {
+      "from": "fato_fiscal_municipio",
+      "fromCol": "codigo_ibge",
+      "to": "dim_municipio",
+      "toCol": "codigo_ibge"
+    },
+    {
+      "from": "dim_municipio",
+      "fromCol": "uf_sigla",
+      "to": "dim_uf",
+      "toCol": "uf_sigla"
+    },
+    {
+      "from": "fato_indicadores_uf",
+      "fromCol": "regiao_id",
+      "to": "dim_uf",
+      "toCol": "uf_sigla"
+    },
+    {
+      "from": "fato_comercio_parceiro",
+      "fromCol": "iso",
+      "to": "dim_pais",
+      "toCol": "iso"
+    },
+    {
+      "from": "fato_comercio_parceiro_setor",
+      "fromCol": "iso",
+      "to": "dim_pais",
+      "toCol": "iso"
+    },
+    {
+      "from": "fato_comercio_parceiro_setor",
+      "fromCol": "capitulo_ncm",
+      "to": "dim_setor_comercio",
+      "toCol": "capitulo_ncm"
+    }
+  ]
+}

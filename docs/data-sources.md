@@ -1,5 +1,11 @@
 # Data sources
 
+> Onde cada dado nasce. O **armazém CSV-first** que consolida os datasets
+> factuais em modelo estrela (fonte da verdade, compilada para os payloads do
+> site e aberta no Power BI) está em [warehouse.md](warehouse.md). Fluxo:
+> fetch/build (upstream) → `data/warehouse/*.csv` → `pnpm compile-web` →
+> `public/data/**`.
+
 ## Brazil boundaries (`apps/web/public/geo/*.geojson`)
 
 **Source:** IBGE — API de Malhas Territoriais v3 (official, public).
@@ -124,12 +130,11 @@ number by anything.
 
 ## World countries backdrop (`apps/web/public/geo/world-countries.geojson`)
 
-**Source:** Natural Earth, 1:110m Cultural Vectors — Admin 0 Countries
-(public domain). Downloaded 2026-07-15 from the project's official GitHub
-mirror:
+**Source:** Natural Earth, 1:50m Cultural Vectors — Admin 0 Countries
+(public domain), from the project's official GitHub mirror:
 
 ```
-https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_admin_0_countries.geojson
+https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_50m_admin_0_countries.geojson
 ```
 
 **Role:** dim, dashed "em breve" backdrop only — countries outside Brazil are
@@ -139,11 +144,21 @@ Brazil polygon is **removed** so the IBGE layers never fight it (small
 gaps along land borders read as the national glow margin by design);
 Antarctica is removed as visual clutter.
 
-**Processing** (same `pnpm geo` script): coordinate precision trimmed to
-0.01° (~1 km — the 110m mesh is already coarse), properties slimmed to
-`{ iso, name }` where `iso` = NE `ADM0_A3` and `name` prefers the
-`NAME_PT` Portuguese localization. Result: 175 countries, **155 KB**
-(budget 400 KB).
+**Processing** (`pnpm geo`): `mapshaper -simplify 18% keep-shapes -clean`,
+precision 0.01° (~1 km), properties slimmed to `{ iso, name }` where `iso` =
+NE `ADM0_A3` and `name` prefers the `NAME_PT` Portuguese localization.
+
+**Reconciled with the provinces** (`reconcileWorldCountries`, also runnable
+standalone via `pnpm geo -- --reconcile-world` with no download): the backdrop
+draws each country's fill/wall from this admin-0 mesh, but the province hover
+comes from the denser admin-1 `world-states` mesh below. At different
+resolutions their coastlines disagreed — the 3D wall stood in one place while
+the hovered province outlined another shoreline. So for every country in
+`world-states` (the ~30 with provinces drawn), its admin-0 polygon is replaced
+by the **dissolved union of its own provinces**, at the same 0.0001° precision,
+making the wall and the province outlines share identical vertices. Countries
+without provinces keep their 50m outline (nothing to disagree with). Result:
+**240 countries, ~354 KB** (budget 400 KB).
 
 ## Factual indicators (`apps/web/public/data/indicators/*.json`)
 
@@ -323,6 +338,68 @@ partners on the map.
 **Role:** factual context, like the IBGE indicators and the fiscal flows. These
 are public figures about trade between countries, not claims about power
 holders, so the content-safety rule (ARCHITECTURE.md section 5) is untouched.
+
+## State trade vocation (`apps/web/public/data/comercio/uf.json`)
+
+**Source:** none of its own. Same `pnpm comercio` run that builds `mundo.json`,
+using the **`SG_UF_NCM`** column of the Comex files (the origin/destination UF of
+the goods) that the partner aggregation ignores. One extra pass over the same
+cached CSVs, so it costs no new download.
+
+For each of the 27 UFs it keeps the top 10 sectors (the state's "vocação") and,
+per sector, the top 6 partner countries, anchored at the UF centroid (largest
+ring vertex average of `brazil-states.geojson`):
+
+```
+{ referenceYear, currency: 'USD', source, sectors: { <chapter>: <label> },
+  ufs: [[uf, lon, lat, exp, imp,
+         [[chapter, exp, imp, [[iso, exp, imp], ...]], ...]], ...] }
+```
+
+**27 UFs, ~44 KB.** Drives the state specialty labels and lets the world trade
+arrows land on the state that specializes in a sector (soja → MT/PR, minério →
+PA, aeronaves/máquinas → SP) instead of the map center. Export vocation is the
+honest "what the state produces" signal; the file keeps both directions so the
+front ranks by whichever arrow direction is active.
+
+## Municipal vocation (`apps/web/public/data/vocacao/municipios.json`)
+
+Each município's economic vocation, from the **valor adicionado bruto (VAB)** by
+activity in the PIB dos Municípios. Powers the per-município specialty and the 3D
+sector objects.
+
+**Source (factual, IBGE Agregados v3, agregado 5938):** VAB agropecuária (513),
+indústria (517), serviços exclusive adm. pública (6575), adm./defesa/educação/
+saúde públicas (525) and VAB total (498), all in mil R$.
+
+**Year — 2021, not 2023.** The headline PIB total is published through 2023, but
+the VAB-*by-activity* split lags: 2022 and 2023 come back suppressed (`"..."`)
+for every município. 2021 is the latest year with full 5.570/5.570 coverage.
+
+**Processing** (`apps/web/scripts/fetch-vocacao.mjs`, `pnpm vocacao`): one
+`N6[all]` call; shares are integer percent of the VAB total; the national
+`baseline` (each sector's share of the whole country's VAB) rides along so the
+front can compute a **location quotient** (`share ÷ baseline`), the honest way to
+name a vocation. Dominant-by-absolute-VAB mislabels agribusiness towns (Sorriso
+books more VAB in serviços than agro), but its agro location quotient is ~4.9, so
+the QL correctly calls it agro-specialized, and a município can carry more than
+one specialty.
+
+```
+{ referenceYear: 2021, source, sectors: { agro, ind, serv, adm },
+  baseline: { agro, ind, serv, adm },       // national %; QL denominator
+  municipios: [[codigo, vabTotalMilReais, agro%, ind%, serv%, adm%], ...] }
+```
+
+**5.569 municípios, ~164 KB.** National baseline: agro 7.7 · indústria 25.9 ·
+serviços 50.7 · adm. pública 15.8 (%). **Granularity caveat:** VAB splits only
+four ways, so it says "agro" but not soja-vs-boi, "indústria" but not
+metalurgia-vs-têxtil. The finer split would need PAM/PPM (produção agrícola/
+pecuária municipal) or a projection of the Comex UF sectors; the state `uf.json`
+already carries that finer HS-chapter detail at UF level.
+
+**Role:** factual context, like the other IBGE indicators. Not the power
+rankings (ARCHITECTURE.md section 5).
 
 ## Rankings / entities (`apps/web/src/data/mock/*.json`)
 
