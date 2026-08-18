@@ -11,6 +11,7 @@ import { useComercioStore } from '@/stores/comercio'
 import { useDemografiaStore } from '@/stores/demografia'
 import { useFiscalStore } from '@/stores/fiscal'
 import { useMapLayersStore } from '@/stores/mapLayers'
+import { useOnboardingStore } from '@/stores/onboarding'
 import { usePaletteStore } from '@/stores/palette'
 import { useRankingsStore } from '@/stores/rankings'
 import { useSavedViewsStore } from '@/stores/savedViews'
@@ -31,6 +32,7 @@ const fiscal = useFiscalStore()
 const mapLayers = useMapLayersStore()
 const analysis = useAnalysisStore()
 const savedViews = useSavedViewsStore()
+const onboarding = useOnboardingStore()
 const route = useRoute()
 const router = useRouter()
 
@@ -115,6 +117,14 @@ const commandEntries = computed<PaletteEntry[]>(() => [
     label: 'ENQUADRAMENTO AUTO',
     sublabel: 'LIMPA ROTAÇÃO E INCLINAÇÃO MANUAIS',
     action: { kind: 'command', command: 'auto' },
+  },
+  {
+    key: 'cmd-intro',
+    group: 'command',
+    label: 'VER INTRODUÇÃO',
+    sublabel: 'ONBOARDING EM 4 PASSOS',
+    keywords: ['ajuda', 'tutorial', 'onboarding'],
+    action: { kind: 'command', command: 'intro' },
   },
 ])
 
@@ -319,6 +329,9 @@ async function run(entry: PaletteEntry) {
     case 'auto':
       selection.requestAutoBearing()
       break
+    case 'intro':
+      onboarding.open()
+      break
     case 'mapa':
     case 'salvar':
     case 'copiar':
@@ -358,18 +371,20 @@ function onInputKeydown(event: KeyboardEvent) {
 
 /**
  * Capture-phase listener so Ctrl-K works everywhere and Esc closes the
- * palette BEFORE MapScreen's own Esc cascade sees the event.
+ * palette BEFORE MapScreen's own Esc cascade sees the event. Immediate stop:
+ * other window-level capture listeners (the onboarding overlay) must not see
+ * the same Esc either.
  */
 function onGlobalKeydown(event: KeyboardEvent) {
   if ((event.ctrlKey || event.metaKey) && (event.key === 'k' || event.key === 'K')) {
     event.preventDefault()
-    event.stopPropagation()
+    event.stopImmediatePropagation()
     palette.toggle()
     return
   }
   if (palette.isOpen && event.key === 'Escape') {
     event.preventDefault()
-    event.stopPropagation()
+    event.stopImmediatePropagation()
     if (mode.value === 'salvar') {
       mode.value = 'search'
       query.value = ''
