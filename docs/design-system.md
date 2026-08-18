@@ -154,6 +154,7 @@ Primitivos existentes e estados:
 | `ui/OnboardingOverlay` | boas-vindas em 4 passos (PROD-5) | completo; reabre por VER INTRODUCAO na paleta |
 | `ui/CompareTray` | bandeja de comparacao no dock esquerdo (PROD-2) | completo; ate 4 regioes |
 | `ui/NavRail` | rail vertical de destinos (IA-1a) | completo; icones stroke desenhados a mao; escondido no mobile |
+| `ui/LensSwitch` | seletor segmentado de lente no header (IA-1b) | completo; segmento ativo na linguagem do HudButton ativo |
 | `hud/HudPanel` + `CornerBracket` | superficie canonica | ok |
 | `hud/HudFrame`, `HudClock`, `MonitoringPanel` | chrome do HUD | ok |
 | `map/MapCompass` | controle de camera | normalizar chips no futuro HudIconButton |
@@ -234,6 +235,17 @@ quatro strokes desenhados a mao (a adocao de um set completo, decisao ID-4,
 espera a contagem de icones crescer). Mobile esconde o rail; o header segue
 como navegacao ate a IA-1b (lentes). Restante da IA-1: lentes no header
 (IA-1b, refatora o selection store) e painel unico de camadas (IA-1c).
+
+IA-1b (2026-08-17): as tres visoes viraram LENTES. O selection store ganhou
+`lens: 'influence' | 'trade' | 'demographic'` com `demographicView` mantido
+como alias computado (nenhum dos ~30 consumidores precisou mudar) e
+`setLens` espelhando exatamente as acoes antigas do header; selecionar
+regiao sai da lente de comercio, abrir parceiro entra nela, goHome volta a
+influencia. O header trocou os tres botoes de visao e o link do console por
+`ui/LensSwitch` (INFLUENCIA / COMERCIO / DEMOGRAFIA); destinos vivem no
+rail. A URL aprendeu `view=comercio` (analysisUrl + stores analysis). A
+paleta fala em lentes (LENTE INFLUENCIA/COMERCIO/DEMOGRAFIA, com os nomes
+antigos como keywords de busca).
 
 PROD-2 (2026-08-17): comparacao lado a lado. Store `compare` (ate 4
 regioes), bandeja no dock esquerdo do mapa (`ui/CompareTray`), botao
